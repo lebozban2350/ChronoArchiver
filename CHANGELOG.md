@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.6] - 2026-03-21
+### Changed
+- AI Encoder: Options box now matches vertical height of Directories + Configuration columns.
+- AI Encoder: Fixed overlapping dual-checkbox for "Delete Source on Success"; label moved to top, verification checkboxes placed on separate line and right-aligned.
+
 ## [2.0.5] - 2026-03-21
 ### Added
 - **Update and restart flow**: When an update is available and the user clicks the update button, the app prompts for confirmation, then closes, performs the update, and restarts.
