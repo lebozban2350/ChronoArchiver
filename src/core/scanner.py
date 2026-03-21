@@ -7,6 +7,7 @@ from mediapipe.tasks.python import vision
 import threading
 import time
 import pathlib
+import queue
 from typing import List, Callable, Optional
 
 class ScannerEngine:
@@ -75,7 +76,6 @@ class ScannerEngine:
             return
 
         # Pipeline
-        import queue
         img_queue = queue.Queue(maxsize=20)
         
         def producer():

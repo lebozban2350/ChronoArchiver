@@ -315,7 +315,6 @@ class AIScannerTab(ctk.CTkFrame):
                 messagebox.showerror("Error", f"Path is not a directory:\n{path}")
                 return
 
-            use_gpu = True # Always GPU
             keep_animals = bool(self.chk_keep_animals.get())
             self.file_logger.info(f"SCAN: Config - Keep Animals: {keep_animals}")
 

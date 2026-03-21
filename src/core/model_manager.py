@@ -3,6 +3,7 @@ import requests
 import pathlib
 import threading
 import logging
+import hashlib
 
 class ModelManager:
     """Handles checking and downloading AI models for the scanner."""
@@ -16,7 +17,7 @@ class ModelManager:
         "animal_detection": {
             "filename": "efficientdet_lite0.tflite",
             "url": "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
-            "sha256": "4f36a5a544c8f8b8098c4d2847c23f798e1f5de0e0e0e0e0e0e0e0e0e0e0e0e0" # Placeholder - update with sha256sum
+            "sha256": "4b59100025bea1235a84c1038879a6cccc9f6c49f5e41144e91e74d99e780993"
         }
     }
     
@@ -27,7 +28,6 @@ class ModelManager:
 
     def verify_hash(self, file_path: pathlib.Path, expected_sha: str) -> bool:
         """Verify the SHA-256 hash of a file."""
-        import hashlib
         sha256_hash = hashlib.sha256()
         try:
             with open(file_path, "rb") as f:
