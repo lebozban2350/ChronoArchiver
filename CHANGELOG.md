@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## [1.0.12] - 2026-03-21
+### Added
+- **Premium Icon Design**: Generated and integrated a high-fidelity application icon suite (`src/assets/icon.png` and `src/assets/icon.ico`) to give ChronoArchiver a professional, branded identity.
+
+
+## [1.0.11] - 2026-03-21
+### Added
+- **Linux Desktop Integration**: Added a standard `.desktop` entry and application icon installation to ensure ChronoArchiver appears in system application menus (fixed "missing in apps" issue).
+- **Packaging**: Updated `PKGBUILD` to automate the installation of the desktop file and icon.
+
+
 ## [1.0.10] - 2026-03-21
 ### Fixed
 - **Extraction Warnings**: Fixed `DeprecationWarning` in Python 3.12+ environments by explicitly requesting `filter='data'` during AI model `.tar.gz` extractions.

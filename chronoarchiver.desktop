@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=ChronoArchiver
+Exec=chronoarchiver
+Icon=chronoarchiver
+Type=Application
+Categories=AudioVideo;Video;Graphics;
+Terminal=false
+Comment=Unified Media Archive Organizer and AV1 Encoder
+Keywords=media;archive;organizer;av1;encoder;
+StartupNotify=true
