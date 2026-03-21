@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.10] - 2026-03-21
+### Changed
+- **Mass AV1 Encoder**: Removed Queue Preview; scan auto-starts when source directory is selected (Browse or typed path); queue resets when source changes; smaller dropdowns; compact Options and Configuration boxes with no extra vertical space.
+- **AI Media Scanner**: Right-aligned Start/Stop buttons; larger Scanning Progress bar.
+
+### Removed
+- **Mass AV1 Encoder**: Queue Preview box (Scan, Remove Selected, queue list).
+
 ## [2.0.9] - 2026-03-21
 ### Changed
 - **AI Media Scanner**: Compact layout — smaller Directories, Options, and Engine Status boxes; horizontal Scanning Progress strip; image preview when selecting Keep/Move items after scan; Results section with dedicated preview pane.

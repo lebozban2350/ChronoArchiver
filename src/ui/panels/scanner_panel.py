@@ -126,21 +126,21 @@ class AIScannerPanel(QWidget):
 
         root.addLayout(h_strip)
 
-        # ── SCANNING PROGRESS (compact horizontal) ─────────────────────────────
+        # ── SCANNING PROGRESS ──────────────────────────────────────────────────
         grp_exec = QGroupBox("Scanning Progress")
         h_exec = QHBoxLayout(grp_exec)
         h_exec.setContentsMargins(6, 2, 6, 2)
         h_exec.setSpacing(8)
         self._bar = QProgressBar()
         self._bar.setObjectName("masterBar")
-        self._bar.setFixedHeight(14)
-        self._bar.setFixedWidth(180)
+        self._bar.setFixedHeight(18)
         self._bar.setTextVisible(True)
         self._bar.setFormat("Ready")
-        h_exec.addWidget(self._bar)
+        h_exec.addWidget(self._bar, 1)
         self._lbl_status = QLabel("Ready")
-        self._lbl_status.setStyleSheet("color:#10b981; font-size:8px; font-weight:700; min-width:60px;")
+        self._lbl_status.setStyleSheet("color:#10b981; font-size:8px; font-weight:700; min-width:70px;")
         h_exec.addWidget(self._lbl_status)
+        h_exec.addStretch()
         self._btn_start = QPushButton("START AI SCAN")
         self._btn_start.setObjectName("btnStart")
         self._btn_start.setFixedHeight(28)
@@ -152,7 +152,6 @@ class AIScannerPanel(QWidget):
         self._btn_stop.setEnabled(False)
         self._btn_stop.clicked.connect(self._stop_job)
         h_exec.addWidget(self._btn_stop)
-        h_exec.addStretch()
         root.addWidget(grp_exec)
 
         # ── RESULTS (Keep | Move | Preview) ───────────────────────────────────

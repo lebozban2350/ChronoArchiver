@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QCheckBox,
     QProgressBar, QFileDialog, QComboBox, QSlider,
-    QListWidget, QListWidgetItem, QSizePolicy,
+    QListWidget, QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal, QObject, QTimer
 
@@ -69,6 +69,7 @@ class AV1EncoderPanel(QWidget):
 
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
         _slbl  = "font-size: 8px; font-weight: 700; color: #aaa;"
+        _combo_style = "font-size: 9px; min-height: 20px; padding: 2px 4px;"
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 2, 6, 2)
@@ -83,7 +84,8 @@ class AV1EncoderPanel(QWidget):
         # 1. Directories (top-left)
         grp_dir = QGroupBox("Directories")
         v_dir = QVBoxLayout(grp_dir)
-        v_dir.setContentsMargins(8, 2, 8, 2); v_dir.setSpacing(1)
+        v_dir.setContentsMargins(6, 2, 6, 2)
+        v_dir.setSpacing(1)
 
         self._edit_src = QLineEdit()
         self._edit_src.setPlaceholderText("SOURCE PATH (local or smb://)")
@@ -99,6 +101,10 @@ class AV1EncoderPanel(QWidget):
         btn_src.clicked.connect(self._browse_src)
         h_src.addWidget(btn_src)
         v_dir.addLayout(h_src)
+        self._scan_debounce = QTimer(self)
+        self._scan_debounce.setSingleShot(True)
+        self._scan_debounce.timeout.connect(self._auto_scan)
+        self._edit_src.textChanged.connect(self._on_src_changed)
         v_dir.addWidget(QLabel("Source — local path or smb:// network share",
                                styleSheet=_shint))
 
@@ -125,10 +131,11 @@ class AV1EncoderPanel(QWidget):
         # 2. Configuration (bottom-left)
         grp_cfg = QGroupBox("Configuration")
         v_cfg = QVBoxLayout(grp_cfg)
-        v_cfg.setContentsMargins(8, 4, 8, 4); v_cfg.setSpacing(4)
+        v_cfg.setContentsMargins(6, 2, 6, 2)
+        v_cfg.setSpacing(2)
 
         # Quality
-        h_q = QHBoxLayout(); h_q.setSpacing(5)
+        h_q = QHBoxLayout(); h_q.setSpacing(4)
         lbl_q = QLabel("Quality"); lbl_q.setStyleSheet(_slbl); lbl_q.setFixedWidth(42)
         self._lbl_qval = QLabel(str(self._settings.get("quality")))
         self._lbl_qval.setFixedWidth(20)
@@ -144,9 +151,10 @@ class AV1EncoderPanel(QWidget):
         v_cfg.addLayout(h_q)
 
         # Preset
-        h_p = QHBoxLayout(); h_p.setSpacing(5)
+        h_p = QHBoxLayout(); h_p.setSpacing(4)
         lbl_p = QLabel("Preset"); lbl_p.setStyleSheet(_slbl); lbl_p.setFixedWidth(42)
         self._combo_preset = QComboBox()
+        self._combo_preset.setStyleSheet(_combo_style)
         self._combo_preset.addItems([
             "P7: Deep Archival", "P6: High Quality", "P5: Balanced",
             "P4: Standard", "P3: Fast", "P2: Draft", "P1: Preview"
@@ -162,9 +170,10 @@ class AV1EncoderPanel(QWidget):
         v_cfg.addLayout(h_p)
 
         # Threads
-        h_t = QHBoxLayout(); h_t.setSpacing(5)
+        h_t = QHBoxLayout(); h_t.setSpacing(4)
         lbl_t = QLabel("Threads"); lbl_t.setStyleSheet(_slbl); lbl_t.setFixedWidth(42)
         self._combo_jobs = QComboBox()
+        self._combo_jobs.setStyleSheet(_combo_style)
         self._combo_jobs.addItems(["1", "2", "4"])
         j = self._settings.get("concurrent_jobs")
         self._combo_jobs.setCurrentIndex(0 if j == 1 else (1 if j == 2 else 2))
@@ -174,9 +183,10 @@ class AV1EncoderPanel(QWidget):
         v_cfg.addLayout(h_t)
 
         # Output format
-        h_ext = QHBoxLayout(); h_ext.setSpacing(5)
+        h_ext = QHBoxLayout(); h_ext.setSpacing(4)
         lbl_ext = QLabel("Output"); lbl_ext.setStyleSheet(_slbl); lbl_ext.setFixedWidth(42)
         self._combo_ext = QComboBox()
+        self._combo_ext.setStyleSheet(_combo_style)
         self._combo_ext.addItems([".mkv", ".webm", ".mp4"])
         ext = self._settings.get("output_ext") or ".mkv"
         idx = self._combo_ext.findText(ext)
@@ -188,7 +198,7 @@ class AV1EncoderPanel(QWidget):
         v_cfg.addLayout(h_ext)
 
         # Audio
-        h_a = QHBoxLayout(); h_a.setSpacing(5)
+        h_a = QHBoxLayout(); h_a.setSpacing(4)
         self._chk_audio = QCheckBox("Optimize Audio")
         self._chk_audio.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; spacing:4px;")
         self._chk_audio.setChecked(self._settings.get("reencode_audio"))
@@ -200,19 +210,20 @@ class AV1EncoderPanel(QWidget):
         grp_cfg.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         grid_strip.addWidget(grp_cfg, 1, 0)
 
-        # 3. Options (right, spanning Directories + Configuration)
+        # 3. Options (right, same height as Directories + Configuration)
         grp_opts = QGroupBox("Options")
         v_opts = QVBoxLayout(grp_opts)
-        v_opts.setContentsMargins(8, 2, 8, 2); v_opts.setSpacing(0)
+        v_opts.setContentsMargins(6, 2, 6, 2)
+        v_opts.setSpacing(0)
 
-        _hint_s  = "font-size:7px; color:#444; margin-left:16px; margin-top:-1px;"
-        _check_s = "font-size:8px; font-weight:700; color:#aaa; spacing:4px;"
+        _hint_s  = "font-size:7px; color:#444; margin-left:14px; margin-top:-1px;"
+        _check_s = "font-size:8px; font-weight:700; color:#aaa; spacing:2px;"
 
         def _mk_opt(cb, hint):
             w = QWidget(); vl = QVBoxLayout(w)
-            vl.setContentsMargins(0, 1, 0, 1); vl.setSpacing(0)
+            vl.setContentsMargins(0, 0, 0, 0); vl.setSpacing(0)
             cb.setStyleSheet(_check_s); vl.addWidget(cb)
-            hl = QLabel(hint); hl.setStyleSheet(_hint_s); vl.addWidget(hl)
+            vl.addWidget(QLabel(hint, styleSheet=_hint_s))
             return w
 
         self._chk_struct = QCheckBox("Keep Subdirs")
@@ -237,7 +248,7 @@ class AV1EncoderPanel(QWidget):
 
         # Rejects
         w_rej = QWidget(); h_rej = QHBoxLayout(w_rej)
-        h_rej.setContentsMargins(0, 1, 0, 0); h_rej.setSpacing(4)
+        h_rej.setContentsMargins(0, 0, 0, 0); h_rej.setSpacing(4)
         self._chk_rej = QCheckBox("Skip Short Clips")
         self._chk_rej.setStyleSheet(_check_s)
         self._chk_rej.setChecked(self._settings.get("rejects_enabled"))
@@ -277,39 +288,14 @@ class AV1EncoderPanel(QWidget):
         h_del_cbs.addWidget(self._chk_del2)
         v_opts.addWidget(w_del_cbs)
         v_opts.addWidget(QLabel("Both boxes must be checked to enable", styleSheet="font-size:7px; color:#5a1a1a; margin-left:0; margin-top:-1px;"))
-        v_opts.addSpacing(4)
-        v_opts.addStretch()
 
-        grp_opts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        grp_opts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         grid_strip.addWidget(grp_opts, 0, 1, 2, 1)  # Row 0-1, Col 1, span 2 rows
-        grid_strip.setColumnStretch(0, 1)  # Directories + Configuration expand horizontally
+        grid_strip.setColumnStretch(0, 1)
+        grid_strip.setRowStretch(0, 0)
+        grid_strip.setRowStretch(1, 0)
 
         root.addLayout(grid_strip)
-
-        # ── QUEUE PREVIEW ─────────────────────────────────────────────────────
-        grp_queue = QGroupBox("Queue Preview")
-        v_queue = QVBoxLayout(grp_queue)
-        v_queue.setContentsMargins(8, 2, 8, 2)
-        v_queue.setSpacing(4)
-        h_qbtns = QHBoxLayout()
-        self._btn_scan = QPushButton("Scan")
-        self._btn_scan.setStyleSheet("font-size:8px; font-weight:700;")
-        self._btn_scan.clicked.connect(self._scan_queue)
-        self._btn_remove = QPushButton("Remove Selected")
-        self._btn_remove.setStyleSheet("font-size:8px; font-weight:700;")
-        self._btn_remove.clicked.connect(self._remove_from_queue)
-        self._btn_remove.setEnabled(False)
-        h_qbtns.addWidget(self._btn_scan)
-        h_qbtns.addWidget(self._btn_remove)
-        h_qbtns.addStretch()
-        v_queue.addLayout(h_qbtns)
-        self._queue_list = QListWidget()
-        self._queue_list.setMaximumHeight(80)
-        self._queue_list.setSelectionMode(QListWidget.ExtendedSelection)
-        self._queue_list.itemSelectionChanged.connect(lambda: self._btn_remove.setEnabled(len(self._queue_list.selectedItems()) > 0))
-        v_queue.addWidget(self._queue_list)
-        grp_queue.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        root.addWidget(grp_queue)
 
         # ── WORK PROGRESS ─────────────────────────────────────────────────────
         grp_work = QGroupBox("Work Progress")
@@ -424,6 +410,8 @@ class AV1EncoderPanel(QWidget):
         # Initialise slot visibility and CQ hint
         self._on_jobs_changed(self._combo_jobs.currentIndex())
         self._update_cq_hint()
+        # Auto-scan if source path already set (e.g. from settings)
+        QTimer.singleShot(300, self._auto_scan)
 
     # ── settings helpers ──────────────────────────────────────────────────────
 
@@ -463,32 +451,37 @@ class AV1EncoderPanel(QWidget):
         if f:
             self._edit_src.setText(f)
             self._settings.set("source_folder", f)
+            self._auto_scan()
+
+    def _on_src_changed(self):
+        self._scan_debounce.stop()
+        self._scan_debounce.start(400)
+
+    def _auto_scan(self):
+        if self._is_encoding:
+            return
+        src = self._edit_src.text().strip()
+        self._queue.clear()
+        if not src or not os.path.isdir(src):
+            return
+        def _scan():
+            items = list(AV1EncoderEngine().scan_files(src))
+            QTimer.singleShot(0, lambda: self._apply_scan_result(items))
+        threading.Thread(target=_scan, daemon=True).start()
+
+    def _apply_scan_result(self, items):
+        self._queue.clear()
+        self._queue.extend(items)
+        n = len(items)
+        self._add_log(f"Scanned: {n} file{'s' if n != 1 else ''} ready.")
+        if self._log_cb and n > 0:
+            self._log_cb(f"AV1 Encoder: {n} files in queue.")
 
     def _browse_dst(self):
         f = QFileDialog.getExistingDirectory(self, "Select Target Folder")
         if f:
             self._edit_dst.setText(f)
             self._settings.set("target_folder", f)
-
-    def _scan_queue(self):
-        src = self._edit_src.text().strip()
-        if not src or not os.path.isdir(src):
-            self._add_log("ERROR: Select source directory first.")
-            return
-        self._add_log("Scanning source...")
-        scan_engine = AV1EncoderEngine()
-        items = list(scan_engine.scan_files(src))
-        self._queue_list.clear()
-        for path, size in items:
-            it = QListWidgetItem(os.path.basename(path))
-            it.setData(Qt.UserRole, (path, size))
-            self._queue_list.addItem(it)
-        self._add_log(f"Found {len(items)} files. Remove any to exclude, then Start.")
-
-    def _remove_from_queue(self):
-        rows = sorted((self._queue_list.row(it) for it in self._queue_list.selectedItems()), reverse=True)
-        for r in rows:
-            self._queue_list.takeItem(r)
 
     # ── encoding lifecycle ────────────────────────────────────────────────────
 
@@ -505,19 +498,11 @@ class AV1EncoderPanel(QWidget):
             self._add_log("ERROR: Please select source and target directories.")
             return
 
-        # Use queue from list if populated, else scan
-        self._queue = []
-        for i in range(self._queue_list.count()):
-            it = self._queue_list.item(i)
-            data = it.data(Qt.UserRole)
-            if data:
-                self._queue.append(data)
         if not self._queue:
-            self._add_log(f"Scanning {src} ...")
-            scan_engine = AV1EncoderEngine()
-            self._queue = list(scan_engine.scan_files(src))
+            self._add_log("Scanning source...")
+            self._queue = list(AV1EncoderEngine().scan_files(src))
         if not self._queue:
-            self._add_log("No compatible files found. Use Scan to build queue.")
+            self._add_log("No compatible files found.")
             return
 
         self._queue_sizes = {p: s for p, s in self._queue}
