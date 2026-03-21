@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import threading
+import time
 import pathlib
 import os
 import sys
@@ -155,6 +156,69 @@ class OrganizerTab(ctk.CTkFrame):
             self.lbl_progress.configure(text=f"Organizing... {current}/{total} ({filename})")
 
 
+class ModelDownloadDialog(ctk.CTkToplevel):
+    """Modal dialog for showing AI model download progress."""
+    def __init__(self, master, model_manager):
+        super().__init__(master)
+        self.model_manager = model_manager
+        self.title("AI Model Manager")
+        self.geometry("450x220")
+        self.resizable(False, False)
+        
+        # Center in parent
+        self.update_idletasks()
+        x = master.winfo_x() + (master.winfo_width() // 2) - (450 // 2)
+        y = master.winfo_y() + (master.winfo_height() // 2) - (220 // 2)
+        self.geometry(f"+{x}+{y}")
+        
+        self.transient(master)
+        self.grab_set()
+
+        # Layout
+        self.lbl_filename = ctk.CTkLabel(self, text="Preparing download...", font=FONT_HEADER)
+        self.lbl_filename.pack(pady=(25, 5))
+        
+        self.progress_bar = ctk.CTkProgressBar(self, width=350, fg_color=BG_TERTIARY, progress_color=ACCENT)
+        self.progress_bar.pack(pady=15)
+        self.progress_bar.set(0)
+        
+        self.lbl_stats = ctk.CTkLabel(self, text="0.0 MB / 0.0 MB (0.0 MB/s)", font=FONT_MAIN, text_color=TEXT_MUTED)
+        self.lbl_stats.pack(pady=5)
+        
+        self.btn_cancel = ctk.CTkButton(self, text="Cancel Download", font=FONT_MAIN, corner_radius=6, 
+                                      fg_color="#c0392b", hover_color="#962d22", command=self.on_cancel)
+        self.btn_cancel.pack(pady=20)
+        
+        self.start_time = None
+        self.protocol("WM_DELETE_WINDOW", self.on_cancel)
+
+    def on_cancel(self):
+        self.model_manager.cancel()
+        self.destroy()
+
+    def update_progress(self, current, total, filename):
+        if not self.start_time:
+            self.start_time = time.time()
+        
+        percent = current / total if total > 0 else 0
+        elapsed = time.time() - self.start_time
+        speed = (current / 1024 / 1024) / elapsed if elapsed > 1 else 0 # Avoid div by zero or small time
+        
+        curr_mb = current / 1024 / 1024
+        total_mb = total / 1024 / 1024
+        
+        # Schedule UI update on main thread
+        self.after(0, lambda: self._do_update(filename, percent, curr_mb, total_mb, speed))
+
+    def _do_update(self, filename, percent, curr_mb, total_mb, speed):
+        try:
+            self.lbl_filename.configure(text=f"Downloading: {filename}")
+            self.progress_bar.set(percent)
+            self.lbl_stats.configure(text=f"{curr_mb:.1f} MB / {total_mb:.1f} MB ({speed:.1f} MB/s)")
+        except:
+            pass # Dialog might have been closed
+
+
 class AIScannerTab(ctk.CTkFrame):
     def __init__(self, master, log_callback, file_logger):
         super().__init__(master)
@@ -285,23 +349,26 @@ class AIScannerTab(ctk.CTkFrame):
         self.lbl_status = ctk.CTkLabel(self.footer, text="Ready", text_color=TEXT_MUTED)
         self.lbl_status.pack(side="left", padx=10)
 
-        # Initial passive check (no auto-download)
-        self._init_model_check()
+        # Initial passive check (run in thread to prevent startup freeze)
+        threading.Thread(target=self._init_model_check, daemon=True).start()
 
     def start_model_download(self):
-        """Manually triggered model download flow."""
+        """Manually triggered model download flow with professional dialog."""
         self.btn_download.configure(state="disabled")
-        self.lbl_model_status.configure(text="Downloading AI Models...", text_color=ACCENT)
+        
+        # Create modal dialog
+        dialog = ModelDownloadDialog(self.winfo_toplevel(), self.model_manager)
         
         def run():
-            def on_dl_progress(current, total, filename):
-                percent = int((current / total) * 100) if total > 0 else 0
-                self.after(0, lambda: self.lbl_model_status.configure(text=f"Downloading {filename}: {percent}%"))
+            success = self.model_manager.download_models(progress_callback=dialog.update_progress)
             
-            success = self.model_manager.download_models(progress_callback=on_dl_progress)
+            # Close dialog on finish
+            self.after(0, dialog.destroy)
+            
             if not success:
-                self.after(0, lambda: messagebox.showerror("Download Failed", "Check your connection and try again."))
-                self.after(0, lambda: self.btn_download.configure(state="normal"))
+                # Only show error if NOT manually cancelled
+                if not self.model_manager.stop_event.is_set():
+                    self.after(0, lambda: messagebox.showerror("Download Error", "Failed to download AI models. Please check your internet connection."))
             
             self.after(0, self._init_model_check)
 

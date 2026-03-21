@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [1.0.7] - 2026-03-21
+### Added
+- **AI Scanner UX**: Added a dedicated `ModelDownloadDialog` with real-time progress bars, speed tracking, and a responsive cancellation option.
+
+### Fixed
+- **Model Compatibility**: Switched animal detection model from EfficientDet Lite0 to SSD MobileNet V1 quantized TFLite. This uses the standard `[1, 1, N, 7]` SSD output format natively supported by OpenCV, resolving silent detection failures.
+- **Startup Performance**: Wrapped the initial AI model SHA-256 verification sequence in a background thread to completely eliminate UI freezing on slower disks.
+
 ## [1.0.6] - 2026-03-21
 ### Added
 - **AI Scanner**: Migrated animal detection to native OpenCV DNN using TFLite. This eliminates the heavy `mediapipe` dependency and reduces the installation footprint.

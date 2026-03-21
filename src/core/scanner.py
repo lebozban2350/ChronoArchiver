@@ -9,7 +9,7 @@ from typing import List, Callable, Optional
 
 class ScannerEngine:
     """
-    AI Scanner using MediaPipe Face Detection.
+    AI Scanner using OpenCV YuNet (Face) and SSD MobileNet (Animals).
     Logic: 
     - Subject (Person/Animal) Detected -> 'Keep'
     - Not Detected -> 'Others'
@@ -164,30 +164,24 @@ class ScannerEngine:
         return faces is not None
 
     def _init_animal_detector(self):
-        """Initialize animal detector using OpenCV DNN with TFLite."""
-        model_path = self._get_model_path('efficientdet_lite0.tflite')
+        """Initialize animal detector using OpenCV DNN with TFLite (SSD MobileNet V1)."""
+        model_path = self._get_model_path('ssd_mobilenet_v1.tflite')
         net = cv2.dnn.readNetFromTFLite(model_path)
         return net
 
     def _detect_animal(self, net, image):
-        """Performs animal detection using OpenCV DNN."""
-        # Preprocessing: EfficientDet Lite0 expects 320x320
-        blob = cv2.dnn.blobFromImage(image, 1.0, (320, 320), swapRB=True, crop=False)
-        
-        # NHWC vs NCHW: blobFromImage returns NCHW, but TFLite usually expects NHWC.
-        # OpenCV's TFLite backend handles this conversion internally if possible.
+        """Performs animal detection using OpenCV DNN (SSD Format)."""
+        # Preprocessing: SSD MobileNet V1 usually expects 300x300
+        blob = cv2.dnn.blobFromImage(image, 1.0, (300, 300), swapRB=True, crop=False)
         net.setInput(blob)
         
-        # EfficientDet usually outputs 4 tensors or a combined one.
-        # In recent OpenCV, forward() typically returns the detection output [1, 1, N, 7]
+        # SSD MobileNet V1 outputs standard [1, 1, N, 7] detections
         detections = net.forward()
         
-        # COCO-based indices for animal_labels (cat, dog, bird, horse, sheep, cow, bear, zebra, giraffe)
-        # bird: 16, cat: 17, dog: 18, horse: 19, sheep: 20, cow: 21, bear: 23, zebra: 24, giraffe: 25
+        # COCO-based indices for animal_labels
         animal_ids = {16, 17, 18, 19, 20, 21, 23, 24, 25}
         
-        # detections is [1, 1, 100, 7]
-        # [0, 0, i, 1] -> class_id, [0, 0, i, 2] -> score
+        # Parse detections [1, 1, 100, 7]
         for i in range(detections.shape[2]):
             score = detections[0, 0, i, 2]
             if score > 0.4:

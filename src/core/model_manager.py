@@ -15,9 +15,9 @@ class ModelManager:
             "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
         },
         "animal_detection": {
-            "filename": "efficientdet_lite0.tflite",
-            "url": "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
-            "sha256": "4b59100025bea1235a84c1038879a6cccc9f6c49f5e41144e91e74d99e780993"
+            "filename": "ssd_mobilenet_v1.tflite",
+            "url": "https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_ssd_mobilenet_v1_1_metadata_2.tflite",
+            "sha256": "cbdecd08b44c5dea3821f77c5468e2936ecfbf43cde0795a2729fdb43401e58b"
         }
     }
     
