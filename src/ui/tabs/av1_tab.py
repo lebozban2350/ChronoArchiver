@@ -18,6 +18,8 @@ class AV1EncoderTab(ctk.CTkFrame):
         
         self.is_encoding = False
         self.stop_event = threading.Event()
+        self.active_worker_engines = set()
+        self.worker_lock = threading.Lock()
 
         # Layout
         self.grid_columnconfigure(0, weight=1)
@@ -145,6 +147,12 @@ class AV1EncoderTab(ctk.CTkFrame):
     def stop_encoding(self):
         self.is_encoding = False
         self.engine.cancel()
+        
+        # Stop all active worker engines
+        with self.worker_lock:
+            for eng in self.active_worker_engines:
+                eng.cancel()
+        
         self.btn_start.configure(state="normal")
         self.btn_stop.configure(state="disabled")
         self.log_callback("Encoding stopped by user.")
@@ -181,12 +189,21 @@ class AV1EncoderTab(ctk.CTkFrame):
             
             # Use a fresh engine per thread to avoid state collision
             worker_engine = AV1EncoderEngine()
-            success, _, _ = worker_engine.encode_file(
-                file_path, target_path, 
-                quality=self.settings.get("quality"),
-                preset=self.settings.get("preset"),
-                reencode_audio=self.settings.get("reencode_audio")
-            )
+            
+            with self.worker_lock:
+                if not self.is_encoding: return
+                self.active_worker_engines.add(worker_engine)
+            
+            try:
+                success, _, _ = worker_engine.encode_file(
+                    file_path, target_path, 
+                    quality=self.settings.get("quality"),
+                    preset=self.settings.get("preset"),
+                    reencode_audio=self.settings.get("reencode_audio")
+                )
+            finally:
+                with self.worker_lock:
+                    self.active_worker_engines.discard(worker_engine)
             
             nonlocal processed
             with counter_lock:
