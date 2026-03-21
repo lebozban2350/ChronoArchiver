@@ -1,6 +1,13 @@
 # TASKS.md
 
-- [x] **v1.0.2: Regression Fixes & Refinement (Latest)**
+- [x] **v1.0.3: Final Ship & Polish (Latest)**
+  - [x] Integrity: Fix `efficientdet_lite0.tflite` SHA-256 hash
+  - [x] Cleanup: Remove stale comments in `tabs.py`
+  - [x] Cleanup: Delete unused `use_gpu` in `tabs.py`
+  - [x] Refactor: Move `hashlib` and `queue` imports to top level
+  - [x] Release: Bump version to `v1.0.3`
+
+- [x] **v1.0.2: Regression Fixes & Refinement**
   - [x] Fix crash: `NameError: filename` in `av1_tab.py`
   - [x] Security: Update official face model hash
   - [x] UX: Fix swapped file counters in AI Scanner lists
