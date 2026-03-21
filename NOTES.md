@@ -1,6 +1,14 @@
 # NOTES.md
 
 <HISTORY_RESERVED_DO_NOT_REMOVE>
+
+### v1.0.17 Notes
+- **UI Modernization**: Renamed and reordered tabs for better workflow (Media Organizer, Mass AI Encoder, AI Scan).
+- **Advanced Monitoring**: Ported high-density thread slots from Mass AV1 Encoder, including stacked codec info, real-time speeds, and a master queue progress bar.
+- **Global Status Footer**: Persistent tracking of app status and background activity.
+- **Neon Green "Full-Bleed" Icon**: Re-generated with a 10% rounded corner radius and vertical alpha transparency.
+- **Deployment**: Finalized and synchronized v1.0.17 to GitHub and AUR.
+
 ### v1.0.16 Notes
 - Fixed `_tkinter.TclError: bad option "-width"` in `AV1EncoderTab` by removing the invalid `width` parameter from the `.pack()` call.
 - Re-generated the application icon with a "Full Frame" motif and intrinsic rounded corners. The motif now occupies 100% of the canvas with zero padding, maximizing taskbar presence.

@@ -1,5 +1,6 @@
 # TODO.md
 <HISTORY_RESERVED_DO_NOT_REMOVE>
+- [x] v1.0.17: UI Overhaul & Feature Parity (2026-03-21)
 - [x] v1.0.16: GUI Fix & Icon Perfection
 - [x] v1.0.15: Dependency & Icon Refinement
 - [x] v1.0.14: Architecture & Branding Refresh
