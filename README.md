@@ -1,56 +1,90 @@
-# ChronoArchiver: Time to Archive! 🕰️
+# ChronoArchiver
 
-**ChronoArchiver** is a unified, high-performance media management suite designed for long-term data preservation and optimization. It combines intelligent data archival with professional-grade video transcoding, providing a seamless workflow for modern digital libraries. *Time to Archive!*
+A unified media management platform for archival, classification, and transcoding. ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application built on PySide6.
 
 [![Version](https://img.shields.io/badge/version-2.0.8-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey.svg)](#system-requirements)
-
-ChronoArchiver is a desktop application for organizing, classifying, and re-encoding large media libraries. It combines three independent tools — a date-based file organizer, an AI-powered photo scanner, and a batch AV1 encoder — into a single fixed-window interface built with **PySide6**.
+[![AUR](https://img.shields.io/aur/version/chronoarchiver)](https://aur.archlinux.org/packages/chronoarchiver)
 
 ---
 
-## Features
+## Overview
 
-### Media Organizer
+ChronoArchiver addresses three core workflows for managing large media libraries:
 
-Sorts photos and videos into a date-based folder hierarchy using the most reliable date source available for each file.
+| Module | Purpose |
+|--------|---------|
+| **Media Organizer** | Sorts photos and videos into a date-based folder hierarchy from EXIF, filename, or metadata. |
+| **AI Media Scanner** | Classifies images by subject presence (faces, animals) for bulk triage and archival. |
+| **Mass AV1 Encoder** | Batch-transcodes video to AV1 with optional hardware acceleration. |
 
-- Reads **EXIF DateTimeOriginal** (or DateTimeDigitized) for images
-- Falls back to **filename parsing** — recognizes `YYYYMMDD`, `YYYY-MM-DD`, `YYYY_MM_DD`, and common prefixes like `IMG_`, `VID-`, `Signal-`
-- Falls back to **file modification time** as a last resort, rejecting timestamps before 1980
-- Adds a `YYYY-MM-DD_` prefix to each filename so files sort correctly by date inside any folder
-- Corrects existing prefixes that don't match the detected date
-- Organizes into **nested** (`YYYY/YYYY-MM/`) or **flat** (`YYYY-MM/`) folder structures
-- **Dry run mode** previews all planned moves in the log without touching any files
-- **Duplicate detection** — compares file size then a partial MD5 of the first 1 MB before skipping or renaming collisions
-- Handles photos and videos independently — select either or both before running
-- Cancellable mid-run with a single click
+Settings persist to the platform config directory; no manual configuration is required.
 
-### AI Media Scanner
+---
 
-Classifies images into two buckets — photos containing people or animals, and everything else — so you can review and move the latter in bulk.
+## Media Organizer
 
-- Face detection via **OpenCV YuNet** (`face_detection_yunet_2023mar.onnx`), running on OpenCL if available
-- Optional animal detection via **OpenCV DNN** (SSD MobileNet V1), covering cats, dogs, birds, horses, sheep, cows, bears, zebras, and giraffes
-- Both models ship with the application; SHA-256 integrity is verified on every launch and re-downloaded automatically if corrupt
-- Results appear in two scrollable lists — **Keep** (subjects detected) and **Move** (no subjects) — with an inline image preview on click
-- Items can be manually moved between lists before committing
-- "Move Files" sends the right-hand list to an `Archived_Others/` subfolder inside the scanned directory
-- Progress bar shows current file, count, and estimated time remaining
-- Cancellable at any point
+Organizes media into `YYYY/YYYY-MM/` (nested) or `YYYY-MM/` (flat) structures. Date resolution order:
 
-### Mass AV1 Encoder
+1. **EXIF** — `DateTimeOriginal` or `DateTimeDigitized`
+2. **Video metadata** — FFprobe `creation_time` where available
+3. **Filename** — `YYYYMMDD`, `YYYY-MM-DD`, `YYYY_MM_DD`, and common prefixes (`IMG_`, `VID-`, `Signal-`)
+4. **Modification time** — Fallback; timestamps before 1980 are rejected
 
-Batch-encodes video files to AV1, preserving folder structure and file metadata.
+Additional behavior:
 
-- Encodes using **NVIDIA NVENC** (`av1_nvenc`) if a compatible GPU is detected, otherwise falls back to **SVT-AV1** (`libsvtav1`) in software
-- **High-Density Monitoring**: Features a 4-slot high-density thread grid with real-time per-job progress.
-- **System Metrics Dashboard**: Integrated real-time monitoring of **CPU, GPU (NVENC), and RAM** utilization.
-- **Pause/Resume Control**: Suspend active encoding jobs at any time to free up system resources without losing progress.
-- **Advanced Automation**: Features **Skip Short Clips** (via user-defined threshold), **Auto-Shutdown**, and **Safety-locked File Deletion**.
-- **Accurate Telemetry**: Real-time **Space Saved** calculation, **ETA** estimation, and per-thread speed labels (e.g. `2.3x`).
-- Master progress bar tracks completion across the entire batch.
+- Appends `YYYY-MM-DD_` to filenames for chronological ordering
+- Corrects existing date prefixes when mismatched
+- Optional target directory for organizing into a separate root
+- Comma-separated extension override; blank uses default photo/video sets
+- Duplicate detection via size comparison and partial MD5 (first 1 MB)
+- Dry-run mode; cancellable during execution
+- Summary statistics: Moved, Skipped, Duplicates
+
+---
+
+## AI Media Scanner
+
+Dual-list workflow: **Keep** (subjects detected) and **Move** (no subjects). Detection stack:
+
+- **Face** — OpenCV YuNet (`face_detection_yunet_2023mar.onnx`), OpenCL when available
+- **Animals** — OpenCV DNN SSD MobileNet V1 (optional, configurable confidence threshold)
+
+Models are bundled and verified by SHA-256; corrupt files are re-downloaded on launch.
+
+Features:
+
+- Keep/Move lists with inline preview
+- Manual item transfer between lists
+- Move Files — relocates Move list to `Archived_Others/` within the scan directory
+- Export CSV for Keep/Move path lists
+- Progress with ETA; cancellable
+
+---
+
+## Mass AV1 Encoder
+
+Batch AV1 transcoding with preserved folder structure and metadata.
+
+**Encoding backends:**
+
+- **NVIDIA NVENC** (`av1_nvenc`) when a compatible GPU is present
+- **SVT-AV1** (`libsvtav1`) as software fallback
+
+**Interface:**
+
+- 4-slot job grid with per-job progress
+- Real-time CPU, GPU, and RAM monitoring
+- Pause and resume for active jobs
+- Master progress bar across the queue
+
+**Options:**
+
+- Output format: `.mkv`, `.webm`, `.mp4`
+- Queue preview; items removable before start
+- Skip Short Clips, Auto-Shutdown, Delete Source (safety-locked)
+- Space Saved, ETA, per-thread speed
 
 ---
 
@@ -58,17 +92,15 @@ Batch-encodes video files to AV1, preserving folder structure and file metadata.
 
 ### Arch Linux (AUR)
 
-[![AUR](https://img.shields.io/aur/version/chronoarchiver)](https://aur.archlinux.org/packages/chronoarchiver)
-
 ```bash
 paru -S chronoarchiver
 # or
 yay -S chronoarchiver
 ```
 
-### From Source (Git)
+### From Source
 
-**Requirements:** Python 3.10 or later, FFmpeg (must be on `PATH`)
+**Requirements:** Python 3.10+, FFmpeg on `PATH`
 
 ```bash
 git clone https://github.com/UnDadFeated/ChronoArchiver.git
@@ -77,52 +109,46 @@ pip install -r requirements.txt
 python src/ui/app.py
 ```
 
-**Optional:** An NVIDIA GPU with NVENC AV1 support (Ada Lovelace / RTX 40-series or later) enables hardware-accelerated encoding in the Mass AV1 Encoder. The application works fully without it.
+NVIDIA RTX 40-series (or later) with AV1 NVENC enables hardware-accelerated encoding; the application runs fully in software without it.
 
 ---
 
 ## System Requirements
 
 | Component | Requirement |
-|---|---|
+|-----------|-------------|
 | Python | 3.10 or later |
-| FFmpeg | Any recent version on `PATH` |
+| FFmpeg | Recent version on `PATH` |
 | OS | Windows, Linux (Arch/AUR package available) |
 | GPU | Optional — NVIDIA RTX 40-series for NVENC AV1 |
 
 ---
 
-## Settings
+## Configuration Reference
 
-All settings are persisted automatically to the platform-appropriate config directory (via `platformdirs`). There is no manual configuration file to edit.
-
-| Setting | Default | Notes |
-|---|---|---|
-| Encoding quality (CQ) | 30 | Lower = better quality, larger file |
-| Encoding preset | p4 | p1 to p7 representing varying speed/quality trade-offs (behavior varies by backend) |
-| Re-encode audio | On | Off copies the original audio stream |
-| Concurrent jobs | 2 | 1, 2, or 4 parallel encode workers |
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Encoding quality (CQ) | 30 | Lower = higher quality, larger file |
+| Preset | p4 | p1–p7 (speed/quality trade-off; backend-dependent) |
+| Re-encode audio | On | Off copies original audio stream |
+| Concurrent jobs | 2 | 1, 2, or 4 parallel workers |
 | Maintain structure | On | Mirrors source folder layout in target |
-| Skip Short Clips | Off | Threshold for ignoring small media files |
-| HW Accel Decode | Off | Use GPU for demux / decode stage |
-| Auto-Shutdown | Off | Power off system after queue finishes |
+| Skip Short Clips | Off | User-defined threshold |
+| HW Accel Decode | Off | GPU demux/decode |
+| Auto-Shutdown | Off | Power off after queue completion |
 
 ---
 
-## Updating
+## Updates
 
-The application checks for updates against GitHub Releases on startup (or via the **CHECK FOR UPDATES** action in the nav bar). When an update is available, you can apply it in-app: the app closes, performs the update (git pull on Windows/Linux source installs, or `paru`/`yay` on Arch AUR), then restarts. Version comparison is semantic.
-
----
-
-## Support
-
-ChronoArchiver is free and open-source. If it saves you time, the **Buy me a coffee** button in the nav bar links to PayPal.
+The application checks GitHub Releases on startup. Updates can be applied in-app: the process closes, performs the update (git pull for source installs, or `paru`/`yay` for AUR), and restarts. Version comparison follows semantic versioning.
 
 ---
 
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+---
 
 *Maintained by [UnDadFeated](https://github.com/UnDadFeated)*
