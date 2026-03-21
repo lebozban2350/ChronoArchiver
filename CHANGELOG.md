@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.11] - 2026-03-21
+### Changed
+- **Mass AV1 Encoder**: Output format fixed to `.mp4`; output naming `stem_av1.mp4` (files with `_av1` before extension are skipped on rescan). Removed Output dropdown from Configuration.
+- **Mass AV1 Encoder**: Configuration box shrunk; Work Progress moved up; delete source only when both checkboxes are selected.
+- **Debug logging**: Increased events for Mass AV1 Encoder (scan, encode start/finish, reject, fail, delete, batch complete).
+
 ## [2.0.10] - 2026-03-21
 ### Changed
 - **Mass AV1 Encoder**: Removed Queue Preview; scan auto-starts when source directory is selected (Browse or typed path); queue resets when source changes; smaller dropdowns; compact Options and Configuration boxes with no extra vertical space.

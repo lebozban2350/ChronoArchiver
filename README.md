@@ -2,7 +2,7 @@
 
 A unified media management platform for archival, classification, and transcoding. ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application built on PySide6.
 
-[![Version](https://img.shields.io/badge/version-2.0.10-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-2.0.11-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey.svg)](#system-requirements)
 
@@ -80,7 +80,7 @@ Batch AV1 transcoding with preserved folder structure and metadata.
 
 **Options:**
 
-- Output format: `.mkv`, `.webm`, `.mp4`
+- Output: always `.mp4` (`stem_av1.mp4`); files ending `_av1.ext` skipped on rescan
 - Auto-scan on source selection; queue resets when source changes
 - Skip Short Clips, Auto-Shutdown, Delete Source (safety-locked)
 - Space Saved, ETA, per-thread speed

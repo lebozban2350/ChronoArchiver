@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from typing import Optional, Callable, Generator
 from collections import deque
 
+try:
+    from .debug_logger import debug, UTILITY_MASS_AV1_ENCODER
+except ImportError:
+    from core.debug_logger import debug, UTILITY_MASS_AV1_ENCODER
+
 @dataclass
 class EncodingProgress:
     file_name: str
@@ -67,6 +72,7 @@ class AV1EncoderEngine:
                             yield (full_path, 0)
         except Exception as e:
             self.logger.error(f"Failed to scan files in {directory}: {e}")
+            debug(UTILITY_MASS_AV1_ENCODER, f"Scan error: {directory} — {e}")
 
     def pause(self):
         """Pauses the current encoding process."""
@@ -194,6 +200,7 @@ class AV1EncoderEngine:
         ] + v_args + a_args + [output_path]
 
         self.logger.info(f"Engine State [Job {self.job_id}]: Starting encode for {os.path.basename(input_path)}")
+        debug(UTILITY_MASS_AV1_ENCODER, f"Job {self.job_id} encode start: {input_path} -> {output_path}")
 
         STALL_TIMEOUT = 300
         _last_output = [time.time()]
@@ -256,9 +263,13 @@ class AV1EncoderEngine:
                 success = self._current_process.returncode == 0
             if not success:
                 self.logger.error(f"FFmpeg failed for {os.path.basename(input_path)}.")
+                debug(UTILITY_MASS_AV1_ENCODER, f"FFmpeg failed: {input_path} (returncode={self._current_process.returncode if self._current_process else '?'})")
+            else:
+                debug(UTILITY_MASS_AV1_ENCODER, f"Job {self.job_id} encode success: {os.path.basename(input_path)}")
             return success, input_path, output_path
         except Exception as e:
             self.logger.error(f"Error encoding {input_path}: {e}")
+            debug(UTILITY_MASS_AV1_ENCODER, f"Encode exception: {input_path} — {e}")
             return False, input_path, output_path
         finally:
             _watchdog_stop.set()

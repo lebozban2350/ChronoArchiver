@@ -24,6 +24,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.av1_engine import AV1EncoderEngine, EncodingProgress
 from core.av1_settings import AV1Settings
+from core.debug_logger import debug, UTILITY_MASS_AV1_ENCODER
 
 
 class _Signals(QObject):
@@ -73,7 +74,7 @@ class AV1EncoderPanel(QWidget):
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 2, 6, 2)
-        root.setSpacing(2)
+        root.setSpacing(1)
 
         # ── COMMAND STRIP ─────────────────────────────────────────────────────
         # Layout: [Directories (top) | Options (right, full height)]
@@ -182,21 +183,6 @@ class AV1EncoderPanel(QWidget):
         h_t.addWidget(QLabel("Parallel encoding slots (1 / 2 / 4)", styleSheet="font-size:7px; color:#444;"))
         v_cfg.addLayout(h_t)
 
-        # Output format
-        h_ext = QHBoxLayout(); h_ext.setSpacing(4)
-        lbl_ext = QLabel("Output"); lbl_ext.setStyleSheet(_slbl); lbl_ext.setFixedWidth(42)
-        self._combo_ext = QComboBox()
-        self._combo_ext.setStyleSheet(_combo_style)
-        self._combo_ext.addItems([".mkv", ".webm", ".mp4"])
-        ext = self._settings.get("output_ext") or ".mkv"
-        idx = self._combo_ext.findText(ext)
-        if idx >= 0:
-            self._combo_ext.setCurrentIndex(idx)
-        self._combo_ext.currentTextChanged.connect(lambda t: self._settings.set("output_ext", t))
-        h_ext.addWidget(lbl_ext); h_ext.addWidget(self._combo_ext, 1)
-        h_ext.addWidget(QLabel("Container format", styleSheet="font-size:7px; color:#444;"))
-        v_cfg.addLayout(h_ext)
-
         # Audio
         h_a = QHBoxLayout(); h_a.setSpacing(4)
         self._chk_audio = QCheckBox("Optimize Audio")
@@ -300,7 +286,8 @@ class AV1EncoderPanel(QWidget):
         # ── WORK PROGRESS ─────────────────────────────────────────────────────
         grp_work = QGroupBox("Work Progress")
         v_work = QVBoxLayout(grp_work)
-        v_work.setSpacing(1); v_work.setContentsMargins(8, 0, 8, 5)
+        v_work.setSpacing(1)
+        v_work.setContentsMargins(6, 2, 6, 4)
 
         # Telemetry strip
         h_tel = QHBoxLayout(); h_tel.setSpacing(20)
@@ -473,7 +460,9 @@ class AV1EncoderPanel(QWidget):
         self._queue.clear()
         self._queue.extend(items)
         n = len(items)
+        src = self._edit_src.text().strip()
         self._add_log(f"Scanned: {n} file{'s' if n != 1 else ''} ready.")
+        debug(UTILITY_MASS_AV1_ENCODER, f"Scan complete: {n} files from {src}")
         if self._log_cb and n > 0:
             self._log_cb(f"AV1 Encoder: {n} files in queue.")
 
@@ -503,6 +492,7 @@ class AV1EncoderPanel(QWidget):
             self._queue = list(AV1EncoderEngine().scan_files(src))
         if not self._queue:
             self._add_log("No compatible files found.")
+            debug(UTILITY_MASS_AV1_ENCODER, f"No compatible files in {src}")
             return
 
         self._queue_sizes = {p: s for p, s in self._queue}
@@ -530,6 +520,7 @@ class AV1EncoderPanel(QWidget):
         self._btn_pause.setEnabled(True)
 
         self._add_log(f"Starting encode — {self._total_count} files.")
+        debug(UTILITY_MASS_AV1_ENCODER, f"Encode start: {self._total_count} files, src={src}, dst={dst}")
         if self._log_cb:
             self._log_cb(f"AV1 Encoder: {self._total_count} files queued.")
 
@@ -549,6 +540,7 @@ class AV1EncoderPanel(QWidget):
         self._btn_start.setStyle(self.style())
         self._btn_pause.setEnabled(False)
         self._add_log("Encoding stopped.")
+        debug(UTILITY_MASS_AV1_ENCODER, "Encoding stopped by user.")
 
     def _toggle_pause(self):
         paused = any(e._is_paused for e in self._engine_pool)
@@ -582,17 +574,18 @@ class AV1EncoderPanel(QWidget):
                        self._settings.get("rejects_s"))
                 if dur <= thr:
                     self._add_log(f"REJECTED: {os.path.basename(input_path)} ({dur:.1f}s)")
+                    debug(UTILITY_MASS_AV1_ENCODER, f"Rejected (short): {input_path} ({dur:.1f}s)")
                     self._sig.finished.emit(engine.job_id, True, input_path, "")
                     continue
 
-            # Build output path
-            out_ext = self._settings.get("output_ext") or ".mkv"
-            if not out_ext.startswith("."):
-                out_ext = "." + out_ext
+            # Build output path: stem_av1.mp4 always
             fname = os.path.basename(input_path)
+            stem = os.path.splitext(fname)[0]
+            out_name = stem + "_av1.mp4"
             if self._settings.get("maintain_structure") and src:
                 rel = os.path.relpath(input_path, src)
-                tpath = os.path.join(dst, os.path.splitext(rel)[0] + "_av1" + out_ext)
+                rel_stem = os.path.splitext(rel)[0]
+                tpath = os.path.join(dst, rel_stem + "_av1.mp4")
                 os.makedirs(os.path.dirname(tpath), exist_ok=True)
             else:
                 tpath = os.path.join(dst, out_name)
@@ -610,6 +603,7 @@ class AV1EncoderPanel(QWidget):
             self._active_jobs -= 1
         if self._active_jobs == 0 and not self._queue:
             self._sig.log_msg.emit("Encoding batch complete.")
+            debug(UTILITY_MASS_AV1_ENCODER, "Encoding batch complete.")
             if self._settings.get("shutdown_on_finish") and self._is_encoding:
                 if platform.system() == "Windows":
                     os.system("shutdown /s /t 0")
@@ -660,16 +654,21 @@ class AV1EncoderPanel(QWidget):
                 self._lbl_saved.setText(
                     f"Space Saved: {mb/1024:.2f} GB" if mb > 1024 else f"Space Saved: {mb:.1f} MB")
                 self._add_log(f"DONE: {os.path.basename(in_p)} | Saved {saved//(1024*1024)} MB")
+                debug(UTILITY_MASS_AV1_ENCODER, f"Done: {os.path.basename(in_p)} -> {os.path.basename(out_p)}, saved {saved//(1024*1024)} MB")
                 if self._chk_del1.isChecked() and self._chk_del2.isChecked():
                     try:
                         os.remove(in_p)
                         self._add_log(f"Deleted: {os.path.basename(in_p)}")
+                        debug(UTILITY_MASS_AV1_ENCODER, f"Deleted source: {in_p}")
                     except Exception as e:
                         self._add_log(f"Delete error: {e}")
+                        debug(UTILITY_MASS_AV1_ENCODER, f"Delete error: {in_p} — {e}")
             except Exception:
                 pass
         elif not success:
-            self._add_log(f"FAILED: {os.path.basename(in_p) if in_p else '?'}")
+            bn = os.path.basename(in_p) if in_p else "?"
+            self._add_log(f"FAILED: {bn}")
+            debug(UTILITY_MASS_AV1_ENCODER, f"Encode FAILED: {in_p or '?'}")
 
         f_size = self._queue_sizes.get(in_p, 0.0)
         self._done_bytes += f_size
