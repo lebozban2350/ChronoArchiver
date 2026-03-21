@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [1.0.6] - 2026-03-21
+### Added
+- **AI Scanner**: Migrated animal detection to native OpenCV DNN using TFLite. This eliminates the heavy `mediapipe` dependency and reduces the installation footprint.
+- **UI Logic**: Transitioned AI model downloads to a manual, user-triggered flow via a new "Download Models" button.
+- **Packaging**: Simplified AUR dependencies by removing `python-mediapipe`, `python-sounddevice`, and `python-send2trash`.
+
+### Fixed
+- **Performance**: Optimized startup time by removing automatic background model verification/download on every launch.
+- **Dependency Map**: Cleaned up `requirements.txt` and packaging scripts to reflect the leaner architecture.
+
 ## [1.0.5] - 2026-03-21
 ### Added
 - **AI Scanner**: Integrated `ModelManager` for mandatory SHA-256 integrity verification on launch. The engine now verifies model health and automatically restores corrupt models before allowing a scan.

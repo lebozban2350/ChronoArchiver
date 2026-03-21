@@ -1,9 +1,6 @@
 import os
 import sys
 import cv2
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
 import threading
 import time
 import pathlib
@@ -167,26 +164,35 @@ class ScannerEngine:
         return faces is not None
 
     def _init_animal_detector(self):
-        # MediaPipe Tasks
+        """Initialize animal detector using OpenCV DNN with TFLite."""
         model_path = self._get_model_path('efficientdet_lite0.tflite')
-        base_options = python.BaseOptions(model_asset_path=model_path)
-        options = vision.ObjectDetectorOptions(base_options=base_options, score_threshold=0.4, max_results=5)
-        return vision.ObjectDetector.create_from_options(options)
+        net = cv2.dnn.readNetFromTFLite(model_path)
+        return net
 
-    def _detect_animal(self, detector, image):
-        # Returns True if Cat, Dog, Bird etc.
+    def _detect_animal(self, net, image):
+        """Performs animal detection using OpenCV DNN."""
+        # Preprocessing: EfficientDet Lite0 expects 320x320
+        blob = cv2.dnn.blobFromImage(image, 1.0, (320, 320), swapRB=True, crop=False)
         
-        # Convert to MP Image
-        img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+        # NHWC vs NCHW: blobFromImage returns NCHW, but TFLite usually expects NHWC.
+        # OpenCV's TFLite backend handles this conversion internally if possible.
+        net.setInput(blob)
         
-        detection_result = detector.detect(mp_image)
+        # EfficientDet usually outputs 4 tensors or a combined one.
+        # In recent OpenCV, forward() typically returns the detection output [1, 1, N, 7]
+        detections = net.forward()
         
-        animal_labels = {'cat', 'dog', 'bird', 'horse', 'sheep', 'cow', 'bear', 'zebra', 'giraffe'}
+        # COCO-based indices for animal_labels (cat, dog, bird, horse, sheep, cow, bear, zebra, giraffe)
+        # bird: 16, cat: 17, dog: 18, horse: 19, sheep: 20, cow: 21, bear: 23, zebra: 24, giraffe: 25
+        animal_ids = {16, 17, 18, 19, 20, 21, 23, 24, 25}
         
-        for detection in detection_result.detections:
-            for category in detection.categories:
-                if category.category_name in animal_labels:
+        # detections is [1, 1, 100, 7]
+        # [0, 0, i, 1] -> class_id, [0, 0, i, 2] -> score
+        for i in range(detections.shape[2]):
+            score = detections[0, 0, i, 2]
+            if score > 0.4:
+                class_id = int(detections[0, 0, i, 1])
+                if class_id in animal_ids:
                     return True
         return False
 

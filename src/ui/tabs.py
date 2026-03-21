@@ -214,7 +214,10 @@ class AIScannerTab(ctk.CTkFrame):
         self.btn_scan = ctk.CTkButton(self.top_frame, text="START SCAN", font=FONT_MAIN, corner_radius=6, fg_color=ACCENT, hover_color="#5a8ff0", command=self.start_scan)
         self.btn_scan.pack(side="right", padx=10)
         
-        self.lbl_model_status = ctk.CTkLabel(self.top_frame, text="Verifying AI Models...", font=FONT_MAIN, text_color=TEXT_MUTED)
+        self.btn_download = ctk.CTkButton(self.top_frame, text="Download Models", font=FONT_MAIN, corner_radius=6, fg_color="#27ae60", hover_color="#2ecc71", command=self.start_model_download)
+        # We'll pack this only if models are missing
+        
+        self.lbl_model_status = ctk.CTkLabel(self.top_frame, text="Checking AI Models...", font=FONT_MAIN, text_color=TEXT_MUTED)
         self.lbl_model_status.pack(side="right", padx=10)
         
         self.btn_scan.configure(state="disabled")
@@ -282,32 +285,46 @@ class AIScannerTab(ctk.CTkFrame):
         self.lbl_status = ctk.CTkLabel(self.footer, text="Ready", text_color=TEXT_MUTED)
         self.lbl_status.pack(side="left", padx=10)
 
-        # Start initial model check
-        threading.Thread(target=self._init_model_check, daemon=True).start()
+        # Initial passive check (no auto-download)
+        self._init_model_check()
+
+    def start_model_download(self):
+        """Manually triggered model download flow."""
+        self.btn_download.configure(state="disabled")
+        self.lbl_model_status.configure(text="Downloading AI Models...", text_color=ACCENT)
+        
+        def run():
+            def on_dl_progress(current, total, filename):
+                percent = int((current / total) * 100) if total > 0 else 0
+                self.after(0, lambda: self.lbl_model_status.configure(text=f"Downloading {filename}: {percent}%"))
+            
+            success = self.model_manager.download_models(progress_callback=on_dl_progress)
+            if not success:
+                self.after(0, lambda: messagebox.showerror("Download Failed", "Check your connection and try again."))
+                self.after(0, lambda: self.btn_download.configure(state="normal"))
+            
+            self.after(0, self._init_model_check)
+
+        threading.Thread(target=run, daemon=True).start()
 
     def _init_model_check(self):
-        """Background thread to verify/download models on startup."""
+        """Passive check only. Does NOT download automatically."""
         try:
             if not self.model_manager.is_up_to_date():
-                self.after(0, lambda: self.lbl_model_status.configure(text="Downloading AI Models...", text_color=ACCENT))
-                
-                def on_dl_progress(current, total, filename):
-                    percent = int((current / total) * 100) if total > 0 else 0
-                    self.after(0, lambda: self.lbl_model_status.configure(text=f"Downloading {filename}: {percent}%"))
-                
-                success = self.model_manager.download_models(progress_callback=on_dl_progress)
-                if not success:
-                    self.after(0, lambda: messagebox.showerror("Error", "Failed to download AI detection models. Scanner will be unavailable."))
-                    self.after(0, lambda: self.lbl_model_status.configure(text="Models Missing", text_color="#c0392b"))
-                    return
+                self.after(0, lambda: self.lbl_model_status.configure(text="Models Missing", text_color="#c0392b"))
+                self.after(0, lambda: self.btn_download.pack(side="right", padx=10))
+                self.after(0, lambda: self.btn_scan.configure(state="disabled"))
+                self.after(0, lambda: self.btn_download.configure(state="normal"))
+                return
             
-            # Final verification
+            # Models are valid
+            self.after(0, lambda: self.btn_download.pack_forget())
             self.after(0, lambda: self.lbl_model_status.configure(text="SHA-256 Verified", text_color="#27ae60"))
-            self.after(3000, lambda: self.lbl_model_status.pack_forget()) # Hide after 3 seconds
+            self.after(3000, lambda: self.lbl_model_status.pack_forget())
             self.after(0, lambda: self.btn_scan.configure(state="normal"))
             
         except Exception as e:
-            self.file_logger.error(f"Error in model verification thread: {e}")
+            self.file_logger.error(f"Error in model check: {e}")
             self.after(0, lambda: self.lbl_model_status.configure(text="Linkage Error", text_color="#c0392b"))
 
     def on_preview_resize(self, event):

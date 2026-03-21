@@ -1,5 +1,4 @@
 customtkinter
-mediapipe
 opencv-python
 piexif
 Pillow
