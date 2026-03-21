@@ -2,7 +2,7 @@
 
 **ChronoArchiver** is a unified, high-performance media management suite designed for long-term data preservation and optimization. It combines intelligent data archival with professional-grade video transcoding, providing a seamless workflow for modern digital libraries.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-1.0.4-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![AUR](https://img.shields.io/aur/version/chronoarchiver.svg)](https://aur.archlinux.org/packages/chronoarchiver)
 
