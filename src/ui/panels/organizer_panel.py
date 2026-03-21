@@ -17,6 +17,7 @@ from PySide6.QtCore import Qt, Signal, QObject
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.organizer import OrganizerEngine
+from core.debug_logger import debug, UTILITY_MEDIA_ORGANIZER
 
 
 class _Signals(QObject):
@@ -187,6 +188,7 @@ class MediaOrganizerPanel(QWidget):
         path = self._edit_path.text().strip()
         if not path or not os.path.isdir(path):
             self._add_log("ERROR: Invalid source directory.")
+            debug(UTILITY_MEDIA_ORGANIZER, f"ERROR: Invalid source directory: {path or '(empty)'}")
             return
 
         exts_override = self._edit_exts.text().strip()
@@ -206,13 +208,16 @@ class MediaOrganizerPanel(QWidget):
                 exts.update({'.mp4', '.mov', '.avi', '.webm', '.mkv', '.m4v', '.wmv'})
         if not exts:
             self._add_log("ERROR: Select at least one media type or specify extensions.")
+            debug(UTILITY_MEDIA_ORGANIZER, "ERROR: No media types selected")
             return
 
         target = self._edit_target.text().strip() or None
         if target and not os.path.isdir(target):
             self._add_log("ERROR: Target directory does not exist.")
+            debug(UTILITY_MEDIA_ORGANIZER, f"ERROR: Target directory does not exist: {target}")
             return
 
+        debug(UTILITY_MEDIA_ORGANIZER, f"Organization start: path={path}, dry_run={self._chk_dry.isChecked()}, flat={self._chk_flat.isChecked()}, target={target or 'in-place'}")
         self._btn_start.setEnabled(False)
         self._btn_stop.setEnabled(True)
 
@@ -242,7 +247,9 @@ class MediaOrganizerPanel(QWidget):
         threading.Thread(target=_run, daemon=True).start()
 
     def _stop_job(self):
-        if self._engine: self._engine.cancel()   # cancel(), not stop()
+        if self._engine:
+            self._engine.cancel()
+            debug(UTILITY_MEDIA_ORGANIZER, "Organization stopped by user")
         self._btn_stop.setEnabled(False)
 
     def _on_progress(self, val):
@@ -263,6 +270,7 @@ class MediaOrganizerPanel(QWidget):
         moved, skipped, duplicates = stats
         self._lbl_status.setText(f"Moved: {moved} | Skipped: {skipped} | Duplicates: {duplicates}")
         self._add_log("Batch organization complete.")
+        debug(UTILITY_MEDIA_ORGANIZER, f"Organization complete: moved={moved}, skipped={skipped}, duplicates={duplicates}")
 
     def _add_log(self, msg):
         sb = self._log_list.verticalScrollBar()

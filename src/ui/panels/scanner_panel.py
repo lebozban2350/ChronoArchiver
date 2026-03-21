@@ -20,6 +20,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.scanner import ScannerEngine
 from core.model_manager import ModelManager
+from core.debug_logger import debug, UTILITY_AI_MEDIA_SCANNER
 
 
 class _Signals(QObject):
@@ -219,13 +220,16 @@ class AIScannerPanel(QWidget):
             self._lbl_model.setText("Models Ready")
             self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
             self._btn_setup.hide()
+            debug(UTILITY_AI_MEDIA_SCANNER, "Models check: ready")
         else:
             self._lbl_model.setText("ResNet Needs Setup")
             self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
             self._btn_setup.show()
+            debug(UTILITY_AI_MEDIA_SCANNER, f"Models check: missing {self._model_mgr.get_missing_models()}")
 
     def _setup_models(self):
         self._add_log("Starting model setup...")
+        debug(UTILITY_AI_MEDIA_SCANNER, "Model setup started")
         def _progress(downloaded, total_size, filename):
             if total_size > 0:
                 pct = int(downloaded / total_size * 100)
@@ -233,7 +237,8 @@ class AIScannerPanel(QWidget):
             else:
                 self._sig.log_msg.emit(f"Downloading: {filename}...")
         def _task():
-            self._model_mgr.download_models(_progress)
+            ok = self._model_mgr.download_models(_progress)
+            debug(UTILITY_AI_MEDIA_SCANNER, f"Model setup complete: ok={ok}")
             QTimer.singleShot(0, self._check_models)
         threading.Thread(target=_task, daemon=True).start()
 
@@ -245,8 +250,11 @@ class AIScannerPanel(QWidget):
     def _run_job(self):
         path = self._edit_path.text().strip()
         if not path or not os.path.isdir(path):
-            self._add_log("ERROR: Invalid directory."); return
+            self._add_log("ERROR: Invalid directory.")
+            debug(UTILITY_AI_MEDIA_SCANNER, f"ERROR: Invalid directory: {path or '(empty)'}")
+            return
 
+        debug(UTILITY_AI_MEDIA_SCANNER, f"Scan start: path={path}, recursive={self._chk_recursive.isChecked()}, keep_animals={self._chk_animals.isChecked()}")
         self._btn_start.setEnabled(False)
         self._btn_stop.setEnabled(True)
 
@@ -265,7 +273,9 @@ class AIScannerPanel(QWidget):
         threading.Thread(target=_run, daemon=True).start()
 
     def _stop_job(self):
-        if self._engine: self._engine.cancel() 
+        if self._engine:
+            self._engine.cancel()
+            debug(UTILITY_AI_MEDIA_SCANNER, "Scan stopped by user")
         self._is_running = False
         self._btn_stop.setEnabled(False)
 
@@ -279,6 +289,8 @@ class AIScannerPanel(QWidget):
         self._bar.setFormat("Complete")
         self._lbl_status.setText("Scan Complete")
         self._add_log("Batch scan complete.")
+        if self._engine:
+            debug(UTILITY_AI_MEDIA_SCANNER, f"Scan finished: keep={len(self._engine.keep_list)}, move={len(self._engine.others_list)}")
         self._populate_results()
 
     def _populate_results(self):
@@ -319,10 +331,12 @@ class AIScannerPanel(QWidget):
     def _move_others(self):
         if not self._engine or not self._engine.others_list:
             self._add_log("No files to move. Run a scan first.")
+            debug(UTILITY_AI_MEDIA_SCANNER, "Move Files: no files to move")
             return
         base = self._edit_path.text().strip()
         if not base or not os.path.isdir(base):
             self._add_log("ERROR: Invalid source path.")
+            debug(UTILITY_AI_MEDIA_SCANNER, f"Move Files ERROR: invalid base path {base}")
             return
         dest_dir = os.path.join(base, "Archived_Others")
         os.makedirs(dest_dir, exist_ok=True)
@@ -334,13 +348,16 @@ class AIScannerPanel(QWidget):
                     moved += 1
                 except Exception as e:
                     self._add_log(f"Move failed: {p} — {e}")
+                    debug(UTILITY_AI_MEDIA_SCANNER, f"Move failed: {p} — {e}")
         self._add_log(f"Moved {moved} files to {dest_dir}.")
+        debug(UTILITY_AI_MEDIA_SCANNER, f"Move Files: moved {moved} to {dest_dir}")
         self._list_move.clear()
         self._engine.others_list.clear()
 
     def _export_csv(self):
         if not self._engine:
             self._add_log("Run a scan first.")
+            debug(UTILITY_AI_MEDIA_SCANNER, "Export CSV: no scan results")
             return
         path, _ = QFileDialog.getSaveFileName(self, "Export CSV", "", "CSV (*.csv)")
         if not path:
@@ -354,8 +371,10 @@ class AIScannerPanel(QWidget):
                 for p in self._engine.others_list:
                     w.writerow(["Move", p])
             self._add_log(f"Exported to {path}.")
+            debug(UTILITY_AI_MEDIA_SCANNER, f"Export CSV: {path} (keep={len(self._engine.keep_list)}, move={len(self._engine.others_list)})")
         except Exception as e:
             self._add_log(f"Export failed: {e}")
+            debug(UTILITY_AI_MEDIA_SCANNER, f"Export CSV failed: {e}")
 
     def _add_log(self, msg):
         sb = self._log_list.verticalScrollBar()

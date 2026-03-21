@@ -6,6 +6,11 @@ import logging
 import hashlib
 import tarfile
 
+try:
+    from .debug_logger import debug, UTILITY_AI_MEDIA_SCANNER
+except ImportError:
+    from core.debug_logger import debug, UTILITY_AI_MEDIA_SCANNER
+
 class ModelManager:
     """Handles checking and downloading AI models for the scanner."""
     
@@ -66,8 +71,10 @@ class ModelManager:
         """Downloads all missing/corrupt models. progress_callback(current_size, total_size, filename)"""
         missing = self.get_missing_models()
         if not missing:
+            debug(UTILITY_AI_MEDIA_SCANNER, "Model download: all models present")
             return True
 
+        debug(UTILITY_AI_MEDIA_SCANNER, f"Model download start: missing={missing}")
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.stop_event.clear()
 
@@ -106,6 +113,7 @@ class ModelManager:
                 if self.stop_event.is_set():
                     if dl_dest.exists(): dl_dest.unlink()
                     self.logger.info(f"Download cancelled for {info['filename']}")
+                    debug(UTILITY_AI_MEDIA_SCANNER, f"Model download cancelled: {info['filename']}")
                     return False
 
                 # Extract tar if needed
@@ -124,16 +132,20 @@ class ModelManager:
                 # Verify after download
                 if not self.verify_hash(dest, info["sha256"]):
                     self.logger.error(f"Integrity check failed for {info['filename']}")
+                    debug(UTILITY_AI_MEDIA_SCANNER, f"Model hash mismatch: {info['filename']}")
                     if dest.exists(): dest.unlink()
                     return False
 
             except Exception as e:
                 self.logger.error(f"Failed to download {info['filename']}: {e}")
+                debug(UTILITY_AI_MEDIA_SCANNER, f"Model download failed: {info['filename']} — {e}")
                 if dest.exists(): dest.unlink()
                 if 'dl_dest' in locals() and dl_dest.exists(): dl_dest.unlink()
                 return False
 
-        return self.is_up_to_date()
+        ok = self.is_up_to_date()
+        debug(UTILITY_AI_MEDIA_SCANNER, f"Model download complete: ok={ok}")
+        return ok
 
     def cancel(self):
         self.stop_event.set()

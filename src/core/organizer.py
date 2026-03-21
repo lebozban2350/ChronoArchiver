@@ -142,6 +142,7 @@ class OrganizerEngine:
         for root, _, files in os.walk(source_dir):
             if self.cancel_flag:
                 self.logger("Operation Cancelled.")
+                debug(UTILITY_MEDIA_ORGANIZER, "Operation cancelled by user")
                 break
                 
             for file in files:

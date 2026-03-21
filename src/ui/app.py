@@ -26,7 +26,7 @@ from ui.panels.encoder_panel import AV1EncoderPanel
 from ui.panels.scanner_panel import AIScannerPanel
 from core.updater import ApplicationUpdater
 from core.logger import setup_logger
-from core.debug_logger import get_log_path
+from core.debug_logger import get_log_path, debug, UTILITY_APP
 
 # Global Stylesheet (Mass AV1 Encoder QSS)
 QSS = """
@@ -226,6 +226,7 @@ class ChronoArchiverApp(QMainWindow):
 
         # Init
         self._switch_panel(0)
+        debug(UTILITY_APP, f"Application started v{__version__}")
         QTimer.singleShot(2000, self._run_updater)
 
     def _create_nav_btn(self, text, index):

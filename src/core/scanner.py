@@ -11,6 +11,11 @@ import pathlib
 import queue
 from typing import List, Callable, Optional
 
+try:
+    from .debug_logger import debug, UTILITY_AI_MEDIA_SCANNER
+except ImportError:
+    from core.debug_logger import debug, UTILITY_AI_MEDIA_SCANNER
+
 class ScannerEngine:
     """
     AI Media Scanner using OpenCV YuNet (Face) and SSD MobileNet (Animals).
@@ -37,12 +42,15 @@ class ScannerEngine:
                  animal_threshold: float = 0.4):
         if not OPENCV_AVAILABLE:
             self.logger("Error: OpenCV (python-opencv) is not installed. AI features are disabled.")
+            debug(UTILITY_AI_MEDIA_SCANNER, "ERROR: OpenCV not installed")
             return
 
         if not os.path.exists(directory):
             self.logger(f"Error: Directory not found: {directory}")
+            debug(UTILITY_AI_MEDIA_SCANNER, f"ERROR: Directory not found: {directory}")
             return
 
+        debug(UTILITY_AI_MEDIA_SCANNER, f"Scan start: dir={directory}, recursive={include_subfolders}, keep_animals={keep_animals}, threshold={animal_threshold}")
         self.others_list.clear()
         self.keep_list.clear()
         self.stop_event.clear()
@@ -60,6 +68,7 @@ class ScannerEngine:
                 break
 
         total = len(all_files)
+        debug(UTILITY_AI_MEDIA_SCANNER, f"Found {total} images, initializing models")
         # Always GPU/OpenCV for Face
         self.logger(f"Found {total} images. Starting Pipeline (GPU/OpenCV)...")
         
@@ -79,6 +88,7 @@ class ScannerEngine:
                 
         except Exception as e:
             self.logger(f"Model Init Failed: {e}")
+            debug(UTILITY_AI_MEDIA_SCANNER, f"ERROR: Model init failed — {e}")
             return
 
         # Pipeline
@@ -155,8 +165,10 @@ class ScannerEngine:
 
         if self.stop_event.is_set():
             self.logger("Scan Cancelled.")
+            debug(UTILITY_AI_MEDIA_SCANNER, "Scan cancelled by user")
         else:
             self.logger(f"Done. Subjects Found: {len(self.keep_list)}, Others: {len(self.others_list)}")
+            debug(UTILITY_AI_MEDIA_SCANNER, f"Scan complete: keep={len(self.keep_list)}, move={len(self.others_list)}")
 
     def _init_opencv_face(self):
         model = self._get_model_path('face_detection_yunet_2023mar.onnx')

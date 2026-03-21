@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.12] - 2026-03-21
+### Changed
+- **Debug logging**: Filename now includes app-start date/time (`chronoarchiver_debug_YYYY-MM-DD_HH-MM-SS.log`); keeps last 3 instances.
+- **Debug logging**: Extended events across the app — Media Organizer, AI Media Scanner, Model Manager, app startup.
+
 ## [2.0.11] - 2026-03-21
 ### Changed
 - **Mass AV1 Encoder**: Output format fixed to `.mp4`; output naming `stem_av1.mp4` (files with `_av1` before extension are skipped on rescan). Removed Output dropdown from Configuration.

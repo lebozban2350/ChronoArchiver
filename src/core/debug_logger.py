@@ -1,20 +1,24 @@
 """
 debug_logger.py — Centralized DEBUG logging for ChronoArchiver.
-Single file, timestamps, utility name, rotation (keep last 3 files).
+Single file per session, timestamps, utility name. Filenames include date/time;
+keeps last 3 instances.
 """
 
 import os
+import glob
 import platformdirs
 from datetime import datetime
 
 APP_NAME = "ChronoArchiver"
-DEBUG_BASENAME = "chronoarchiver_debug.log"
+DEBUG_PREFIX = "chronoarchiver_debug"
+DEBUG_SUFFIX = ".log"
 MAX_DEBUG_FILES = 3
 
 _log_dir = None
 _log_path = None
 _file = None
 
+UTILITY_APP = "ChronoArchiver"
 UTILITY_MEDIA_ORGANIZER = "Media Organizer"
 UTILITY_MASS_AV1_ENCODER = "Mass AV1 Encoder"
 UTILITY_AI_MEDIA_SCANNER = "AI Media Scanner"
@@ -26,28 +30,22 @@ def _ensure_init():
         return
     _log_dir = platformdirs.user_log_dir(APP_NAME, "UnDadFeated")
     os.makedirs(_log_dir, exist_ok=True)
-    _log_path = os.path.join(_log_dir, DEBUG_BASENAME)
-    _rotate()
+    _prune_old_logs()
+    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    _log_path = os.path.join(_log_dir, f"{DEBUG_PREFIX}_{ts}{DEBUG_SUFFIX}")
     _file = open(_log_path, "a", encoding="utf-8")
 
 
-def _rotate():
-    """Rotate debug logs: keep current + 2 older = 3 files total."""
-    base = os.path.join(_log_dir, DEBUG_BASENAME)
-    # Delete oldest (.2); shift .1 -> .2, current -> .1; then open fresh current
-    if os.path.exists(f"{base}.{MAX_DEBUG_FILES - 1}"):
+def _prune_old_logs():
+    """Keep only the last MAX_DEBUG_FILES instances (by mtime)."""
+    pattern = os.path.join(_log_dir, f"{DEBUG_PREFIX}_*{DEBUG_SUFFIX}")
+    files = glob.glob(pattern)
+    if len(files) <= MAX_DEBUG_FILES:
+        return
+    files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    for p in files[MAX_DEBUG_FILES:]:
         try:
-            os.remove(f"{base}.{MAX_DEBUG_FILES - 1}")
-        except OSError:
-            pass
-    if os.path.exists(f"{base}.1"):
-        try:
-            os.rename(f"{base}.1", f"{base}.2")
-        except OSError:
-            pass
-    if os.path.exists(base):
-        try:
-            os.rename(base, f"{base}.1")
+            os.remove(p)
         except OSError:
             pass
 
