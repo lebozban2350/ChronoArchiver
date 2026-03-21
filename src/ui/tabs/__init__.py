@@ -5,7 +5,7 @@ import time
 import pathlib
 import os
 import sys
-from ui.app import BG_PRIMARY, BG_SECONDARY, BG_TERTIARY, ACCENT, TEXT_PRIMARY, TEXT_MUTED, SEPARATOR, FONT_MAIN, FONT_HEADER
+from ui.theme import BG_PRIMARY, BG_SECONDARY, BG_TERTIARY, ACCENT, TEXT_PRIMARY, TEXT_MUTED, SEPARATOR, FONT_MAIN, FONT_HEADER
 import shutil
 from PIL import Image
 from core.organizer import OrganizerEngine

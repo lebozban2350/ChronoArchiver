@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [1.0.14] - 2026-03-21
+### Added
+- **Transparent Premium Icon**: Re-generated the application icon with a pure transparent background and tighter framing for a more professional look.
+### Fixed
+- **Circular Import**: Resolved a critical `ImportError` by extracting UI constants into `src/ui/theme.py` and refactoring the `ui.tabs` module into a proper package.
+
+
 ## [1.0.13] - 2026-03-21
 ### Added
 - **Brand Catchline**: Integrated the official catchline "Time to Archive!" across the UI (title bar and log header), `README.md`, and packaging metadata.

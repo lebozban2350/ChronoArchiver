@@ -6,7 +6,7 @@ from tkinter import filedialog, messagebox
 import concurrent.futures
 from core.av1_engine import AV1EncoderEngine, EncodingProgress
 from core.av1_settings import AV1Settings
-from ui.app import BG_PRIMARY, BG_SECONDARY, BG_TERTIARY, ACCENT, TEXT_PRIMARY, TEXT_MUTED, SEPARATOR, FONT_MAIN, FONT_HEADER
+from ui.theme import BG_PRIMARY, BG_SECONDARY, BG_TERTIARY, ACCENT, TEXT_PRIMARY, TEXT_MUTED, SEPARATOR, FONT_MAIN, FONT_HEADER
 
 class AV1EncoderTab(ctk.CTkFrame):
     def __init__(self, master, log_callback, file_logger):
