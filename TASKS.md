@@ -5,19 +5,26 @@
   - [x] Make Console the only vertically scalable element.
   - [x] AI Scanner left unchanged.
 
-## [x] v2.0.0 - PySide6 Migration
-  - [x] Port UI Layer to PySide6.
-  - [x] Implement panel-based architecture.
-  - [x] Match Mass AV1 Encoder visual style.
-  - [x] Headless updater rewrite.
-  - [x] Version bump to v2.0.0.
-
 - [x] **v2.0.2: Code Audit Fixes (2026-03-21)**
   - [x] Fix `_job_speeds` list corruption in `AV1EncoderPanel` (QLabel overwritten with float).
   - [x] Fix `ModelManager` progress callback wrapper in `AIScannerPanel` for `Signal(str)` compatibility.
   - [x] Correct malformed docstrings (`""""` → `"""`) in UI modules and updater.
   - [x] Remove stray quote in `_on_telemetry` comment.
   - [x] Bump version to 2.0.2 and update `CHANGELOG.md`/`CONVERSATION_LOG.md`.
+
+- [x] **v2.0.1: Migration Bug Fixes (2026-03-21)**
+  - [x] Fix `ModelManager` path resolution for core modules.
+  - [x] Correct `OrganizerEngine` progress callback signature.
+  - [x] Fix engine control API mismatches (`cancel()` vs `stop()`).
+  - [x] Prune heavy dependencies (`torch`, `torchvision`, `tqdm`) from `requirements.txt`.
+  - [x] Bump version to 2.0.1 and synchronize GitHub/AUR.
+
+- [x] **v2.0.0: PySide6 Migration (2026-03-21)**
+  - [x] Port UI Layer to PySide6 with "Mass AV1 Encoder v12" aesthetic.
+  - [x] Implement panel-based architecture using `QStackedWidget`.
+  - [x] Rewrote headless updater for PySide6 integration.
+  - [x] Deleted legacy CustomTkinter files and updated requirements.
+  - [x] Initial v2.0.0 release on GitHub and AUR.
 
 - [x] **v1.0.26: AV1 Tab Layout Optimization (2026-03-21)**
   - [x] Implement ultra-compact layout (strip ~150px).
