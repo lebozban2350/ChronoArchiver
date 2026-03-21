@@ -1,6 +1,10 @@
 import os
 import sys
-import cv2
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
 import threading
 import time
 import pathlib
@@ -30,6 +34,10 @@ class ScannerEngine:
         self.stop_event.set()
 
     def run_scan(self, directory: str, include_subfolders: bool = True, keep_animals: bool = False):
+        if not OPENCV_AVAILABLE:
+            self.logger("Error: OpenCV (python-opencv) is not installed. AI features are disabled.")
+            return
+
         if not os.path.exists(directory):
             self.logger(f"Error: Directory not found: {directory}")
             return

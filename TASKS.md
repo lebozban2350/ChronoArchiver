@@ -1,5 +1,10 @@
 # TASKS
 
+- [x] **v1.0.23: Footprint Optimization (2026-03-21)**
+  - [x] Move `python-opencv` to `optdepends` in `PKGBUILD` (saves 320MB).
+  - [x] Implement runtime `OPENCV_AVAILABLE` check in `scanner.py`.
+  - [x] Bump version to 1.0.23 and synchronize GitHub/AUR.
+
 - [x] **v1.0.22: On-Demand Models Fix (2026-03-21)**
   - [x] Scrub binary models from repository (`git rm *.tflite *.onnx`).
   - [x] Add `.gitignore` to `src/core/models/`.
