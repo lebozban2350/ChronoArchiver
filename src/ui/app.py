@@ -171,12 +171,19 @@ class ChronoArchiverApp(QMainWindow):
         self.btn_update.clicked.connect(self._run_updater)
         self.nav_layout.addWidget(self.btn_update)
 
+        self.btn_donate = QPushButton("☕ Buy me a coffee")
+        self.btn_donate.setStyleSheet("font-size: 8px; color: #6b7280; border:none; background:transparent;")
+        self.btn_donate.setCursor(Qt.PointingHandCursor)
+        self.btn_donate.setToolTip("Support development via PayPal ($5 USD)")
+        self.btn_donate.clicked.connect(self._open_donate)
+        self.nav_layout.addWidget(self.btn_donate)
+
         self.layout.addWidget(self.nav_bar)
 
         # ── STACKED PANELS ──
         self.stack = QStackedWidget()
         self.panel_org = MediaOrganizerPanel(log_callback=self._log)
-        self.panel_enc = AV1EncoderPanel(log_callback=self._log)
+        self.panel_enc = AV1EncoderPanel(log_callback=self._log, metrics_callback=self._on_encoder_metrics)
         self.panel_scn = AIScannerPanel(log_callback=self._log)
         
         self.stack.addWidget(self.panel_org)
@@ -196,6 +203,10 @@ class ChronoArchiverApp(QMainWindow):
         self.lbl_status.setStyleSheet("font-size: 8px; color: #4b5563; text-transform: uppercase;")
         self.status_layout.addWidget(self.lbl_status)
         self.status_layout.addStretch()
+
+        self.lbl_metrics = QLabel("")
+        self.lbl_metrics.setStyleSheet("font-size: 8px; color: #6b7280; font-weight: 600;")
+        self.status_layout.addWidget(self.lbl_metrics)
         
         self.layout.addWidget(self.status_bar)
 
@@ -216,11 +227,22 @@ class ChronoArchiverApp(QMainWindow):
         for i, btn in enumerate(self.nav_btns):
             btn.setProperty("active", i == index)
             btn.setChecked(i == index)
-            btn.setStyle(btn.style()) # Refresh style
+            btn.setStyle(btn.style())  # Refresh style
+        # Show metrics only when on AI Encoder panel
+        self.lbl_metrics.setVisible(index == 1)
+        if index != 1:
+            self.lbl_metrics.setText("")
 
     def _log(self, msg):
         self.logger.info(msg)
         self.lbl_status.setText(msg[:100].upper())
+
+    def _on_encoder_metrics(self, cpu, gpu, ram):
+        self.lbl_metrics.setText(f"  CPU {cpu}  ·  GPU {gpu}  ·  RAM {ram}")
+
+    def _open_donate(self):
+        url = "https://www.paypal.com/donate?business=jscheema%40gmail.com&amount=5&currency_code=USD&locale.x=en_US"
+        webbrowser.open(url)
 
     def _run_updater(self):
         self.btn_update.setText("CHECKING...")

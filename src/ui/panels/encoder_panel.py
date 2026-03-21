@@ -13,7 +13,7 @@ import subprocess
 import psutil
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QCheckBox,
     QProgressBar, QFileDialog, QComboBox, QSlider,
     QListWidget, QSizePolicy,
@@ -38,9 +38,10 @@ class _Signals(QObject):
 
 class AV1EncoderPanel(QWidget):
 
-    def __init__(self, log_callback=None, parent=None):
+    def __init__(self, log_callback=None, metrics_callback=None, parent=None):
         super().__init__(parent)
         self._log_cb  = log_callback
+        self._metrics_cb = metrics_callback
         self._sig     = _Signals()
         self._sig.progress.connect(self._on_progress)
         self._sig.details.connect(self._on_details)
@@ -79,10 +80,12 @@ class AV1EncoderPanel(QWidget):
         root.setSpacing(2)
 
         # ── COMMAND STRIP ─────────────────────────────────────────────────────
-        h_strip = QHBoxLayout()
-        h_strip.setSpacing(6)
+        # Layout: [Directories (top) | Options (right, full height)]
+        #         [Configuration (bottom) |
+        grid_strip = QGridLayout()
+        grid_strip.setSpacing(6)
 
-        # 1. Directories
+        # 1. Directories (top-left)
         grp_dir = QGroupBox("Directories")
         v_dir = QVBoxLayout(grp_dir)
         v_dir.setContentsMargins(8, 2, 8, 2); v_dir.setSpacing(1)
@@ -122,9 +125,9 @@ class AV1EncoderPanel(QWidget):
                                styleSheet=_shint))
 
         grp_dir.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        h_strip.addWidget(grp_dir, 11)
+        grid_strip.addWidget(grp_dir, 0, 0)
 
-        # 2. Configuration
+        # 2. Configuration (bottom-left)
         grp_cfg = QGroupBox("Configuration")
         v_cfg = QVBoxLayout(grp_cfg)
         v_cfg.setContentsMargins(8, 4, 8, 4); v_cfg.setSpacing(4)
@@ -184,9 +187,9 @@ class AV1EncoderPanel(QWidget):
         v_cfg.addLayout(h_a)
 
         grp_cfg.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        h_strip.addWidget(grp_cfg, 1)
+        grid_strip.addWidget(grp_cfg, 1, 0)
 
-        # 3. Options
+        # 3. Options (right, spanning Directories + Configuration)
         grp_opts = QGroupBox("Options")
         v_opts = QVBoxLayout(grp_opts)
         v_opts.setContentsMargins(8, 2, 8, 2); v_opts.setSpacing(0)
@@ -265,35 +268,10 @@ class AV1EncoderPanel(QWidget):
         v_opts.addWidget(wrap_del)
 
         grp_opts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        h_strip.addWidget(grp_opts, 1)
+        grid_strip.addWidget(grp_opts, 0, 1, 2, 1)  # Row 0-1, Col 1, span 2 rows
+        grid_strip.setColumnStretch(0, 1)  # Directories + Configuration expand horizontally
 
-        # 4. Metrics
-        grp_tel = QGroupBox("Metrics")
-        v_tel = QVBoxLayout(grp_tel)
-        v_tel.setContentsMargins(8, 2, 8, 2); v_tel.setSpacing(0)
-
-        self._lbl_cpu = QLabel("0%"); self._lbl_cpu.setObjectName("labelValue")
-        self._lbl_gpu = QLabel("0%"); self._lbl_gpu.setObjectName("labelValue")
-        self._lbl_ram = QLabel("-");  self._lbl_ram.setObjectName("labelValue")
-
-        _mhint = "font-size:7px; color:#333; margin-top:-1px;"
-        def _add_metric(abbr, hint, widget):
-            h = QHBoxLayout(); h.setContentsMargins(0,0,0,0); h.setSpacing(2)
-            la = QLabel(abbr); la.setFixedWidth(28)
-            la.setStyleSheet("font-size:8px; color:#666; font-weight:700;")
-            widget.setFixedWidth(45)
-            widget.setStyleSheet("font-size:9px; color:#bbb; font-weight:600;")
-            h.addWidget(la); h.addWidget(widget); h.addStretch()
-            v_tel.addLayout(h)
-            v_tel.addWidget(QLabel(hint, styleSheet=_mhint))
-
-        _add_metric("CPU", "System processor utilization", self._lbl_cpu)
-        _add_metric("GPU", "NVIDIA GPU encoder load",     self._lbl_gpu)
-        _add_metric("RAM", "Memory in use / total",        self._lbl_ram)
-
-        grp_tel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        h_strip.addWidget(grp_tel, 2)
-        root.addLayout(h_strip)
+        root.addLayout(grid_strip)
 
         # ── WORK PROGRESS ─────────────────────────────────────────────────────
         grp_work = QGroupBox("Work Progress")
@@ -660,9 +638,8 @@ class AV1EncoderPanel(QWidget):
             if self._gpu_counter >= 3:
                 self._gpu_cache   = self._get_gpu()
                 self._gpu_counter = 0
-            self._lbl_cpu.setText(f"{cpu}%")
-            self._lbl_gpu.setText(self._gpu_cache)
-            self._lbl_ram.setText(f"{ram}%")
+            if self._metrics_cb:
+                self._metrics_cb(f"{cpu}%", self._gpu_cache, f"{ram}%")
 
             if self._is_encoding and self._batch_start > 0:
                 dt = time.time() - self._batch_start

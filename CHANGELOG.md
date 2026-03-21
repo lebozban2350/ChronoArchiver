@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.4] - 2026-03-21
+### Changed
+- AI Encoder: Reorganized config layout—Directories on top, Configuration below, Options on the right spanning full height.
+- AI Encoder: Removed Metrics box; moved CPU/GPU/RAM to global footer (right-aligned, labels and values only).
+- Nav bar: Added "☕ Buy me a coffee" donate button linking to PayPal $5 USD for jscheema@gmail.com.
+
 ## [2.0.3] - 2026-03-21
 ### Fixed
 - **Linux icon display (AUR pkgrel≥2)**: Install application icon to `/usr/share/icons/hicolor/` (256x256 and 48x48) in addition to pixmaps, so GNOME/KDE and other modern desktop environments use the correct green hourglass icon instead of cached or legacy icons.
