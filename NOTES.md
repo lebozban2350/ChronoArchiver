@@ -1,6 +1,11 @@
 # NOTES.md
 
 <HISTORY_RESERVED_DO_NOT_REMOVE>
+### v1.0.18 Notes
+- **Custom Split Navigation**: Replaced `CTkTabview` with a bespoke navbar architecture. Functional tabs are left-aligned, and the **Donate** tab is right-aligned for professional layout balance.
+- **Footer-Integrated Updates**: Moved "Check for Updates" to the global footer (right-aligned).
+- **Header Cleanup**: Removed the "Time to Archive!" catchline and legacy update button from the log console header.
+- **System Sync**: Finalized v1.0.18 and synchronized across GitHub and AUR.
 
 ### v1.0.17 Notes
 - **UI Modernization**: Renamed and reordered tabs for better workflow (Media Organizer, Mass AI Encoder, AI Scan).

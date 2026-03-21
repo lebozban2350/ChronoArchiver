@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [1.0.18] - 2026-03-21
+### Added
+- **Custom Split Navigation**: Replaced the standard tab view with a bespoke navbar. Functional tools (Media Organizer, Mass AI Encoder, AI Scan) are pinned to the left, while **Donate** is pinned to the right.
+- **Footer-Integrated Updates**: Relocated the "Check for Updates" action to the global status footer for a cleaner header area.
+### Removed
+- Removed the "Time to Archive!" catchline and legacy update button from the console header to minimize visual clutter.
+
 ## [1.0.17] - 2026-03-21
 ### Added
 - **Major UI Overhaul**: Renamed and reordered tabs for better workflow (Media Organizer, Mass AI Encoder, AI Scan).

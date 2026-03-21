@@ -27,7 +27,7 @@ class App(ctk.CTk):
         
         self.updater = UpdaterEngine(self, self.log)
 
-        self.title(f"{APP_NAME} - Time to Archive! ({__version__})")
+        self.title(f"{APP_NAME} ({__version__})")
         self.geometry("1100x750") # Slightly larger for the new tab
         self.resizable(False, False)
 
@@ -51,29 +51,50 @@ class App(ctk.CTk):
         self.paned_window = tk.PanedWindow(self.main_wrapper, orient="vertical", sashwidth=6, bg=BG_PRIMARY, borderwidth=0)
         self.paned_window.pack(fill="both", expand=True, padx=0, pady=0)
 
-        # === Top Pane: Tab View ===
+        # === Top Pane: Custom Navigation & Tab View ===
         self.top_frame = ctk.CTkFrame(self.paned_window, fg_color="transparent")
         
-        self.tab_view = ctk.CTkTabview(self.top_frame, fg_color=BG_SECONDARY, segmented_button_selected_color=ACCENT)
-        self.tab_view.pack(fill="both", expand=True, padx=0, pady=0)
+        # Navbar (Custom Tab Bar)
+        self.navbar = ctk.CTkFrame(self.top_frame, fg_color="transparent", height=40)
+        self.navbar.pack(fill="x", padx=0, pady=(0, 5))
+        
+        self.nav_left = ctk.CTkFrame(self.navbar, fg_color="transparent")
+        self.nav_left.pack(side="left", fill="y")
+        
+        self.nav_right = ctk.CTkFrame(self.navbar, fg_color="transparent")
+        self.nav_right.pack(side="right", fill="y")
+        
+        # Functional Tab Buttons (Left)
+        self.nav_buttons = {}
+        tab_names = [("Media Organizer", "org"), ("Mass AI Encoder", "av1"), ("AI Scan", "ai")]
+        for text, name in tab_names:
+            btn = ctk.CTkButton(self.nav_left, text=text, width=140, height=32, corner_radius=6,
+                                fg_color="transparent", text_color=TEXT_PRIMARY, hover_color=BG_TERTIARY,
+                                command=lambda n=name: self.show_tab(n))
+            btn.pack(side="left", padx=(0, 5))
+            self.nav_buttons[name] = btn
+            
+        # Donate Button (Right)
+        self.btn_donate = ctk.CTkButton(self.nav_right, text="Donate", width=100, height=32, corner_radius=6,
+                                        fg_color="transparent", text_color=ACCENT, hover_color=BG_TERTIARY,
+                                        command=lambda: self.show_tab("donate"))
+        self.btn_donate.pack(side="right")
+        self.nav_buttons["donate"] = self.btn_donate
 
-        self.tab_org = self.tab_view.add("Media Organizer")
-        self.tab_av1 = self.tab_view.add("Mass AI Encoder")
-        self.tab_ai = self.tab_view.add("AI Scan")
-        self.tab_donate = self.tab_view.add("Donate")
+        # Content Container
+        self.content_frame = ctk.CTkFrame(self.top_frame, fg_color=BG_SECONDARY, corner_radius=6)
+        self.content_frame.pack(fill="both", expand=True)
 
-        # Init Tabs
-        self.org_frame = OrganizerTab(self.tab_org, self.log, self.logger, self.set_status, self.set_background)
-        self.org_frame.pack(fill="both", expand=True)
-
-        self.av1_frame = AV1EncoderTab(self.tab_av1, self.log, self.logger, self.set_status, self.set_background)
-        self.av1_frame.pack(fill="both", expand=True)
-
-        self.ai_frame = AIScannerTab(self.tab_ai, self.log, self.logger, self.set_status, self.set_background)
-        self.ai_frame.pack(fill="both", expand=True)
-
-        self.donate_frame = DonateTab(self.tab_donate)
-        self.donate_frame.pack(fill="both", expand=True)
+        # Init Tab Frames (Initially hidden)
+        self.tab_frames = {}
+        
+        self.tab_frames["org"] = OrganizerTab(self.content_frame, self.log, self.logger, self.set_status, self.set_background)
+        self.tab_frames["av1"] = AV1EncoderTab(self.content_frame, self.log, self.logger, self.set_status, self.set_background)
+        self.tab_frames["ai"] = AIScannerTab(self.content_frame, self.log, self.logger, self.set_status, self.set_background)
+        self.tab_frames["donate"] = DonateTab(self.content_frame)
+        
+        # Show default tab
+        self.show_tab("org")
         
         self.paned_window.add(self.top_frame, minsize=400)
         
@@ -91,15 +112,6 @@ class App(ctk.CTk):
         
         ctk.CTkLabel(self.console_header, text="LOG CONSOLE", font=FONT_HEADER, text_color=TEXT_MUTED, anchor="w").pack(side="left")
         
-        # Branding Catchline
-        ctk.CTkLabel(self.console_header, text="Time to Archive!", 
-                     font=(FONT_MAIN[0], FONT_MAIN[1], 'italic'), text_color=ACCENT).pack(side="left", padx=20)
-        
-        self.btn_update = ctk.CTkButton(self.console_header, text="Check for Updates", width=120, height=24, 
-                                        font=FONT_MAIN, corner_radius=6, fg_color=ACCENT, hover_color="#5a8ff0",
-                                        command=lambda: self.updater.check_for_updates(manual=True))
-        self.btn_update.pack(side="right")
-        
         self.log_text = ctk.CTkTextbox(self.bottom_frame, height=150, font=("Consolas", 11), fg_color="#141414", text_color="#a8d8a8", corner_radius=4)
         self.log_text.pack(fill="both", expand=True, padx=0, pady=(0, 0))
         
@@ -115,9 +127,9 @@ class App(ctk.CTk):
         self.lbl_background = ctk.CTkLabel(self.footer_frame, text="Idle", font=(FONT_MAIN[0], 10), text_color=TEXT_MUTED)
         self.lbl_background.pack(side="left", expand=True)
         
-        self.btn_footer_donate = ctk.CTkLabel(self.footer_frame, text="SUPPORT PROJECT", font=(FONT_MAIN[0], 9, "bold"), text_color=ACCENT, cursor="hand2")
-        self.btn_footer_donate.pack(side="right", padx=15)
-        self.btn_footer_donate.bind("<Button-1>", lambda e: self.tab_view.set("Donate"))
+        self.btn_footer_update = ctk.CTkLabel(self.footer_frame, text="CHECK FOR UPDATES", font=(FONT_MAIN[0], 9, "bold"), text_color=ACCENT, cursor="hand2")
+        self.btn_footer_update.pack(side="right", padx=15)
+        self.btn_footer_update.bind("<Button-1>", lambda e: self.updater.check_for_updates(manual=True))
         
         self.log(f"Welcome to {APP_NAME} {__version__} (Python Edition)")
         self.log("Ready.")
@@ -127,6 +139,17 @@ class App(ctk.CTk):
             self.log_text.insert("end", message + "\n")
             self.log_text.see("end")
         self.after(0, _insert)
+
+    def show_tab(self, name):
+        for f in self.tab_frames.values():
+            f.pack_forget()
+        for b in self.nav_buttons.values():
+            b.configure(fg_color="transparent", text_color=TEXT_PRIMARY)
+            
+        if name in self.tab_frames:
+            self.tab_frames[name].pack(fill="both", expand=True)
+            color = ACCENT if name != "donate" else "#9333ea"
+            self.nav_buttons[name].configure(fg_color=color, text_color="white")
 
     def set_status(self, text, color=ACCENT):
         def _update():

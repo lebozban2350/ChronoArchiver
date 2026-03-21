@@ -1,6 +1,6 @@
 # Maintainer: UnDadFeated <jscheema@gmail.com>
 pkgname=chronoarchiver
-pkgver=1.0.17
+pkgver=1.0.18
 pkgrel=1
 pkgdesc="Unified Media Archive Organizer and AV1 Encoder - Time to Archive!"
 arch=('any')
