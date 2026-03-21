@@ -1,6 +1,6 @@
 pkgbase = chronoarchiver
 	pkgdesc = Unified Media Archive Organizer and AV1 Encoder - Time to Archive!
-	pkgver = 1.0.16
+	pkgver = 2.0.0
 	pkgrel = 1
 	url = https://github.com/UnDadFeated/ChronoArchiver
 	arch = any
@@ -9,14 +9,14 @@ pkgbase = chronoarchiver
 	makedepends = python-setuptools
 	depends = python
 	depends = python-customtkinter
-	depends = python-opencv
 	depends = python-pillow
 	depends = python-piexif
 	depends = python-psutil
 	depends = python-platformdirs
 	depends = python-requests
 	depends = ffmpeg
-	source = git+https://github.com/UnDadFeated/ChronoArchiver.git#tag=v1.0.16
+	optdepends = python-opencv: for AI Scanner features (Face/Animal detection)
+	source = git+https://github.com/UnDadFeated/ChronoArchiver.git#tag=v2.0.0
 	sha256sums = SKIP
 
 pkgname = chronoarchiver
