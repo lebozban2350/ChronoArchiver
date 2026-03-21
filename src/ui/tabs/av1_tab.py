@@ -102,7 +102,7 @@ class AV1EncoderTab(ctk.CTkFrame):
         self.btn_start.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
         self.btn_stop = ctk.CTkButton(self.btn_panel, text="STOP", font=FONT_HEADER, fg_color="#450a0a", hover_color="#7f1d1d", height=40, state="disabled", command=self.stop_encoding)
-        self.btn_stop.pack(side="right", width=100)
+        self.btn_stop.pack(side="right")
 
     def browse_source(self):
         path = filedialog.askdirectory()

@@ -1,6 +1,11 @@
 # CHANGELOG
 
-## [1.0.15] - 2026-03-21
+## [1.0.16] - 2026-03-21
+### Fixed
+- **Startup Crash (TclError)**: Removed invalid `width` parameter from `.pack()` call in AV1 Encoder tab that caused the application to fail during initialization.
+### Added
+- **Full-Frame Premium Icon**: Re-generated the application icon with zero-margin framing and intrinsic rounded corners to ensure maximum visual presence in the taskbar and desktop.
+
 ### Added
 - **Pixel-Perfect Icon Scaling**: Re-processed the premium icon to fit exactly top-to-bottom within the 256px frame, maximizing visual impact and ensuring absolute alpha transparency.
 ### Fixed
