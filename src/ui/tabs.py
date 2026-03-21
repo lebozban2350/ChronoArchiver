@@ -358,8 +358,10 @@ class AIScannerTab(ctk.CTkFrame):
             messagebox.showerror("System Error", f"Failed to start scan:\n{e}")
     
     def on_finished(self):
-        self.keep_files = list(self.scanner.no_people_files)
-        self.exclude_files = list(self.scanner.excluded_files)
+        # Correctly map Engine -> UI
+        # keep_list = Subjects (Keep), others_list = Others (Move)
+        self.keep_files = list(self.scanner.keep_list)
+        self.exclude_files = list(self.scanner.others_list)
         self.refresh_lists()
         self.btn_scan.configure(state="normal")
         self.btn_cancel.configure(state="disabled")
@@ -393,16 +395,13 @@ class AIScannerTab(ctk.CTkFrame):
                 btn._file_path = f
                 btn.pack(fill="x", pady=1)
 
-        # VISUAL SWAP:
-        # Left List (self.list_keep UI) gets PREVIOUSLY RIGHT DATA (self.exclude_files - People)
-        # Right List (self.list_exclude UI) gets PREVIOUSLY LEFT DATA (self.keep_files - No People)
+        # Left List (self.list_keep UI) gets Keep data (Subjects/People)
+        # Right List (self.list_exclude UI) gets Exclude data (Others/Move)
+        add_item(self.list_keep, self.keep_files, "keep_data") 
+        add_item(self.list_exclude, self.exclude_files, "exclude_data")
         
-        # We use list_name identifiers that match the actual data list they represent, to make move_item easier.
-        add_item(self.list_keep, self.exclude_files, "exclude_data") 
-        add_item(self.list_exclude, self.keep_files, "keep_data")
-        
-        self.list_keep.configure(label_text=f"Files ({len(self.exclude_files)})")
-        self.list_exclude.configure(label_text=f"Files ({len(self.keep_files)})")
+        self.list_keep.configure(label_text=f"Files ({len(self.keep_files)})")
+        self.list_exclude.configure(label_text=f"Files ({len(self.exclude_files)})")
 
     def select_file(self, f, idx, list_name):
         self.selected_item = (list_name, idx, f)
@@ -475,26 +474,26 @@ class AIScannerTab(ctk.CTkFrame):
         new_idx = 0
         
         if direction == "right":
-            # Moving from Left UI (exclude_data) to Right UI (keep_data)
-            # Logic: Remove from exclude_files, Add to keep_files
-            if lname == "exclude_data":
-                 if f in self.exclude_files:
-                     self.exclude_files.remove(f)
-                     self.keep_files.append(f)
-                     changed = True
-                     target_name = "keep_data"
-                     new_idx = len(self.keep_files) - 1
-                     
-        elif direction == "left":
-            # Moving from Right UI (keep_data) to Left UI (exclude_data)
+            # Moving from Left UI (keep_data) to Right UI (exclude_data)
             # Logic: Remove from keep_files, Add to exclude_files
             if lname == "keep_data":
-                if f in self.keep_files:
-                    self.keep_files.remove(f)
-                    self.exclude_files.append(f)
+                 if f in self.keep_files:
+                     self.keep_files.remove(f)
+                     self.exclude_files.append(f)
+                     changed = True
+                     target_name = "exclude_data"
+                     new_idx = len(self.exclude_files) - 1
+                     
+        elif direction == "left":
+            # Moving from Right UI (exclude_data) to Left UI (keep_data)
+            # Logic: Remove from exclude_files, Add to keep_files
+            if lname == "exclude_data":
+                if f in self.exclude_files:
+                    self.exclude_files.remove(f)
+                    self.keep_files.append(f)
                     changed = True
-                    target_name = "exclude_data"
-                    new_idx = len(self.exclude_files) - 1
+                    target_name = "keep_data"
+                    new_idx = len(self.keep_files) - 1
         
         if changed:
             source_list = self.list_keep if direction == "right" else self.list_exclude
@@ -520,7 +519,7 @@ class AIScannerTab(ctk.CTkFrame):
         self.selected_item = None
 
     def move_files_action(self):
-        dest_dir = pathlib.Path(self.entry_path.get()) / "No_People"
+        dest_dir = pathlib.Path(self.entry_path.get()) / "Archived_Others"
         if not dest_dir.exists():
             dest_dir.mkdir(parents=True, exist_ok=True)
             
@@ -532,7 +531,7 @@ class AIScannerTab(ctk.CTkFrame):
         error_count = 0
         
         # Snapshot list to avoid modification during iteration
-        files_to_move = list(self.keep_files)
+        files_to_move = list(self.exclude_files)
         
         for f in files_to_move:
             try:
@@ -552,8 +551,8 @@ class AIScannerTab(ctk.CTkFrame):
             
         # Final Summary Log
         if count > 0:
-            self.log_callback(f"SUCCESS: Successfully moved {count} files to 'No_People' folder.")
-            self.file_logger.info(f"SUCCESS: Successfully moved {count} files to 'No_People' folder.")
+            self.log_callback(f"SUCCESS: Successfully moved {count} files to 'Archived_Others' folder.")
+            self.file_logger.info(f"SUCCESS: Successfully moved {count} files to 'Archived_Others' folder.")
         else:
             self.log_callback("MOVE FINISHED: No files were moved.")
             self.file_logger.info("MOVE FINISHED: No files were moved.")
@@ -563,7 +562,7 @@ class AIScannerTab(ctk.CTkFrame):
             messagebox.showwarning("Move Completed with Errors", msg)
 
         # Clear memory lists and refresh UI to remove "ghost" items
-        self.keep_files.clear() # keep_files held the items we just moved (No People)
+        self.exclude_files.clear() # exclude_files held the items we just moved (Others)
         self.refresh_lists()
         self.btn_move_files.configure(state="disabled")
 
@@ -588,11 +587,10 @@ class DonateTab(ctk.CTkFrame):
         # Custom Links for jscheema@gmail.com
         
         # PayPal: Generic Send
-        # Using a standard generic link format since user didn't provide a specific paypal.me
-        link_paypal = "https://www.paypal.com/cgi-bin/webscr?business=jscheema@gmail.com&cmd=_xclick&currency_code=USD&item_name=Donation"
+        link_paypal = "https://paypal.me/jscheema"
         
         # Venmo: Deep link or web
-        link_venmo = "https://venmo.com/?txn=pay&recipients=jscheema@gmail.com&note=ChronoArchiver"
+        link_venmo = "https://venmo.com/u/jscheema"
         
 
         
