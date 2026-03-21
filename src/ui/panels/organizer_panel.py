@@ -38,7 +38,7 @@ class MediaOrganizerPanel(QWidget):
         self._sig.status.connect(self._on_status)
         self._sig.finished.connect(self._on_finished)
 
-        self._engine = OrganizerEngine(self._sig.log_msg.emit)
+        self._engine = None # Initialized in _run_job
         self._is_running = False
 
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
@@ -158,36 +158,40 @@ class MediaOrganizerPanel(QWidget):
 
     def _run_job(self):
         path = self._edit_path.text().strip()
-        if not path or not os.path.isdir(path):
+        if not path or not os.path.isdir(path): 
             self._add_log("ERROR: Invalid directory."); return
 
-        self._is_running = True
+        exts = set()
+        if self._chk_photos.isChecked():
+            exts.update({'.jpg','.jpeg','.png','.gif','.bmp','.tiff','.webp'})
+        if self._chk_videos.isChecked():
+            exts.update({'.mp4','.mov','.avi','.webm','.mkv','.m4v','.wmv'})
+        if not exts:
+            self._add_log("ERROR: Select at least one media type."); return
+
         self._btn_start.setEnabled(False)
         self._btn_stop.setEnabled(True)
-        self._bar.setValue(0)
-        self._bar.setFormat("Processing...")
 
-        def _prog(curr, total):
-            pct = 1.0 if total == 0 else (curr / total)
-            self._sig.progress.emit(pct)
-            self._sig.status.emit(f"Processed {curr}/{total}")
+        def _log(msg): self._sig.log_msg.emit(msg)
+        self._engine = OrganizerEngine(logger_callback=_log)
+
+        def _prog(current, total, filename):   # 3 args, not 2
+            pct = int(current / total * 100) if total > 0 else 0
+            self._sig.progress.emit(pct / 100.0)
+            self._sig.status.emit(f"{current}/{total}  {filename}")
 
         def _run():
-            self._engine.run_organize(
-                path,
-                photos=self._chk_photos.isChecked(),
-                videos=self._chk_videos.isChecked(),
+            self._engine.organize(path,
                 dry_run=self._chk_dry.isChecked(),
-                flat_folders=self._chk_flat.isChecked(),
-                progress_callback=_prog
-            )
+                use_flat_folders=self._chk_flat.isChecked(),
+                valid_exts=exts,
+                progress_callback=_prog)
             self._sig.finished.emit()
 
         threading.Thread(target=_run, daemon=True).start()
 
     def _stop_job(self):
-        self._engine.stop()
-        self._is_running = False
+        if self._engine: self._engine.cancel()   # cancel(), not stop()
         self._btn_stop.setEnabled(False)
 
     def _on_progress(self, val):

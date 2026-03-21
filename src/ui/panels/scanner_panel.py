@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QLineEdit, QCheckBox,
     QProgressBar, QFileDialog, QListWidget,
 )
-from PySide6.QtCore import Qt, Signal, QObject
+from PySide6.QtCore import Qt, Signal, QObject, QTimer
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -36,8 +36,12 @@ class AIScannerPanel(QWidget):
         self._sig.progress.connect(self._on_progress)
         self._sig.finished.connect(self._on_finished)
 
-        self._model_mgr = ModelManager()
-        self._engine    = ScannerEngine(self._sig.log_msg.emit)
+        import sys as _sys
+        _base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        _model_dir = os.path.join(_base, 'core', 'models')
+        self._model_mgr = ModelManager(_model_dir)
+
+        self._engine    = None # Initialized in _run_job
         self._is_running = False
 
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
@@ -152,7 +156,7 @@ class AIScannerPanel(QWidget):
         QTimer.singleShot(500, self._check_models)
 
     def _check_models(self):
-        if self._model_mgr.is_ready():
+        if self._model_mgr.is_up_to_date():
             self._lbl_model.setText("Models Ready")
             self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
             self._btn_setup.hide()
@@ -164,7 +168,7 @@ class AIScannerPanel(QWidget):
     def _setup_models(self):
         self._add_log("Starting model setup...")
         def _task():
-            self._model_mgr.setup(self._sig.log_msg.emit)
+            self._model_mgr.download_models(self._sig.log_msg.emit)
             QTimer.singleShot(0, self._check_models)
         threading.Thread(target=_task, daemon=True).start()
 
@@ -174,31 +178,28 @@ class AIScannerPanel(QWidget):
             self._edit_path.setText(f)
 
     def _run_job(self):
-        if not self._model_mgr.is_ready():
-            self._add_log("ERROR: Models not setup. Click 'Setup Models' first."); return
         path = self._edit_path.text().strip()
         if not path or not os.path.isdir(path):
             self._add_log("ERROR: Invalid directory."); return
 
-        self._is_running = True
         self._btn_start.setEnabled(False)
         self._btn_stop.setEnabled(True)
-        self._bar.setValue(0)
-        self._bar.setFormat("Analyzing...")
 
-        def _prog(curr, total):
-            pct = 1.0 if total == 0 else (curr / total)
-            self._sig.progress.emit(pct)
+        def _log(msg): self._sig.log_msg.emit(msg)
+        self._engine = ScannerEngine(logger_callback=_log)
+        # progress_callback is an attribute, not a constructor arg
+        self._engine.progress_callback = lambda c, t, eta, f: self._sig.progress.emit(c / max(t,1))
 
         def _run():
-            self._engine.run_scan(path, recursive=self._chk_recursive.isChecked(),
-                                 progress_callback=_prog)
+            self._engine.run_scan(path,
+                include_subfolders=self._chk_recursive.isChecked(),
+                keep_animals=False)
             self._sig.finished.emit()
 
         threading.Thread(target=_run, daemon=True).start()
 
     def _stop_job(self):
-        self._engine.stop()
+        if self._engine: self._engine.cancel() 
         self._is_running = False
         self._btn_stop.setEnabled(False)
 
@@ -223,5 +224,3 @@ class AIScannerPanel(QWidget):
             self._log_list.takeItem(0)
         if self._log_cb:
             self._log_cb(msg)
-
-from PySide6.QtCore import QTimer

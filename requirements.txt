@@ -5,6 +5,3 @@ Pillow
 platformdirs
 opencv-python
 piexif
-torch
-torchvision
-tqdm
