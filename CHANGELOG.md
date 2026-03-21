@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.14] - 2026-03-21
+### Fixed
+- **AI Media Scanner**: Model path resolution corrected for AUR installations (parent-of-core logic now works for both source and packaged layouts).
+- **Mass AV1 Encoder**: Open Logs button now supports macOS (Darwin) via `open` command; added exception handling.
+
 ## [2.0.13] - 2026-03-21
 ### Changed
 - **Mass AV1 Encoder**: Skinnier dropdowns (Preset, Threads) for better alignment of Directories + Configuration with Options box.

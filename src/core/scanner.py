@@ -209,8 +209,9 @@ class ScannerEngine:
         if getattr(sys, 'frozen', False):
             base_dir = sys._MEIPASS
         else:
-            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        return os.path.join(base_dir, 'src', 'core', 'models', filename)
+            # Parent of core/ — works for both source (src/core/) and AUR (core/)
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_dir, 'core', 'models', filename)
 
     def _report_progress(self, current, total, start_time, filename=""):
         if not self.progress_callback: return

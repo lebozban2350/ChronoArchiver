@@ -723,10 +723,15 @@ class AV1EncoderPanel(QWidget):
         import platformdirs
         log_dir = platformdirs.user_log_dir("ChronoArchiver", "UnDadFeated")
         if os.path.exists(log_dir):
-            if platform.system() == "Windows":
-                os.startfile(log_dir)
-            else:
-                subprocess.Popen(["xdg-open", log_dir])
+            try:
+                if platform.system() == "Windows":
+                    os.startfile(log_dir)
+                elif platform.system() == "Darwin":
+                    subprocess.Popen(["open", log_dir])
+                else:
+                    subprocess.Popen(["xdg-open", log_dir])
+            except Exception:
+                pass
 
     def _add_log(self, msg):
         sb = self._log_list.verticalScrollBar()

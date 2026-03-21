@@ -2,9 +2,9 @@
 
 A unified media management platform for archival, classification, and transcoding. ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application built on PySide6.
 
-[![Version](https://img.shields.io/badge/version-2.0.13-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-2.0.14-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey.svg)](#system-requirements)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
 
 ---
 
@@ -118,7 +118,7 @@ NVIDIA RTX 40-series (or later) with AV1 NVENC enables hardware-accelerated enco
 |-----------|-------------|
 | Python | 3.10 or later |
 | FFmpeg | Recent version on `PATH` |
-| OS | Windows, Linux (Arch/AUR package available) |
+| OS | Windows, Linux, macOS (Arch/AUR package available on Linux) |
 | GPU | Optional — NVIDIA RTX 40-series for NVENC AV1 |
 
 ---
