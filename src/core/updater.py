@@ -7,6 +7,7 @@ update-and-restart: close app → run update → restart app.
 import json
 import os
 import platform
+import queue
 import shutil
 import subprocess
 import sys
@@ -22,7 +23,6 @@ if _src_dir not in sys.path:
 from version import __version__
 
 GIT_API_URL = "https://api.github.com/repos/UnDadFeated/ChronoArchiver/releases/latest"
-REPO_URL = "https://github.com/UnDadFeated/ChronoArchiver.git"
 
 
 def _parse_version(v: str) -> tuple:
@@ -129,21 +129,18 @@ class ApplicationUpdater:
             return False
         return _version_gt(self._latest_version, __version__)
 
-    def check_for_updates(self, callback):
+    def check_for_updates(self, result_queue: queue.Queue):
         """
         Background check for updates.
-        Calls callback(latest_version, changelog) when done.
-        Uses a watchdog to ensure callback is invoked even if the request hangs.
+        Puts (latest_version, changelog) into result_queue when done.
+        Caller should poll the queue from the main thread (e.g. via QTimer).
+        Uses a watchdog to ensure result is queued even if the request hangs.
         """
-        _callback_done = threading.Event()
-
-        def _safe_callback(latest, changelog):
-            if not _callback_done.is_set():
-                _callback_done.set()
-                try:
-                    callback(latest, changelog)
-                except Exception:
-                    pass
+        def _put_result(latest, changelog):
+            try:
+                result_queue.put_nowait((latest, changelog))
+            except queue.Full:
+                pass
 
         def _task():
             try:
@@ -155,16 +152,22 @@ class ApplicationUpdater:
                     data = json.loads(resp.read().decode())
                     self._latest_version = data.get("tag_name", "").replace("v", "")
                     self._changelog = data.get("body", "No changelog provided.")
-                    _safe_callback(self._latest_version, self._changelog)
+                    _put_result(self._latest_version, self._changelog)
             except Exception as e:
                 print(f"Update check failed: {e}")
-                _safe_callback(None, None)
+                _put_result(None, None)
+
+        _done = threading.Event()
 
         def _watchdog():
-            if not _callback_done.wait(timeout=15):
-                _safe_callback(None, None)
+            if not _done.wait(timeout=15):
+                _put_result(None, None)
 
-        threading.Thread(target=_task, daemon=True).start()
+        def _run():
+            _task()
+            _done.set()
+
+        threading.Thread(target=_run, daemon=True).start()
         threading.Thread(target=_watchdog, daemon=True).start()
 
     def get_latest_version(self):

@@ -6,16 +6,14 @@ Uses a QStackedWidget to manage distinct application panels.
 
 import sys
 import os
+import queue
 import webbrowser
-import pathlib
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QStackedWidget, QFrame, QSizePolicy,
-    QProgressBar, QSystemTrayIcon, QMenu, QMessageBox
+    QPushButton, QLabel, QStackedWidget, QFrame, QMessageBox
 )
-from PySide6.QtCore import Qt, QSize, Signal, QObject, QTimer
-from PySide6.QtGui import QIcon, QAction, QDesktopServices
+from PySide6.QtCore import Qt, QTimer
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -129,8 +127,6 @@ QPushButton#navBtn[active="true"] {
 """
 
 class ChronoArchiverApp(QMainWindow):
-    updateCheckDone = Signal(object, object)  # latest, changelog — emitted from worker, handled on main thread
-
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"ChronoArchiver v{__version__}")
@@ -139,7 +135,8 @@ class ChronoArchiverApp(QMainWindow):
 
         self.logger = setup_logger()
         self.updater = ApplicationUpdater()
-        self.updateCheckDone.connect(self._on_update_check_done)
+        self._update_result_queue = queue.Queue()
+        self._update_poll_timer = None
 
         # UI Components
         self.central_widget = QWidget()
@@ -252,9 +249,24 @@ class ChronoArchiverApp(QMainWindow):
             self._confirm_and_perform_update()
             return
         self.btn_update.setText("CHECKING...")
-        self.updater.check_for_updates(self.updateCheckDone.emit)
+        self._update_result_queue = queue.Queue()
+        self.updater.check_for_updates(self._update_result_queue)
+        self._start_update_poll()
 
-    def _on_update_check_done(self, latest, changelog):
+    def _start_update_poll(self):
+        if self._update_poll_timer and self._update_poll_timer.isActive():
+            return
+        self._update_poll_timer = QTimer(self)
+        self._update_poll_timer.timeout.connect(self._poll_update_result)
+        self._update_poll_timer.start(150)
+
+    def _poll_update_result(self):
+        try:
+            latest, changelog = self._update_result_queue.get_nowait()
+        except queue.Empty:
+            return
+        self._update_poll_timer.stop()
+        self._update_poll_timer = None
         if self.updater.is_update_available():
             self.btn_update.setText(f"UPDATE v{latest} AVAILABLE")
             self.btn_update.setStyleSheet("font-size: 8px; color: #10b981; font-weight:bold;")

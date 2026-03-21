@@ -25,15 +25,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.av1_engine import AV1EncoderEngine, EncodingProgress
 from core.av1_settings import AV1Settings
 
-import concurrent.futures
-
 
 class _Signals(QObject):
     progress  = Signal(int, object)   # job_id, EncodingProgress
     details   = Signal(int, str, str) # job_id, vid, aud
     finished  = Signal(int, bool, str, str)
     log_msg   = Signal(str)
-    telemetry = Signal(dict)
 
 
 class AV1EncoderPanel(QWidget):
@@ -47,14 +44,12 @@ class AV1EncoderPanel(QWidget):
         self._sig.details.connect(self._on_details)
         self._sig.finished.connect(self._on_encode_finished)
         self._sig.log_msg.connect(self._add_log)
-        self._sig.telemetry.connect(self._on_telemetry)
 
         self._settings = AV1Settings()
 
         self._is_encoding    = False
         self._is_paused      = False
         self._engine_pool    = []
-        self._worker_lock    = threading.Lock()
         self._queue          = []
         self._queue_lock     = threading.Lock()
         self._queue_sizes    = {}
@@ -460,8 +455,7 @@ class AV1EncoderPanel(QWidget):
         self._job_speeds     = {}
         self._current_files  = {}
         self._total_saved    = 0
-        self._batch_start    = 0.0
-        self._is_encoding     = True
+        self._is_encoding    = True
         self._is_paused       = False
         self._batch_start     = time.time()
 
@@ -679,6 +673,3 @@ class AV1EncoderPanel(QWidget):
             self._log_list.takeItem(0)
         if self._log_cb:
             self._log_cb(msg)
-
-    def _on_telemetry(self, data):
-        pass  # handled by timer

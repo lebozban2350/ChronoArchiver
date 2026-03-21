@@ -6,7 +6,6 @@ Uses src/core/organizer.py unchanged.
 
 import os
 import threading
-import pathlib
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
@@ -38,11 +37,10 @@ class MediaOrganizerPanel(QWidget):
         self._sig.status.connect(self._on_status)
         self._sig.finished.connect(self._on_finished)
 
-        self._engine = None # Initialized in _run_job
+        self._engine = None  # Initialized in _run_job
         self._is_running = False
 
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
-        _slbl  = "font-size: 8px; font-weight: 700; color: #aaa;"
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 2, 6, 2)

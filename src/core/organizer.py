@@ -54,9 +54,10 @@ class OrganizerEngine:
         try:
             timestamp = pathlib.Path(file_path).stat().st_mtime
             dt = datetime.fromtimestamp(timestamp)
-            if dt.year < 1980: return None # Junk date
+            if dt.year < 1980:
+                return None
             return dt
-        except:
+        except OSError:
             return None
 
     def _quick_hash(self, file_path: str, chunk_size: int = 1024 * 1024) -> str:

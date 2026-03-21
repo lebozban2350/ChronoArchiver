@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.7] - 2026-03-21
+### Fixed
+- Updater button stuck on "CHECKING...": switched from Qt Signal to queue + main-thread QTimer polling for reliable cross-thread delivery.
+### Changed
+- Code cleanup: removed unused imports, dead telemetry signal, REPO_URL; replaced bare `except` with specific exceptions; removed unused `_slbl`, `concurrent.futures`, `_worker_lock`; corrected AI Scanner model hint (YuNet/SSD).
+
 ## [2.0.6] - 2026-03-21
 ### Changed
 - AI Encoder: Options box now matches vertical height of Directories + Configuration columns.

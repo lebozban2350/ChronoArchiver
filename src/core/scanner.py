@@ -90,7 +90,8 @@ class ScannerEngine:
                     img = cv2.imread(f)
                     if img is not None:
                         img_queue.put((f, img))
-                except: pass
+                except Exception:
+                    pass
             img_queue.put(None) # Sentinel
 
         # Start Producer
@@ -118,7 +119,8 @@ class ScannerEngine:
             has_face = False
             try:
                 has_face = self._detect_face_opencv(face_engine, image)
-            except: pass
+            except Exception:
+                pass
 
             # 2. Logic
             is_excluded = False
@@ -204,9 +206,6 @@ class ScannerEngine:
         else:
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         return os.path.join(base_dir, 'src', 'core', 'models', filename)
-
-    # Legacy method wrapper if needed, but we replaced run_scan completely.
-
 
     def _report_progress(self, current, total, start_time, filename=""):
         if not self.progress_callback: return

@@ -36,16 +36,14 @@ class AIScannerPanel(QWidget):
         self._sig.progress.connect(self._on_progress)
         self._sig.finished.connect(self._on_finished)
 
-        import sys as _sys
         _base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         _model_dir = os.path.join(_base, 'core', 'models')
         self._model_mgr = ModelManager(_model_dir)
 
-        self._engine    = None # Initialized in _run_job
+        self._engine = None  # Initialized in _run_job
         self._is_running = False
 
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
-        _slbl  = "font-size: 8px; font-weight: 700; color: #aaa;"
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 2, 6, 2)
@@ -74,7 +72,7 @@ class AIScannerPanel(QWidget):
         h_src.addWidget(btn_br)
 
         v_dir.addLayout(h_src)
-        v_dir.addWidget(QLabel("Folder containing photos for AI object detection (ResNet50)",
+        v_dir.addWidget(QLabel("Folder containing photos for AI object detection (YuNet/SSD)",
                                styleSheet=_shint))
         h_strip.addWidget(grp_dir, 11)
 
