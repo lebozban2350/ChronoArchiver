@@ -1,5 +1,11 @@
 # TASKS
 
+- [x] **v1.0.24: AV1 Tab UI Overhaul (2026-03-21)**
+  - [x] Replace absolute positioning with frame rows for Browse buttons.
+  - [x] Add "Optimize Audio" configuration and hints.
+  - [x] Fix metrics loop capture bug.
+  - [x] Bump version to 1.0.24 and synchronize GitHub/AUR.
+
 - [x] **v1.0.23: Footprint Optimization (2026-03-21)**
   - [x] Move `python-opencv` to `optdepends` in `PKGBUILD` (saves 320MB).
   - [x] Implement runtime `OPENCV_AVAILABLE` check in `scanner.py`.

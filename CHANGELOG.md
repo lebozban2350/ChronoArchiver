@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.24] - 2026-03-21
+### Fixed
+- Overhauled AV1 Tab layout: replaced broken absolute positioning on Browse buttons with proper relative rows.
+- Fixed metrics loop bug that captured stale CPU/RAM values.
+- Integrated inline HH:MM:SS for "Skip Short Clips" to prevent layout overflow.
+### Added
+- "Optimize Audio" option to re-encode PCM/unsupported tracks to Opus.
+- Comprehensive muted hint labels for all encoding options.
+
+## [1.0.23] - 2026-03-21
+### Changed
+- Moved `python-opencv` to optional dependencies to reduce installation size by ~320MB (excludes vtk/etc).
+- Application now checks for OpenCV at runtime and provides a clear message if AI features are disabled.
+
+## [1.0.22] - 2026-03-21
+### Fixed
+- Removed bundled large AI models from the source repository to restore intended on-demand download behavior.
+- Added `.gitignore` to `src/core/models/` to ensure directory persistence without bundling binary assets.
+
 ## [1.0.21] - 2026-03-21
 ### Fixed
 - AUR build failure caused by incorrect icon path in `PKGBUILD`.
