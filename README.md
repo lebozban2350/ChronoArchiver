@@ -2,7 +2,7 @@
 
 **ChronoArchiver** is a unified, high-performance media management suite designed for long-term data preservation and optimization. It combines intelligent data archival with professional-grade video transcoding, providing a seamless workflow for modern digital libraries. *Time to Archive!*
 
-[![Version](https://img.shields.io/badge/version-1.0.18-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-1.0.19-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey.svg)](#system-requirements)
 
@@ -45,9 +45,11 @@ Classifies images into two buckets — photos containing people or animals, and 
 Batch-encodes video files to AV1, preserving folder structure and file metadata.
 
 - Encodes using **NVIDIA NVENC** (`av1_nvenc`) if a compatible GPU is detected, otherwise falls back to **SVT-AV1** (`libsvtav1`) in software
-- **High-Density Monitoring**: Features a 4-slot thread grid for real-time per-job progress.
-- **Stacked Metadata**: Displays both Video and Audio codec status within each slot to maximize screen real-estate.
-- **Accurate Metrics**: Real-time **ETA** calculation, **Elapsed Session Timer**, and a living **Queue List** tracker.
+- **High-Density Monitoring**: Features a 4-slot high-density thread grid with real-time per-job progress.
+- **System Metrics Dashboard**: Integrated real-time monitoring of **CPU, GPU (NVENC), and RAM** utilization.
+- **Pause/Resume Control**: Suspend active encoding jobs at any time to free up system resources without losing progress.
+- **Advanced Automation**: Features **Skip Short Clips** (via user-defined threshold), **Auto-Shutdown**, and **Safety-locked File Deletion**.
+- **Accurate Telemetry**: Real-time **Space Saved** calculation, **ETA** estimation, and per-thread speed labels (e.g. `2.3x`).
 - Master progress bar tracks completion across the entire batch.
 
 ---
@@ -97,6 +99,9 @@ All settings are persisted automatically to the platform-appropriate config dire
 | Re-encode audio | On | Off copies the original audio stream |
 | Concurrent jobs | 2 | 1, 2, or 4 parallel encode workers |
 | Maintain structure | On | Mirrors source folder layout in target |
+| Skip Short Clips | Off | Threshold for ignoring small media files |
+| HW Accel Decode | Off | Use GPU for demux / decode stage |
+| Auto-Shutdown | Off | Power off system after queue finishes |
 
 ---
 
