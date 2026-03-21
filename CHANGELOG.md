@@ -1,6 +1,9 @@
 # Changelog
 
 ## [2.0.3] - 2026-03-21
+### Fixed
+- **Linux icon display (AUR pkgrel≥2)**: Install application icon to `/usr/share/icons/hicolor/` (256x256 and 48x48) in addition to pixmaps, so GNOME/KDE and other modern desktop environments use the correct green hourglass icon instead of cached or legacy icons.
+- Added `chronoarchiver.install` with post_install hook to run `gtk-update-icon-cache` on hicolor, forcing icon cache refresh after install/upgrade.
 ### Changed
 - Media Organizer: Squished top boxes (Directories, Options, Execution Mode) to content height; console now expands to fill all remaining vertical space.
 - AI Encoder: Squished top boxes (Directories, Configuration, Options, Metrics) and Work Progress to content height; console now expands to fill all remaining vertical space.
