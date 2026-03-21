@@ -362,8 +362,8 @@ class AIScannerTab(ctk.CTkFrame):
         def run():
             success = self.model_manager.download_models(progress_callback=dialog.update_progress)
             
-            # Close dialog on finish
-            self.after(0, dialog.destroy)
+            # Close dialog on finish if not already destroyed
+            self.after(0, lambda: dialog.destroy() if dialog.winfo_exists() else None)
             
             if not success:
                 # Only show error if NOT manually cancelled

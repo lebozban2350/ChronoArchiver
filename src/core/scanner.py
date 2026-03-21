@@ -164,9 +164,12 @@ class ScannerEngine:
         return faces is not None
 
     def _init_animal_detector(self):
-        """Initialize animal detector using OpenCV DNN with TFLite (SSD MobileNet V1)."""
-        model_path = self._get_model_path('ssd_mobilenet_v1.tflite')
-        net = cv2.dnn.readNetFromTFLite(model_path)
+        """Initialize animal detector using OpenCV DNN with frozen graph (SSD MobileNet V1)."""
+        pb_path = self._get_model_path('ssd_mobilenet_v1_coco.pb')
+        pbtxt_path = self._get_model_path('ssd_mobilenet_v1_coco.pbtxt')
+        if not pb_path or not pbtxt_path:
+            return None
+        net = cv2.dnn.readNetFromTensorflow(pb_path, pbtxt_path)
         return net
 
     def _detect_animal(self, net, image):
@@ -175,19 +178,18 @@ class ScannerEngine:
         blob = cv2.dnn.blobFromImage(image, 1.0, (300, 300), swapRB=True, crop=False)
         net.setInput(blob)
         
-        outputs = net.forward(net.getUnconnectedOutLayersNames())
+        # SSD MobileNet V1 Frozen Graph outputs [1, 1, N, 7]
+        detections = net.forward()
         
-        # Task Library model: boxes[0], class_ids[1], scores[2], num_dets[3]
-        scores = outputs[2][0]      # shape [100]
-        class_ids = outputs[1][0]   # shape [100]
-        num_dets = int(outputs[3][0])
-        
-        # COCO-based indices for animal_labels
+        # COCO-based indices for animal_labels (1-indexed for PB model)
         animal_ids = {16, 17, 18, 19, 20, 21, 23, 24, 25}
         
-        for i in range(num_dets):
-            if scores[i] > 0.4 and int(class_ids[i]) in animal_ids:
-                return True
+        for i in range(detections.shape[2]):
+            score = detections[0, 0, i, 2]
+            if score > 0.4:
+                class_id = int(detections[0, 0, i, 1])
+                if class_id in animal_ids:
+                    return True
         return False
 
     def _get_model_path(self, filename):

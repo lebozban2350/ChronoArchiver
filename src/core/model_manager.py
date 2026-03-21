@@ -4,6 +4,7 @@ import pathlib
 import threading
 import logging
 import hashlib
+import tarfile
 
 class ModelManager:
     """Handles checking and downloading AI models for the scanner."""
@@ -14,10 +15,16 @@ class ModelManager:
             "url": "https://github.com/opencv/opencv_zoo/raw/master/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
             "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
         },
-        "animal_detection": {
-            "filename": "ssd_mobilenet_v1.tflite",
-            "url": "https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_ssd_mobilenet_v1_1_metadata_2.tflite",
-            "sha256": "cbdecd08b44c5dea3821f77c5468e2936ecfbf43cde0795a2729fdb43401e58b"
+        "animal_detection_pb": {
+            "filename": "ssd_mobilenet_v1_coco.pb",
+            "url": "http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_2017_11_17.tar.gz",
+            "tar_extract": "ssd_mobilenet_v1_coco_2017_11_17/frozen_inference_graph.pb",
+            "sha256": "cb3ce31b95a54162c25d951780a740a8767e6f9987298ec53d3146f0a5506858"
+        },
+        "animal_detection_pbtxt": {
+            "filename": "ssd_mobilenet_v1_coco.pbtxt",
+            "url": "https://raw.githubusercontent.com/opencv/opencv_extra/master/testdata/dnn/ssd_mobilenet_v1_coco_2017_11_17.pbtxt",
+            "sha256": "c15a9ac2df5cdb379e3a294adc73f13c796da8d682d763f4ec15831af1e11923"
         }
     }
     
@@ -82,7 +89,10 @@ class ModelManager:
                 response.raise_for_status()
                 total_size = int(response.headers.get('content-length', 0))
                 
-                with open(dest, 'wb') as f:
+                is_tar = "tar_extract" in info
+                dl_dest = dest if not is_tar else dest.with_suffix(".tar.gz")
+                
+                with open(dl_dest, 'wb') as f:
                     downloaded = 0
                     for chunk in response.iter_content(chunk_size=8192):
                         if self.stop_event.is_set():
@@ -94,9 +104,17 @@ class ModelManager:
                                 progress_callback(downloaded, total_size, info["filename"])
                 
                 if self.stop_event.is_set():
-                    if dest.exists(): dest.unlink()
+                    if dl_dest.exists(): dl_dest.unlink()
                     self.logger.info(f"Download cancelled for {info['filename']}")
                     return False
+
+                # Extract tar if needed
+                if "tar_extract" in info:
+                    with tarfile.open(dl_dest, "r:gz") as tar:
+                        member = tar.getmember(info["tar_extract"])
+                        member.name = dest.name
+                        tar.extract(member, path=dest.parent)
+                    dl_dest.unlink()
 
                 # Verify after download
                 if not self.verify_hash(dest, info["sha256"]):
@@ -107,6 +125,7 @@ class ModelManager:
             except Exception as e:
                 self.logger.error(f"Failed to download {info['filename']}: {e}")
                 if dest.exists(): dest.unlink()
+                if 'dl_dest' in locals() and dl_dest.exists(): dl_dest.unlink()
                 return False
 
         return self.is_up_to_date()

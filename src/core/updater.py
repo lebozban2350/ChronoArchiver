@@ -9,8 +9,8 @@ import customtkinter as ctk
 from tkinter import messagebox
 from version import __version__, APP_NAME
 
-GITHUB_API_URL = "https://api.github.com/repos/UnDadFeated/Media_Archive_Organizer/releases/latest"
-AUR_PACKAGE_URL = "https://aur.archlinux.org/packages/mediaarchiveorganizer"
+GITHUB_API_URL = "https://api.github.com/repos/UnDadFeated/ChronoArchiver/releases/latest"
+AUR_PACKAGE_URL = "https://aur.archlinux.org/packages/chronoarchiver"
 
 class UpdaterEngine:
     def __init__(self, app_window, logger_callback):
@@ -28,7 +28,7 @@ class UpdaterEngine:
                     try:
                         self.logger("UPDATER: Checking AUR for updates...")
                         aur_rpc = f"https://aur.archlinux.org/rpc/v5/info?arg[]={APP_NAME.lower().replace(' ', '')}"
-                        req = urllib.request.Request(aur_rpc, headers={"User-Agent": "MediaArchiveOrganizer"})
+                        req = urllib.request.Request(aur_rpc, headers={"User-Agent": "ChronoArchiver"})
                         with urllib.request.urlopen(req, timeout=10) as response:
                             data = json.loads(response.read().decode())
                             if data.get("resultcount", 0) > 0:
@@ -46,7 +46,7 @@ class UpdaterEngine:
                 # 2. Fallback to GitHub if latest_version still unknown
                 if not latest_version:
                     self.logger("UPDATER: Connecting to GitHub Releases API...")
-                    req = urllib.request.Request(GITHUB_API_URL, headers={"User-Agent": "MediaArchiveOrganizer"})
+                    req = urllib.request.Request(GITHUB_API_URL, headers={"User-Agent": "ChronoArchiver"})
                     with urllib.request.urlopen(req, timeout=10) as response:
                         self.logger("UPDATER: Metadata received. Parsing version info...")
                         data = json.loads(response.read().decode())
@@ -122,12 +122,12 @@ class UpdaterEngine:
         def on_update():
             dialog.destroy()
             if sys.platform == "win32":
-                webbrowser.open("https://github.com/UnDadFeated/Media_Archive_Organizer/releases/latest")
+                webbrowser.open("https://github.com/UnDadFeated/ChronoArchiver/releases/latest")
             else:
                 if pathlib.Path('/usr/bin/yay').exists():
                     webbrowser.open(AUR_PACKAGE_URL)
                 else:
-                    webbrowser.open("https://github.com/UnDadFeated/Media_Archive_Organizer/releases/latest")
+                    webbrowser.open("https://github.com/UnDadFeated/ChronoArchiver/releases/latest")
                 
         def on_skip():
             dialog.destroy()

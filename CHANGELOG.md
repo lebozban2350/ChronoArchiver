@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [1.0.9] - 2026-03-21
+### Fixed
+- **Updater Repo Issue**: Corrected the destination URLs in the updater to point to `UnDadFeated/ChronoArchiver` instead of the old app name.
+- **Cancel Crash Fix**: Fixed an issue where stopping a model download would attempt to destroy an already-destroyed UI component.
+- **OpenCV Inference Compatibility**: Migrated the animal scanner from a quantized TFLite model to the official SSD MobileNet V1 Frozen Inference Graph to retain full `cv2.dnn` compatibility.
+- **Model Extractor**: Added native `.tar.gz` payload extraction inside the model downloader.
+
 ## [1.0.8] - 2026-03-21
 ### Fixed
 - **Post-Download Freeze**: Ensured the SHA-256 hash verification runs in a background thread immediately after downloading models, preventing a temporary UI hang.
