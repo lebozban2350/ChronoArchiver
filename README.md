@@ -2,7 +2,7 @@
 
 **ChronoArchiver** is a unified, high-performance media management suite designed for long-term data preservation and optimization. It combines intelligent data archival with professional-grade video transcoding, providing a seamless workflow for modern digital libraries. *Time to Archive!*
 
-[![Version](https://img.shields.io/badge/version-1.0.16-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-1.0.18-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey.svg)](#system-requirements)
 
@@ -12,7 +12,7 @@ ChronoArchiver is a desktop application for organizing, classifying, and re-enco
 
 ## Features
 
-### Archival Core
+### Media Organizer
 
 Sorts photos and videos into a date-based folder hierarchy using the most reliable date source available for each file.
 
@@ -40,19 +40,15 @@ Classifies images into two buckets — photos containing people or animals, and 
 - Progress bar shows current file, count, and estimated time remaining
 - Cancellable at any point
 
-### Transcoding Dashboard
+### Mass AI Encoder
 
 Batch-encodes video files to AV1, preserving folder structure and file metadata.
 
 - Encodes using **NVIDIA NVENC** (`av1_nvenc`) if a compatible GPU is detected, otherwise falls back to **SVT-AV1** (`libsvtav1`) in software
-- Supports **1, 2, or 4 concurrent jobs** via a thread pool — each job runs its own engine instance for stability
-- **HDR passthrough** — detects `smpte2084` (HDR10), `arib-std-b67` (HLG), and `bt2020` primaries via ffprobe, and forwards `color_primaries`, `color_trc`, and `colorspace` flags to the encoder with the correct 10-bit pixel format (`yuv420p10le` / `p010le`)
-- Quality controlled by CRF/CQ slider (0–63) and a speed preset (p1–p7)
-- Optional audio re-encoding to **Opus at 128 kbps** with async resampling; defaults to copy
-- Maintains source folder structure in the target directory (optional)
-- Output files are named `<original>_av1.mkv` and skip files already ending in `_av1`
-- **Stall detection** — a watchdog thread force-kills ffmpeg if no output is received for 5 minutes
-- Master progress bar tracks completion across the entire batch
+- **High-Density Monitoring**: Features a 4-slot thread grid for real-time per-job progress.
+- **Stacked Metadata**: Displays both Video and Audio codec status within each slot to maximize screen real-estate.
+- **Accurate Metrics**: Real-time **ETA** calculation, **Elapsed Session Timer**, and a living **Queue List** tracker.
+- Master progress bar tracks completion across the entire batch.
 
 ---
 
@@ -106,7 +102,7 @@ All settings are persisted automatically to the platform-appropriate config dire
 
 ## Updating
 
-The application checks for updates against GitHub Releases on startup (or manually via the **Check for Updates** button in the log console). On Arch Linux it also checks the AUR. Version comparison is semantic — `1.10.0` is correctly identified as newer than `1.9.0`.
+The application checks for updates against GitHub Releases on startup (or manually via the **CHECK FOR UPDATES** action in the global status footer). On Arch Linux it also checks the AUR. Version comparison is semantic — `1.10.0` is correctly identified as newer than `1.9.0`.
 
 ---
 
