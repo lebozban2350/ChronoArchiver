@@ -97,7 +97,7 @@ All settings are persisted automatically to the platform-appropriate config dire
 | Setting | Default | Notes |
 |---|---|---|
 | Encoding quality (CQ) | 30 | Lower = better quality, larger file |
-| Encoding preset | p4 | p1 = slowest/best, p7 = fastest/largest |
+| Encoding preset | p4 | p1 to p7 representing varying speed/quality trade-offs (behavior varies by backend) |
 | Re-encode audio | On | Off copies the original audio stream |
 | Concurrent jobs | 2 | 1, 2, or 4 parallel encode workers |
 | Maintain structure | On | Mirrors source folder layout in target |

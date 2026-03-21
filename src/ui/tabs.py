@@ -2,11 +2,14 @@ import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import threading
 import pathlib
+import os
+import sys
 from ui.app import BG_PRIMARY, BG_SECONDARY, BG_TERTIARY, ACCENT, TEXT_PRIMARY, TEXT_MUTED, SEPARATOR, FONT_MAIN, FONT_HEADER
 import shutil
 from PIL import Image
 from core.organizer import OrganizerEngine
 from core.scanner import ScannerEngine
+from core.model_manager import ModelManager
 
 import webbrowser
 
@@ -165,6 +168,15 @@ class AIScannerTab(ctk.CTkFrame):
             
         self.scanner = ScannerEngine(safe_log)
         
+        # Determine model directory (same logic as ScannerEngine)
+        if getattr(sys, 'frozen', False):
+            base_dir = sys._MEIPASS
+        else:
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        model_dir = os.path.join(base_dir, 'src', 'core', 'models')
+        
+        self.model_manager = ModelManager(model_dir)
+        
         # Internal State
         self.keep_files = []
         self.exclude_files = []
@@ -201,6 +213,11 @@ class AIScannerTab(ctk.CTkFrame):
         
         self.btn_scan = ctk.CTkButton(self.top_frame, text="START SCAN", font=FONT_MAIN, corner_radius=6, fg_color=ACCENT, hover_color="#5a8ff0", command=self.start_scan)
         self.btn_scan.pack(side="right", padx=10)
+        
+        self.lbl_model_status = ctk.CTkLabel(self.top_frame, text="Verifying AI Models...", font=FONT_MAIN, text_color=TEXT_MUTED)
+        self.lbl_model_status.pack(side="right", padx=10)
+        
+        self.btn_scan.configure(state="disabled")
         
         # === Main Lists ===
         self.content_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -263,14 +280,35 @@ class AIScannerTab(ctk.CTkFrame):
         self.btn_cancel.pack(side="right", padx=5)
         
         self.lbl_status = ctk.CTkLabel(self.footer, text="Ready", text_color=TEXT_MUTED)
-        
-        # Repack footer
-        for widget in self.footer.winfo_children(): widget.pack_forget()
-
-        self.btn_move_files.pack(side="right", padx=10, pady=5)
-        self.btn_cancel.pack(side="right", padx=5)
         self.lbl_status.pack(side="left", padx=10)
-        self.progress.pack(side="left", fill="x", expand=True, padx=10)
+
+        # Start initial model check
+        threading.Thread(target=self._init_model_check, daemon=True).start()
+
+    def _init_model_check(self):
+        """Background thread to verify/download models on startup."""
+        try:
+            if not self.model_manager.is_up_to_date():
+                self.after(0, lambda: self.lbl_model_status.configure(text="Downloading AI Models...", text_color=ACCENT))
+                
+                def on_dl_progress(current, total, filename):
+                    percent = int((current / total) * 100) if total > 0 else 0
+                    self.after(0, lambda: self.lbl_model_status.configure(text=f"Downloading {filename}: {percent}%"))
+                
+                success = self.model_manager.download_models(progress_callback=on_dl_progress)
+                if not success:
+                    self.after(0, lambda: messagebox.showerror("Error", "Failed to download AI detection models. Scanner will be unavailable."))
+                    self.after(0, lambda: self.lbl_model_status.configure(text="Models Missing", text_color="#c0392b"))
+                    return
+            
+            # Final verification
+            self.after(0, lambda: self.lbl_model_status.configure(text="SHA-256 Verified", text_color="#27ae60"))
+            self.after(3000, lambda: self.lbl_model_status.pack_forget()) # Hide after 3 seconds
+            self.after(0, lambda: self.btn_scan.configure(state="normal"))
+            
+        except Exception as e:
+            self.file_logger.error(f"Error in model verification thread: {e}")
+            self.after(0, lambda: self.lbl_model_status.configure(text="Linkage Error", text_color="#c0392b"))
 
     def on_preview_resize(self, event):
         # Debounce: Cancel previous timer if it exists
