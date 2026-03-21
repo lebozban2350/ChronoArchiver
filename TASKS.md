@@ -1,11 +1,11 @@
 # TASKS
 
-- [/] **v1.0.19: AV1 Encoder Power-User Features (2026-03-21)**
-  - [/] Refactor top row into 4-column layout (Paths/Config/Options/Metrics).
-  - [ ] Implement Options: Shutdown, HW Accel, Skip Short, Delete Source.
-  - [ ] Implement Metrics: CPU, GPU, RAM polling.
-  - [ ] Implement Pause/Resume and Space Saved tracking.
-  - [ ] Bump version to 1.0.19 and synchronize GitHub/AUR.
+- [x] **v1.0.19: AV1 Encoder Power-User Features (2026-03-21)**
+  - [x] Refactor top row into 4-column layout (Paths/Config/Options/Metrics).
+  - [x] Implement Options: Shutdown, HW Accel, Skip Short, Delete Source.
+  - [x] Implement Metrics: CPU, GPU, RAM polling.
+  - [x] Implement Pause/Resume and Space Saved tracking.
+  - [x] Bump version to 1.0.19 and synchronize GitHub/AUR.
 
 - [x] **v1.0.18: UI Refinement & Layout Polish (2026-03-21)**
   - [x] Remove "Time to Archive!" catchline from log header.
