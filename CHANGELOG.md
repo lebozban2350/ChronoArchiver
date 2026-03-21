@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.3] - 2026-03-21
+### Changed
+- Media Organizer: Squished top boxes (Directories, Options, Execution Mode) to content height; console now expands to fill all remaining vertical space.
+- AI Encoder: Squished top boxes (Directories, Configuration, Options, Metrics) and Work Progress to content height; console now expands to fill all remaining vertical space.
+- Applied `QSizePolicy.Maximum` on vertical axis for config/option group boxes so they do not scale when the window is resized.
+- AI Scanner layout left unchanged (user may scale to view sample photos).
+
 ## [2.0.2] - 2026-03-21
 ### Fixed
 - Fixed `_job_speeds` list corruption in `AV1EncoderPanel` where QLabel references were overwritten with float values.

@@ -11,7 +11,7 @@ import pathlib
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QCheckBox,
-    QProgressBar, QFileDialog, QListWidget,
+    QProgressBar, QFileDialog, QListWidget, QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal, QObject
 
@@ -73,6 +73,7 @@ class MediaOrganizerPanel(QWidget):
         v_dir.addLayout(h_src)
         v_dir.addWidget(QLabel("Folder containing media to sort by date (EXIF/Metadata)",
                                styleSheet=_shint))
+        grp_dir.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         h_strip.addWidget(grp_dir, 11)
 
         # 2. Options
@@ -86,8 +87,8 @@ class MediaOrganizerPanel(QWidget):
         for cb in [self._chk_photos, self._chk_videos]:
             cb.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; spacing:4px;")
             v_opts.addWidget(cb)
-        
-        v_opts.addStretch(1)
+
+        grp_opts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         h_strip.addWidget(grp_opts, 3)
 
         # 3. Mode
@@ -103,7 +104,7 @@ class MediaOrganizerPanel(QWidget):
             cb.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; spacing:4px;")
             v_mode.addWidget(cb)
 
-        v_mode.addStretch(1)
+        grp_mode.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         h_strip.addWidget(grp_mode, 4)
 
         root.addLayout(h_strip)
@@ -140,16 +141,16 @@ class MediaOrganizerPanel(QWidget):
         h_ctrl.addWidget(self._btn_stop, 1)
 
         v_exec.addLayout(h_ctrl)
+        grp_exec.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         root.addWidget(grp_exec)
 
         # ── CONSOLE ───────────────────────────────────────────────────────────
         grp_log = QGroupBox("Console")
-        grp_log.setFixedHeight(220)
         v_log = QVBoxLayout(grp_log)
         v_log.setContentsMargins(6, 4, 6, 4); v_log.setSpacing(0)
         self._log_list = QListWidget()
         v_log.addWidget(self._log_list)
-        root.addWidget(grp_log)
+        root.addWidget(grp_log, 1)  # Stretch: console takes all remaining vertical space
 
     def _browse(self):
         f = QFileDialog.getExistingDirectory(self, "Select Folder to Organize")

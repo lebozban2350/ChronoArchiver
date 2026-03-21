@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QCheckBox,
     QProgressBar, QFileDialog, QComboBox, QSlider,
-    QListWidget,
+    QListWidget, QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal, QObject, QTimer
 
@@ -121,6 +121,7 @@ class AV1EncoderPanel(QWidget):
         v_dir.addWidget(QLabel("Target — AV1 encoded output destination",
                                styleSheet=_shint))
 
+        grp_dir.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         h_strip.addWidget(grp_dir, 11)
 
         # 2. Configuration
@@ -180,9 +181,9 @@ class AV1EncoderPanel(QWidget):
         self._chk_audio.stateChanged.connect(lambda v: self._settings.set("reencode_audio", bool(v)))
         h_a.addWidget(self._chk_audio)
         h_a.addWidget(QLabel("Re-encode PCM/unsupported to Opus", styleSheet="font-size:7px; color:#444;"))
-        h_a.addStretch()
         v_cfg.addLayout(h_a)
 
+        grp_cfg.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         h_strip.addWidget(grp_cfg, 1)
 
         # 3. Options
@@ -262,8 +263,8 @@ class AV1EncoderPanel(QWidget):
         vd.addWidget(w_del)
         vd.addWidget(QLabel("Both boxes must be checked to enable", styleSheet="font-size:7px; color:#5a1a1a; margin-left:16px; margin-top:-1px;"))
         v_opts.addWidget(wrap_del)
-        v_opts.addStretch(1)
 
+        grp_opts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         h_strip.addWidget(grp_opts, 1)
 
         # 4. Metrics
@@ -290,6 +291,7 @@ class AV1EncoderPanel(QWidget):
         _add_metric("GPU", "NVIDIA GPU encoder load",     self._lbl_gpu)
         _add_metric("RAM", "Memory in use / total",        self._lbl_ram)
 
+        grp_tel.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         h_strip.addWidget(grp_tel, 2)
         root.addLayout(h_strip)
 
@@ -386,16 +388,16 @@ class AV1EncoderPanel(QWidget):
         h_ctrl.addWidget(self._btn_logs, 1)
 
         v_work.addLayout(h_ctrl)
+        grp_work.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         root.addWidget(grp_work)
 
         # ── CONSOLE ───────────────────────────────────────────────────────────
         grp_log = QGroupBox("Console")
-        grp_log.setFixedHeight(160)
         v_log = QVBoxLayout(grp_log)
         v_log.setContentsMargins(6, 4, 6, 4); v_log.setSpacing(0)
         self._log_list = QListWidget()
         v_log.addWidget(self._log_list)
-        root.addWidget(grp_log)
+        root.addWidget(grp_log, 1)  # Stretch: console takes all remaining vertical space
 
         # Telemetry timer
         self._tel_timer = QTimer(self)
