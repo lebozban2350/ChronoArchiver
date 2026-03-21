@@ -1,5 +1,10 @@
 # TASKS
 
+- [x] **v1.0.22: On-Demand Models Fix (2026-03-21)**
+  - [x] Scrub binary models from repository (`git rm *.tflite *.onnx`).
+  - [x] Add `.gitignore` to `src/core/models/`.
+  - [x] Bump version to 1.0.22 and synchronize GitHub/AUR.
+
 - [x] **v1.0.21: AUR Build Fix (2026-03-21)**
   - [x] Fix icon path mismatch in `PKGBUILD` (`src/assets` -> `src/ui/assets`).
   - [x] Bump version to 1.0.21 and synchronize GitHub/AUR.
@@ -66,8 +71,7 @@
   - [x] Bump version to 1.0.12 and synchronize GitHub/AUR.
 
 
-- [![Version](https://img.shields.io/badge/version-1.0.21-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
-ktop` specification file.
+- [x] **v1.0.11: Linux Desktop Integration (2026-03-21)**
   - [x] Create `chronoarchiver.desktop` specification file.
   - [x] Update `PKGBUILD` to install desktop entry and application icon.
   - [x] Bump version to 1.0.11 in `src/version.py`, `README.md`, and `CHANGELOG.md`.
