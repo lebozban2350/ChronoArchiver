@@ -148,20 +148,11 @@ cython_debug/
 # VS Code
 .vscode/
 
-# Project Tracking & Brain
-CONVERSATION_LOG.md
-IMPLEMENTATION_PLAN.md
-TASKS.md
-TODO.md
-NOTES.md
-WALKTHROUGH.md
+# Documentation — only CHANGELOG.md and README.md are tracked in git
+*.md
+!CHANGELOG.md
+!README.md
+
+# Project context (local only)
 brain/
 .gemini/
-
-# Project context and logs
-CONVERSATION_LOG.md
-IMPLEMENTATION_PLAN.md
-NOTES.md
-TASKS.md
-TODO.md
-WALKTHROUGH.md

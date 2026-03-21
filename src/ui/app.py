@@ -245,16 +245,50 @@ class ChronoArchiverApp(QMainWindow):
         webbrowser.open(url)
 
     def _run_updater(self):
+        # If update available and user clicks, perform update
+        if self.updater.is_update_available():
+            self._confirm_and_perform_update()
+            return
         self.btn_update.setText("CHECKING...")
         def _on_done(latest, changelog):
-            if latest and latest != __version__:
+            if self.updater.is_update_available():
                 self.btn_update.setText(f"UPDATE v{latest} AVAILABLE")
                 self.btn_update.setStyleSheet("font-size: 8px; color: #10b981; font-weight:bold;")
             else:
                 self.btn_update.setText("CHRONOARCHIVER IS UP TO DATE")
                 self.btn_update.setStyleSheet("font-size: 8px; color: #4b5563;")
-        
-        threading.Thread(target=lambda: self.updater.check_for_updates(_on_done), daemon=True).start()
+
+        def _do_check():
+            self.updater.check_for_updates(lambda l, c: QTimer.singleShot(0, lambda: _on_done(l, c)))
+        threading.Thread(target=_do_check, daemon=True).start()
+
+    def _confirm_and_perform_update(self):
+        latest = self.updater.get_latest_version()
+        method = self.updater.get_install_method()
+        if not method:
+            QMessageBox.warning(
+                self,
+                "Update",
+                "Cannot determine install method. Download the latest release from GitHub.",
+            )
+            return
+        method_desc = "git pull" if method == "git" else "AUR (paru/yay)"
+        r = QMessageBox.question(
+            self,
+            "Update ChronoArchiver",
+            f"Update to v{latest}? The app will close, perform the update ({method_desc}), and restart.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if r != QMessageBox.Yes:
+            return
+
+        def on_error(msg):
+            QMessageBox.warning(self, "Update Failed", msg)
+
+        self.btn_update.setText("UPDATING...")
+        self.updater.perform_update_and_restart(on_error=on_error)
+        QApplication.instance().quit()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

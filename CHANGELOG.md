@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.5] - 2026-03-21
+### Added
+- **Update and restart flow**: When an update is available and the user clicks the update button, the app prompts for confirmation, then closes, performs the update, and restarts.
+- **Windows (git)**: Uses `git pull` in the repository root.
+- **Linux (git)**: Same git-pull flow for development/source installs.
+- **Arch Linux (AUR)**: Uses `paru`, `yay`, or `pkexec pacman` to update the `chronoarchiver` package. Spawns a terminal when available for interactive sudo/AUR prompts.
+- Install method is detected automatically (git clone vs AUR package).
+
 ## [2.0.4] - 2026-03-21
 ### Changed
 - AI Encoder: Reorganized config layout—Directories on top, Configuration below, Options on the right spanning full height.

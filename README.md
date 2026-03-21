@@ -2,7 +2,7 @@
 
 **ChronoArchiver** is a unified, high-performance media management suite designed for long-term data preservation and optimization. It combines intelligent data archival with professional-grade video transcoding, providing a seamless workflow for modern digital libraries. *Time to Archive!*
 
-[![Version](https://img.shields.io/badge/version-2.0.4-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-2.0.5-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey.svg)](#system-requirements)
 
@@ -32,7 +32,7 @@ Sorts photos and videos into a date-based folder hierarchy using the most reliab
 Classifies images into two buckets — photos containing people or animals, and everything else — so you can review and move the latter in bulk.
 
 - Face detection via **OpenCV YuNet** (`face_detection_yunet_2023mar.onnx`), running on OpenCL if available
-- Optional animal detection via **MediaPipe EfficientDet Lite 0** (`efficientdet_lite0.tflite`), covering cats, dogs, birds, horses, sheep, cows, bears, zebras, and giraffes
+- Optional animal detection via **OpenCV DNN** (SSD MobileNet V1), covering cats, dogs, birds, horses, sheep, cows, bears, zebras, and giraffes
 - Both models ship with the application; SHA-256 integrity is verified on every launch and re-downloaded automatically if corrupt
 - Results appear in two scrollable lists — **Keep** (subjects detected) and **Move** (no subjects) — with an inline image preview on click
 - Items can be manually moved between lists before committing
@@ -107,13 +107,13 @@ All settings are persisted automatically to the platform-appropriate config dire
 
 ## Updating
 
-The application checks for updates against GitHub Releases on startup (or manually via the **CHECK FOR UPDATES** action in the global status footer). On Arch Linux it also checks the AUR. Version comparison is semantic — `1.10.0` is correctly identified as newer than `1.9.0`.
+The application checks for updates against GitHub Releases on startup (or via the **CHECK FOR UPDATES** action in the nav bar). When an update is available, you can apply it in-app: the app closes, performs the update (git pull on Windows/Linux source installs, or `paru`/`yay` on Arch AUR), then restarts. Version comparison is semantic.
 
 ---
 
 ## Support
 
-ChronoArchiver is free and open-source. If it saves you time, the **Donate** tab inside the application has PayPal and Venmo links.
+ChronoArchiver is free and open-source. If it saves you time, the **Buy me a coffee** button in the nav bar links to PayPal.
 
 ---
 
