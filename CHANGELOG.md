@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.9] - 2026-03-21
+### Changed
+- **AI Media Scanner**: Compact layout — smaller Directories, Options, and Engine Status boxes; horizontal Scanning Progress strip; image preview when selecting Keep/Move items after scan; Results section with dedicated preview pane.
+- **Media Organizer**: Directories, Options, and Execution Mode boxes now share equal vertical height.
+
 ## [2.0.8] - 2026-03-21
 ### Added
 - **Debug logging**: Centralized `chronoarchiver_debug.log` with timestamps and utility name (Media Organizer, Mass AV1 Encoder, AI Media Scanner). Rotation keeps last 3 log files to prevent storage bloat.

@@ -52,83 +52,80 @@ class MediaOrganizerPanel(QWidget):
         # ── COMMAND STRIP ─────────────────────────────────────────────────────
         h_strip = QHBoxLayout()
         h_strip.setSpacing(6)
+        _box_height = 110  # Equal height for all three boxes
 
         # 1. Directories
         grp_dir = QGroupBox("Directories")
+        grp_dir.setFixedHeight(_box_height)
         v_dir = QVBoxLayout(grp_dir)
-        v_dir.setContentsMargins(8, 2, 8, 2); v_dir.setSpacing(1)
-
+        v_dir.setContentsMargins(6, 2, 6, 2)
+        v_dir.setSpacing(1)
         self._edit_path = QLineEdit()
         self._edit_path.setPlaceholderText("SOURCE — folder containing media...")
         self._edit_path.setStyleSheet(
-            "color:#fff; font-size:12px; font-weight:500; "
+            "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
             "background:#121212; border:1px solid #1a1a1a;")
-
-        h_src = QHBoxLayout(); h_src.setSpacing(4)
+        h_src = QHBoxLayout()
+        h_src.setSpacing(4)
         h_src.addWidget(self._edit_path, 1)
-        btn_br = QPushButton("Browse"); btn_br.setFixedWidth(52)
+        btn_br = QPushButton("Browse")
+        btn_br.setFixedWidth(48)
         btn_br.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
         btn_br.clicked.connect(self._browse)
         h_src.addWidget(btn_br)
-
         v_dir.addLayout(h_src)
-        v_dir.addWidget(QLabel("Source folder to organize (EXIF/metadata/ffprobe)",
-                               styleSheet=_shint))
-
+        v_dir.addWidget(QLabel("Source (EXIF/metadata/ffprobe)", styleSheet=_shint))
         self._edit_target = QLineEdit()
-        self._edit_target.setPlaceholderText("TARGET (optional) — organize into this folder...")
+        self._edit_target.setPlaceholderText("TARGET (optional)")
         self._edit_target.setStyleSheet(
-            "color:#fff; font-size:12px; font-weight:500; "
+            "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
             "background:#121212; border:1px solid #1a1a1a;")
-
-        h_tgt = QHBoxLayout(); h_tgt.setSpacing(4)
+        h_tgt = QHBoxLayout()
+        h_tgt.setSpacing(4)
         h_tgt.addWidget(self._edit_target, 1)
-        btn_tgt = QPushButton("Browse"); btn_tgt.setFixedWidth(52)
+        btn_tgt = QPushButton("Browse")
+        btn_tgt.setFixedWidth(48)
         btn_tgt.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
         btn_tgt.clicked.connect(self._browse_target)
         h_tgt.addWidget(btn_tgt)
-
         v_dir.addLayout(h_tgt)
-        v_dir.addWidget(QLabel("Leave blank for in-place organization", styleSheet=_shint))
-
-        grp_dir.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        v_dir.addWidget(QLabel("Blank = in-place", styleSheet=_shint))
         h_strip.addWidget(grp_dir, 11)
 
         # 2. Options
         grp_opts = QGroupBox("Options")
+        grp_opts.setFixedHeight(_box_height)
         v_opts = QVBoxLayout(grp_opts)
-        v_opts.setContentsMargins(8, 4, 8, 4); v_opts.setSpacing(4)
-
-        self._chk_photos = QCheckBox("Photos"); self._chk_photos.setChecked(True)
-        self._chk_videos = QCheckBox("Videos"); self._chk_videos.setChecked(True)
-
+        v_opts.setContentsMargins(6, 2, 6, 2)
+        v_opts.setSpacing(2)
+        self._chk_photos = QCheckBox("Photos")
+        self._chk_photos.setChecked(True)
+        self._chk_videos = QCheckBox("Videos")
+        self._chk_videos.setChecked(True)
         for cb in [self._chk_photos, self._chk_videos]:
-            cb.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; spacing:4px;")
+            cb.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
             v_opts.addWidget(cb)
-
         self._edit_exts = QLineEdit()
-        self._edit_exts.setPlaceholderText("Extensions override (e.g. .jpg,.png,.mp4)")
-        self._edit_exts.setStyleSheet("font-size:8px; color:#888; background:#121212; border:1px solid #1a1a1a; padding:2px;")
+        self._edit_exts.setPlaceholderText("Extensions override (.jpg,.png,.mp4)")
+        self._edit_exts.setStyleSheet("font-size:8px; color:#888; background:#121212; border:1px solid #1a1a1a; padding:2px; min-height:22px;")
         v_opts.addWidget(self._edit_exts)
-        v_opts.addWidget(QLabel("Leave blank to use Photos/Videos above", styleSheet=_shint))
-
-        grp_opts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        v_opts.addWidget(QLabel("Blank = use Photos/Videos", styleSheet=_shint))
+        v_opts.addStretch()
         h_strip.addWidget(grp_opts, 3)
 
-        # 3. Mode
+        # 3. Execution Mode
         grp_mode = QGroupBox("Execution Mode")
+        grp_mode.setFixedHeight(_box_height)
         v_mode = QVBoxLayout(grp_mode)
-        v_mode.setContentsMargins(8, 4, 8, 4); v_mode.setSpacing(4)
-
+        v_mode.setContentsMargins(6, 2, 6, 2)
+        v_mode.setSpacing(2)
         self._chk_dry = QCheckBox("Dry Run (Simulation)")
         self._chk_dry.setChecked(True)
         self._chk_flat = QCheckBox("Flat Folders (YYYY-MM)")
-        
         for cb in [self._chk_dry, self._chk_flat]:
-            cb.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; spacing:4px;")
+            cb.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
             v_mode.addWidget(cb)
-
-        grp_mode.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        v_mode.addStretch()
         h_strip.addWidget(grp_mode, 4)
 
         root.addLayout(h_strip)
