@@ -1,6 +1,6 @@
 # Maintainer: UnDadFeated <jscheema@gmail.com>
 pkgname=chronoarchiver
-pkgver=1.0.20
+pkgver=1.0.21
 pkgrel=1
 pkgdesc="Unified Media Archive Organizer and AV1 Encoder - Time to Archive!"
 arch=('any')
@@ -41,5 +41,5 @@ package() {
     install -m644 "chronoarchiver.desktop" "${pkgdir}/usr/share/applications/chronoarchiver.desktop"
     
     # Install application icon
-    install -m644 "src/assets/icon.png" "${pkgdir}/usr/share/pixmaps/chronoarchiver.png"
+    install -m644 "src/ui/assets/icon.png" "${pkgdir}/usr/share/pixmaps/chronoarchiver.png"
 }

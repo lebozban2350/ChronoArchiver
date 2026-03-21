@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.21] - 2026-03-21
+### Fixed
+- AUR build failure caused by incorrect icon path in `PKGBUILD`.
+
 ## [1.0.20] - 2026-03-21
 ### Fixed
 - Application startup crash (`ImportError`) by restoring `__version__` variable.

@@ -1,5 +1,9 @@
 # TASKS
 
+- [x] **v1.0.21: AUR Build Fix (2026-03-21)**
+  - [x] Fix icon path mismatch in `PKGBUILD` (`src/assets` -> `src/ui/assets`).
+  - [x] Bump version to 1.0.21 and synchronize GitHub/AUR.
+
 - [x] **v1.0.20: Stability Hotfix & Asset Restoration (2026-03-21)**
   - [x] Fix startup crash (restore `__version__` in `version.py`).
   - [x] Fix asset paths (move to `src/ui/assets`) and update `app.py`.
@@ -62,7 +66,8 @@
   - [x] Bump version to 1.0.12 and synchronize GitHub/AUR.
 
 
-- [x] **v1.0.11: Linux Desktop Integration (2026-03-21)**
+- [![Version](https://img.shields.io/badge/version-1.0.21-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+ktop` specification file.
   - [x] Create `chronoarchiver.desktop` specification file.
   - [x] Update `PKGBUILD` to install desktop entry and application icon.
   - [x] Bump version to 1.0.11 in `src/version.py`, `README.md`, and `CHANGELOG.md`.
