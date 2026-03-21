@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [1.0.5] - 2026-03-21
+### Added
+- **AI Scanner**: Integrated `ModelManager` for mandatory SHA-256 integrity verification on launch. The engine now verifies model health and automatically restores corrupt models before allowing a scan.
+- **AV1 Encoder**: Implemented immediate process cancellation. Hitting "Stop" now terminates active ffmpeg processes instantly rather than waiting for the current file to finish.
+
+### Fixed
+- **UI Logic**: Wired background threading for model verification in the AI Scanner tab with real-time status reporting.
+- **README**: Corrected backend-specific preset direction semantics to be technically accurate for both NVENC and SVT-AV1.
+- **Stability**: Fixed potential NameErrors by ensuring `os` and `sys` are correctly imported in `tabs.py`.
+
 ## [1.0.4] - 2026-03-21
 ### Fixed
 - **Phantom UI Controls**: Wired up "Photos" and "Videos" checkboxes in Archival Core to filter valid extensions.
