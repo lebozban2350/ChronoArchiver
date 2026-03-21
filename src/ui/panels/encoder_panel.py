@@ -1,4 +1,4 @@
-""""
+"""
 encoder_panel.py — Mass AV1 Encoder panel for ChronoArchiver.
 Visual style exactly matches Mass AV1 Encoder v12.
 Uses src/core/av1_engine.py and src/core/av1_settings.py unchanged.
@@ -588,7 +588,6 @@ class AV1EncoderPanel(QWidget):
         self._job_bars[job_id].setValue(int(p.percent))
         self._job_speeds[job_id].setText(f"{p.fps:.1f} fps / {p.speed:.2f}x")
         self._job_progress[job_id] = p.percent
-        self._job_speeds[job_id] = p.speed
 
         # Master
         if self._total_q_bytes > 0:
@@ -701,4 +700,4 @@ class AV1EncoderPanel(QWidget):
             self._log_cb(msg)
 
     def _on_telemetry(self, data):
-        pass  # handled by timer"
+        pass  # handled by timer

@@ -1,4 +1,4 @@
-""""
+"""
 ChronoArchiver v2.0.0 — PySide6 Migration.
 Replicates the high-density visual style of Mass AV1 Encoder v12.
 Uses a QStackedWidget to manage distinct application panels.

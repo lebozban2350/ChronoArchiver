@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.0.2] - 2026-03-21
+### Fixed
+- Fixed `_job_speeds` list corruption in `AV1EncoderPanel` where QLabel references were overwritten with float values.
+- Fixed `ModelManager` progress callback in `AIScannerPanel` to use a proper wrapper compatible with `Signal(str)`.
+- Corrected malformed docstrings (`""""` → `"""`) across UI modules and updater.
+- Removed stray quote in `_on_telemetry` comment.
+
+## [2.0.1] - 2026-03-21
+### Fixed
+- Fixed `ModelManager` path resolution in `AIScannerPanel` for correct local core directory detection.
+- Corrected `OrganizerEngine` progress callback signature (added filename arg).
+- Fixed engine control API mismatches (`cancel()` instead of `stop()`).
+- Optimized `requirements.txt` by removing unused heavy dependencies (`torch`, `torchvision`, `tqdm`).
+- Moved `QTimer` import to top-level for better module structure in `scanner_panel.py`.
+
 ## [2.0.0] - 2026-03-21
 ### Added
 - Complete migration from CustomTkinter to **PySide6**.

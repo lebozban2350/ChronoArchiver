@@ -1,4 +1,4 @@
-""""
+"""
 organizer_panel.py — Media Organizer panel for ChronoArchiver.
 Visual style matches Mass AV1 Encoder v12.
 Uses src/core/organizer.py unchanged.

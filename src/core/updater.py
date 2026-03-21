@@ -1,4 +1,4 @@
-""""
+"""
 updater.py — Headless updater for ChronoArchiver.
 Optimized for PySide6 integration using callbacks.
 """

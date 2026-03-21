@@ -1,4 +1,4 @@
-""""
+"""
 scanner_panel.py — AI Media Scanner panel for ChronoArchiver.
 Visual style exactly matches Mass AV1 Encoder v12.
 Uses src/core/scanner.py and src/core/model_manager.py unchanged.
@@ -167,8 +167,14 @@ class AIScannerPanel(QWidget):
 
     def _setup_models(self):
         self._add_log("Starting model setup...")
+        def _progress(downloaded, total_size, filename):
+            if total_size > 0:
+                pct = int(downloaded / total_size * 100)
+                self._sig.log_msg.emit(f"Downloading: {filename} ({pct}%)")
+            else:
+                self._sig.log_msg.emit(f"Downloading: {filename}...")
         def _task():
-            self._model_mgr.download_models(self._sig.log_msg.emit)
+            self._model_mgr.download_models(_progress)
             QTimer.singleShot(0, self._check_models)
         threading.Thread(target=_task, daemon=True).start()
 
