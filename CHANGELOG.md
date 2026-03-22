@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.33] - 2026-03-22
+### Fixed
+- **Mass AV1 Encoder**: Scan dialog — restore indeterminate progress bar (unknown total); more frequent updates (emit for first 10 files, then every 50ms); processEvents in update to prevent UI freeze.
+
 ## [2.0.32] - 2026-03-22
 ### Fixed
 - **Mass AV1 Encoder**: Source and target folders no longer saved; cleared on each launch.

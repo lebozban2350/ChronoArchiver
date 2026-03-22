@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QCheckBox,
     QProgressBar, QFileDialog, QComboBox, QSlider,
-    QListWidget, QSizePolicy, QDialog,
+    QListWidget, QSizePolicy, QDialog, QApplication,
 )
 from PySide6.QtCore import Qt, Signal, QObject, QTimer
 
@@ -54,8 +54,7 @@ class ScanProgressDialog(QDialog):
         self._lbl_size.setStyleSheet("font-size:11px; color:#aaa;")
         v.addWidget(self._lbl_size)
         self._bar = QProgressBar()
-        self._bar.setRange(0, 1)
-        self._bar.setValue(0)
+        self._bar.setRange(0, 0)
         self._bar.setFixedHeight(12)
         v.addWidget(self._bar)
         self.setStyleSheet("QDialog { background: #0d0d0d; }")
@@ -71,6 +70,9 @@ class ScanProgressDialog(QDialog):
         else:
             sz = f"{total_bytes} B"
         self._lbl_size.setText(f"Total size: {sz}")
+        app = QApplication.instance()
+        if app:
+            app.processEvents()
 
 
 class AV1EncoderPanel(QWidget):
@@ -605,7 +607,7 @@ class AV1EncoderPanel(QWidget):
                     count += 1
                     total_bytes += size
                     now = time.time()
-                    if now - last_update[0] >= 0.1 or count == 1:
+                    if count <= 10 or now - last_update[0] >= 0.05:
                         last_update[0] = now
                         self._sig.scan_progress.emit(count, total_bytes)
             except Exception as e:
@@ -681,7 +683,7 @@ class AV1EncoderPanel(QWidget):
                         count += 1
                         total_bytes += size
                         now = time.time()
-                        if now - last_update[0] >= 0.1 or count == 1:
+                        if count <= 10 or now - last_update[0] >= 0.05:
                             last_update[0] = now
                             self._sig.scan_progress.emit(count, total_bytes)
                 except Exception as e:
