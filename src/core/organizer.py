@@ -122,13 +122,31 @@ class OrganizerEngine:
 
         base_dir = target_dir.rstrip(os.sep) if target_dir else source_dir
 
-        self.logger("Counting files...")
+        self.logger("Building file queue...")
         if progress_callback:
-            progress_callback(0, 0, "Counting files...")
+            progress_callback(0, 1, 0, 0, "Scanning...")
 
-        total_files = self.count_files(source_dir, valid_exts)
-        self.logger(f"Found {total_files} media files.")
-        debug(UTILITY_MEDIA_ORGANIZER, f"Found {total_files} files to process")
+        queue_list = []
+        for root, _, files in os.walk(source_dir):
+            if self.cancel_flag:
+                break
+            for file in files:
+                if self.cancel_flag:
+                    break
+                ext = pathlib.Path(file).suffix.lower()
+                if ext not in valid_exts:
+                    continue
+                full_path = os.path.join(root, file)
+                try:
+                    size = os.path.getsize(full_path)
+                except OSError:
+                    size = 0
+                queue_list.append((full_path, size, file))
+
+        total_files = len(queue_list)
+        total_bytes = sum(s for _, s, _ in queue_list)
+        self.logger(f"Found {total_files} media files ({total_bytes / (1024*1024):.1f} MB).")
+        debug(UTILITY_MEDIA_ORGANIZER, f"Found {total_files} files, {total_bytes} bytes")
 
         folder_style = "Flat (YYYY-MM)" if use_flat_folders else "Nested (YYYY/YYYY-MM)"
         dest_note = f" -> {base_dir}" if target_dir else " (in-place)"
@@ -136,105 +154,90 @@ class OrganizerEngine:
 
         files_moved = 0
         files_processed = 0
+        bytes_done = 0
         duplicates_found = 0
         skipped = 0
-        
-        for root, _, files in os.walk(source_dir):
+
+        for full_path, size, file in queue_list:
             if self.cancel_flag:
                 self.logger("Operation Cancelled.")
                 debug(UTILITY_MEDIA_ORGANIZER, "Operation cancelled by user")
                 break
-                
-            for file in files:
-                if self.cancel_flag: break
-                
-                ext = pathlib.Path(file).suffix.lower()
-                if ext not in valid_exts:
-                    continue
-                    
-                files_processed += 1
-                if progress_callback:
-                    progress_callback(files_processed, total_files, file)
 
-                full_path = os.path.join(root, file)
-                date_obj = self.get_date_taken(full_path)
-                
-                if not date_obj:
-                    self.logger(f"Skipping {file}: Could not determine date.")
-                    debug(UTILITY_MEDIA_ORGANIZER, f"Skip (no date): {file}")
-                    skipped += 1
-                    continue
+            files_processed += 1
+            bytes_done += size
+            if progress_callback and total_bytes > 0:
+                progress_callback(bytes_done, total_bytes, files_processed, total_files, file)
 
-                # Format Data
-                year = str(date_obj.year)
-                month_name = f"{date_obj.year}-{date_obj.month:02d}"
-                date_prefix = f"{date_obj.year}-{date_obj.month:02d}-{date_obj.day:02d}"
+            date_obj = self.get_date_taken(full_path)
+            if not date_obj:
+                self.logger(f"Skipping {file}: Could not determine date.")
+                debug(UTILITY_MEDIA_ORGANIZER, f"Skip (no date): {file}")
+                skipped += 1
+                continue
 
-                # Target Structure (base_dir = target or source for in-place)
-                if use_flat_folders:
-                    target_subdir = os.path.join(base_dir, month_name)
-                    rel_base = month_name
+            # Format Data
+            year = str(date_obj.year)
+            month_name = f"{date_obj.year}-{date_obj.month:02d}"
+            date_prefix = f"{date_obj.year}-{date_obj.month:02d}-{date_obj.day:02d}"
+
+            # Target Structure (base_dir = target or source for in-place)
+            if use_flat_folders:
+                target_subdir = os.path.join(base_dir, month_name)
+                rel_base = month_name
+            else:
+                target_subdir = os.path.join(base_dir, year, month_name)
+                rel_base = os.path.join(year, month_name)
+
+            # Logic: Check if file already has a YYYY-MM-DD prefix
+            match = re.match(r'^(\d{4}-\d{2}-\d{2})_', file)
+
+            if match:
+                existing_date = match.group(1)
+                if existing_date == date_prefix:
+                    new_filename = file
                 else:
-                    target_subdir = os.path.join(base_dir, year, month_name)
-                    rel_base = os.path.join(year, month_name)
-                
-                # Logic: Check if file already has a YYYY-MM-DD prefix
-                match = re.match(r'^(\d{4}-\d{2}-\d{2})_', file)
-                
-                if match:
-                    existing_date = match.group(1)
-                    if existing_date == date_prefix:
-                        # It matches our calculated date. Keep it as is (avoid double prefix)
-                        new_filename = file
-                    else:
-                        # Mismatch! The file has a date prefix, but it's WRONG (according to our best scan).
-                        # Strip the old prefix and apply the new one.
-                        # Original name without prefix
-                        original_name = file[len(match.group(0)):]
-                        new_filename = f"{date_prefix}_{original_name}"
-                        if not dry_run:
-                            self.logger(f"[RENAME FIX] Found incorrect date {existing_date}, fixing to {date_prefix}")
-                else:
-                    # No prefix, add it.
-                    new_filename = f"{date_prefix}_{file}"
+                    original_name = file[len(match.group(0)):]
+                    new_filename = f"{date_prefix}_{original_name}"
+                    if not dry_run:
+                        self.logger(f"[RENAME FIX] Found incorrect date {existing_date}, fixing to {date_prefix}")
+            else:
+                new_filename = f"{date_prefix}_{file}"
 
-                target_path = os.path.join(target_subdir, new_filename)
-                
-                # Check if it's already there (path match)
-                if full_path == target_path:
+            target_path = os.path.join(target_subdir, new_filename)
+
+            if full_path == target_path:
+                continue
+
+            # Deduplication / Collision
+            if os.path.exists(target_path):
+                if os.path.getsize(full_path) == os.path.getsize(target_path) and \
+                   self._quick_hash(full_path) == self._quick_hash(target_path):
+                    self.logger(f"[DUPLICATE] {file} exists in {rel_base}. Skipping.")
+                    debug(UTILITY_MEDIA_ORGANIZER, f"Duplicate: {file}")
+                    duplicates_found += 1
                     continue
-                
-                # Deduplication / Collision
-                if os.path.exists(target_path):
-                    # Simple size check and quick hash check
-                    if os.path.getsize(full_path) == os.path.getsize(target_path) and \
-                       self._quick_hash(full_path) == self._quick_hash(target_path):
-                        self.logger(f"[DUPLICATE] {file} exists in {rel_base}. Skipping.")
-                        debug(UTILITY_MEDIA_ORGANIZER, f"Duplicate: {file}")
-                        duplicates_found += 1
-                        continue
-                    else:
-                        # Name collision, rename append timestamp
-                        p_new = pathlib.Path(new_filename)
-                        base, extension = p_new.stem, p_new.suffix
-                        new_name_collision = f"{base}_{int(datetime.now().timestamp())}{extension}"
-                        target_path = os.path.join(target_subdir, new_name_collision)
-                        new_filename = new_name_collision
-
-                rel_target_path = os.path.join(rel_base, new_filename)
-                
-                if not dry_run:
-                    os.makedirs(target_subdir, exist_ok=True)
-                    try:
-                        shutil.move(full_path, target_path)
-                        files_moved += 1
-                        self.logger(f"[MOVE] \"{file}\" -> \"{rel_target_path}\"")
-                    except Exception as e:
-                        self.logger(f"Error moving {file}: {e}")
-                        debug(UTILITY_MEDIA_ORGANIZER, f"Error moving {file}: {e}")
                 else:
+                    p_new = pathlib.Path(new_filename)
+                    base, extension = p_new.stem, p_new.suffix
+                    new_name_collision = f"{base}_{int(datetime.now().timestamp())}{extension}"
+                    target_path = os.path.join(target_subdir, new_name_collision)
+                    new_filename = new_name_collision
+
+            rel_target_path = os.path.join(rel_base, new_filename)
+
+            if not dry_run:
+                os.makedirs(target_subdir, exist_ok=True)
+                try:
+                    shutil.move(full_path, target_path)
                     files_moved += 1
-                    self.logger(f"[DRY RUN] \"{file}\" -> \"{rel_target_path}\"")
+                    self.logger(f"[MOVE] \"{file}\" -> \"{rel_target_path}\"")
+                except Exception as e:
+                    self.logger(f"Error moving {file}: {e}")
+                    debug(UTILITY_MEDIA_ORGANIZER, f"Error moving {file}: {e}")
+            else:
+                files_moved += 1
+                self.logger(f"[DRY RUN] \"{file}\" -> \"{rel_target_path}\"")
 
         self.logger(f"Done. Moved: {files_moved}, Skipped: {skipped}, Duplicates: {duplicates_found}.")
         debug(UTILITY_MEDIA_ORGANIZER, f"Done: moved={files_moved}, skipped={skipped}, duplicates={duplicates_found}")

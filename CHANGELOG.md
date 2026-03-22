@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.27] - 2026-03-21
+### Changed
+- **Media Organizer, AI Media Scanner, Mass AV1 Encoder**: Unified queue strategy — all three apps now build a pre-scan queue of (path, size) tuples and use byte-weighted progress for the master bar during processing. Organizer and Scanner log total size (MB) when building the queue.
+
 ## [2.0.26] - 2026-03-21
 ### Fixed
 - **Mass AV1 Encoder**: Guide glow now stays on source Browse until scan completes; Work Progress shows "Scanning source..." and indeterminate bar during scan; guide moves to target Browse only after queue is populated.

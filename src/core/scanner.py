@@ -57,7 +57,7 @@ class ScannerEngine:
         self.keep_list.clear()
         self.stop_event.clear()
 
-        # Gather files
+        # Gather files with sizes (queue: path, size for byte-weighted progress)
         self.logger("Scanning directory structure...")
         image_exts = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff'}
         all_files = []
@@ -65,14 +65,19 @@ class ScannerEngine:
         for root, dirs, files in os.walk(directory):
             for f in files:
                 if pathlib.Path(f).suffix.lower() in image_exts:
-                    all_files.append(os.path.join(root, f))
+                    full_path = os.path.join(root, f)
+                    try:
+                        size = os.path.getsize(full_path)
+                    except OSError:
+                        size = 0
+                    all_files.append((full_path, size))
             if not include_subfolders:
                 break
 
         total = len(all_files)
-        debug(UTILITY_AI_MEDIA_SCANNER, f"Found {total} images, initializing models")
-        # Always GPU/OpenCV for Face
-        self.logger(f"Found {total} images. Starting Pipeline (GPU/OpenCV)...")
+        total_bytes = sum(s for _, s in all_files)
+        debug(UTILITY_AI_MEDIA_SCANNER, f"Found {total} images ({total_bytes} bytes), initializing models")
+        self.logger(f"Found {total} images ({total_bytes / (1024*1024):.1f} MB). Starting Pipeline (GPU/OpenCV)...")
         
         # Models
         face_engine = None
@@ -95,38 +100,42 @@ class ScannerEngine:
 
         # Pipeline
         img_queue = queue.Queue(maxsize=20)
-        
+
         def producer():
-            for f in all_files:
-                if self.stop_event.is_set(): break
+            for f_path, size in all_files:
+                if self.stop_event.is_set():
+                    break
                 try:
-                    img = cv2.imread(f)
+                    img = cv2.imread(f_path)
                     if img is not None:
-                        img_queue.put((f, img))
+                        img_queue.put((f_path, size, img))
                 except Exception:
                     pass
-            img_queue.put(None) # Sentinel
+            img_queue.put(None)  # Sentinel
 
         # Start Producer
         t_prod = threading.Thread(target=producer, daemon=True)
         t_prod.start()
-        
+
         # Consumer (Main Thread Context)
         start_time = time.time()
-        processed_count = 0
-        
+        bytes_done = 0
+
         while True:
-            if self.stop_event.is_set(): break
-            
+            if self.stop_event.is_set():
+                break
+
             try:
                 item = img_queue.get(timeout=1)
             except queue.Empty:
-                if not t_prod.is_alive(): break
+                if not t_prod.is_alive():
+                    break
                 continue
-                
-            if item is None: break
-            
-            f_path, image = item
+
+            if item is None:
+                break
+
+            f_path, size, image = item
             
             # 1. Face Detect (OpenCV)
             has_face = False
@@ -157,8 +166,8 @@ class ScannerEngine:
                 # Log MOVE candidates
                 self.logger(f"[MOVE] >> {fname_base}")
                 
-            processed_count += 1
-            self._report_progress(processed_count, total, start_time, fname_base)
+            bytes_done += size
+            self._report_progress(bytes_done, total_bytes, start_time, fname_base)
 
         # Cleanup
         if face_engine: 
@@ -216,15 +225,14 @@ class ScannerEngine:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         return os.path.join(base_dir, 'core', 'models', filename)
 
-    def _report_progress(self, current, total, start_time, filename=""):
-        if not self.progress_callback: return
-        
+    def _report_progress(self, bytes_done, total_bytes, start_time, filename=""):
+        if not self.progress_callback:
+            return
         elapsed = time.time() - start_time
-        if current > 0:
-            rate = current / elapsed
-            remaining = (total - current) / rate if rate > 0 else 0
-            # Callback expects (current, total, remaining, filename)
-            self.progress_callback(current, total, remaining, filename)
+        if bytes_done > 0 and total_bytes > 0 and elapsed > 0:
+            rate = bytes_done / elapsed
+            remaining = (total_bytes - bytes_done) / rate if rate > 0 else 0
+            self.progress_callback(bytes_done, total_bytes, remaining, filename)
         else:
-            self.progress_callback(current, total, 0, filename)
+            self.progress_callback(bytes_done, total_bytes, 0, filename)
 

@@ -330,10 +330,10 @@ class MediaOrganizerPanel(QWidget):
 
         self._engine = OrganizerEngine(logger_callback=_log)
 
-        def _prog(current, total, filename):
-            pct = int(current / total * 100) if total > 0 else 0
-            self._sig.progress.emit(pct / 100.0)
-            self._sig.status.emit(f"{current}/{total}  {filename}")
+        def _prog(bytes_done, total_bytes, files_done, total_files, filename):
+            pct = (bytes_done / total_bytes) if total_bytes > 0 else 0.0
+            self._sig.progress.emit(pct)
+            self._sig.status.emit(f"{files_done}/{total_files}  {filename}")
 
         def _stats(moved, skipped, duplicates):
             self._sig.stats.emit(moved, skipped, duplicates)
