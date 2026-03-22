@@ -110,6 +110,7 @@ class AV1EncoderPanel(QWidget):
         self._scan_debounce.setSingleShot(True)
         self._scan_debounce.timeout.connect(self._auto_scan)
         self._edit_src.textChanged.connect(self._on_src_changed)
+        self._edit_src.textChanged.connect(self._update_start_enabled)
         v_dir.addWidget(QLabel("Source — local path or smb:// network share",
                                styleSheet=_shint))
 
@@ -126,6 +127,7 @@ class AV1EncoderPanel(QWidget):
         btn_dst.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
         btn_dst.clicked.connect(self._browse_dst)
         h_dst.addWidget(btn_dst)
+        self._edit_dst.textChanged.connect(self._update_start_enabled)
         v_dir.addLayout(h_dst)
         v_dir.addWidget(QLabel("Target — AV1 encoded output destination",
                                styleSheet=_shint))
@@ -404,6 +406,7 @@ class AV1EncoderPanel(QWidget):
         # Initialise slot visibility and CQ hint
         self._on_jobs_changed(self._combo_jobs.currentIndex())
         self._update_cq_hint()
+        self._update_start_enabled()
         # Auto-scan if source path already set (e.g. from settings)
         QTimer.singleShot(300, self._auto_scan)
 
@@ -451,6 +454,18 @@ class AV1EncoderPanel(QWidget):
         self._scan_debounce.stop()
         self._scan_debounce.start(400)
 
+    def _can_start(self):
+        if self._is_encoding:
+            return False
+        src = self._edit_src.text().strip()
+        dst = self._edit_dst.text().strip()
+        return bool(src and os.path.isdir(src) and dst and os.path.isdir(dst))
+
+    def _update_start_enabled(self):
+        if self._btn_start.text() == "ENCODING COMPLETE":
+            return
+        self._btn_start.setEnabled(self._can_start())
+
     def _auto_scan(self):
         if self._is_encoding:
             return
@@ -472,6 +487,7 @@ class AV1EncoderPanel(QWidget):
         debug(UTILITY_MASS_AV1_ENCODER, f"Scan complete: {n} files from {src}")
         if self._log_cb and n > 0:
             self._log_cb(f"AV1 Encoder: {n} files in queue.")
+        self._update_start_enabled()
 
     def _browse_dst(self):
         f = QFileDialog.getExistingDirectory(self, "Select Target Folder")
@@ -546,6 +562,7 @@ class AV1EncoderPanel(QWidget):
         self._btn_start.setObjectName("btnStart")
         self._btn_start.setStyle(self.style())
         self._btn_pause.setEnabled(False)
+        self._update_start_enabled()
         self._add_log("Encoding stopped.")
         debug(UTILITY_MASS_AV1_ENCODER, "Encoding stopped by user.")
 

@@ -24,9 +24,11 @@ class ScannerEngine:
     - Not Detected -> 'Others'
     """
     
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None):
+    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None,
+                 model_dir: Optional[str] = None):
         self.logger = logger_callback or (lambda x: print(x))
         self.stop_event = threading.Event()
+        self._model_dir = model_dir
         
         # Results
         self.others_list: List[str] = [] # Files to be moved/archived
@@ -206,10 +208,11 @@ class ScannerEngine:
         return False
 
     def _get_model_path(self, filename):
+        if self._model_dir:
+            return os.path.join(self._model_dir, filename)
         if getattr(sys, 'frozen', False):
             base_dir = sys._MEIPASS
         else:
-            # Parent of core/ — works for both source (src/core/) and AUR (core/)
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         return os.path.join(base_dir, 'core', 'models', filename)
 

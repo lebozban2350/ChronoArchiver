@@ -16,6 +16,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QObject, QTimer
 from PySide6.QtGui import QPixmap
 
+import pathlib
+import platformdirs
+
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.scanner import ScannerEngine
@@ -39,9 +42,9 @@ class AIScannerPanel(QWidget):
         self._sig.progress.connect(self._on_progress)
         self._sig.finished.connect(self._on_finished)
 
-        _base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        _model_dir = os.path.join(_base, 'core', 'models')
-        self._model_mgr = ModelManager(_model_dir)
+        _model_dir = pathlib.Path(platformdirs.user_data_dir("ChronoArchiver", "UnDadFeated")) / "models"
+        _model_dir.mkdir(parents=True, exist_ok=True)
+        self._model_mgr = ModelManager(str(_model_dir))
 
         self._engine = None  # Initialized in _run_job
         self._is_running = False
@@ -67,6 +70,7 @@ class AIScannerPanel(QWidget):
         h_src.setSpacing(4)
         self._edit_path = QLineEdit()
         self._edit_path.setPlaceholderText("SELECT PHOTO LIBRARY...")
+        self._edit_path.textChanged.connect(self._update_start_enabled)
         self._edit_path.setStyleSheet(
             "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
             "background:#121212; border:1px solid #1a1a1a;")
@@ -222,28 +226,41 @@ class AIScannerPanel(QWidget):
             self._lbl_model.setText("Models Ready")
             self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
             self._btn_setup.hide()
-            self._btn_start.setEnabled(True)
             debug(UTILITY_AI_MEDIA_SCANNER, "Models check: ready")
         else:
             self._lbl_model.setText("AI Models Missing!")
             self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
             self._btn_setup.show()
-            self._btn_start.setEnabled(False)
             debug(UTILITY_AI_MEDIA_SCANNER, f"Models check: missing {self._model_mgr.get_missing_models()}")
+        self._update_start_enabled()
+
+    def _update_start_enabled(self):
+        models_ready = self._model_mgr.is_up_to_date()
+        path = self._edit_path.text().strip()
+        path_ok = bool(path and os.path.isdir(path))
+        self._btn_start.setEnabled(models_ready and path_ok and not self._is_running)
 
     def _setup_models(self):
         self._add_log("Starting model setup...")
         debug(UTILITY_AI_MEDIA_SCANNER, "Model setup started")
+        self._bar.setFormat("Downloading models...")
+        self._lbl_status.setText("Downloading...")
         def _progress(downloaded, total_size, filename):
             if total_size > 0:
-                pct = int(downloaded / total_size * 100)
-                self._sig.log_msg.emit(f"Downloading: {filename} ({pct}%)")
+                pct = downloaded / total_size
+                self._sig.progress.emit(pct)
+                self._sig.log_msg.emit(f"Downloading: {filename} ({int(pct * 100)}%)")
             else:
                 self._sig.log_msg.emit(f"Downloading: {filename}...")
         def _task():
             ok = self._model_mgr.download_models(_progress)
             debug(UTILITY_AI_MEDIA_SCANNER, f"Model setup complete: ok={ok}")
-            QTimer.singleShot(0, self._check_models)
+            def _done():
+                self._bar.setFormat("Ready")
+                self._lbl_status.setText("Ready")
+                self._bar.setValue(0)
+                self._check_models()
+            QTimer.singleShot(0, _done)
         threading.Thread(target=_task, daemon=True).start()
 
     def _browse(self):
@@ -259,11 +276,12 @@ class AIScannerPanel(QWidget):
             return
 
         debug(UTILITY_AI_MEDIA_SCANNER, f"Scan start: path={path}, recursive={self._chk_recursive.isChecked()}, keep_animals={self._chk_animals.isChecked()}")
-        self._btn_start.setEnabled(False)
+        self._is_running = True
+        self._update_start_enabled()
         self._btn_stop.setEnabled(True)
 
         def _log(msg): self._sig.log_msg.emit(msg)
-        self._engine = ScannerEngine(logger_callback=_log)
+        self._engine = ScannerEngine(logger_callback=_log, model_dir=str(self._model_mgr.model_dir))
         # progress_callback is an attribute, not a constructor arg
         self._engine.progress_callback = lambda c, t, eta, f: self._sig.progress.emit(c / max(t,1))
 
@@ -281,7 +299,7 @@ class AIScannerPanel(QWidget):
             self._engine.cancel()
             debug(UTILITY_AI_MEDIA_SCANNER, "Scan stopped by user")
         self._is_running = False
-        self._btn_start.setEnabled(self._model_mgr.is_up_to_date())
+        self._update_start_enabled()
         self._btn_stop.setEnabled(False)
 
     def _on_progress(self, val):
@@ -289,7 +307,7 @@ class AIScannerPanel(QWidget):
 
     def _on_finished(self):
         self._is_running = False
-        self._btn_start.setEnabled(self._model_mgr.is_up_to_date())
+        self._update_start_enabled()
         self._btn_stop.setEnabled(False)
         self._bar.setFormat("Complete")
         self._lbl_status.setText("Scan Complete")

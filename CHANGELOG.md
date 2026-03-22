@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.22] - 2026-03-21
+### Changed
+- **Media Organizer, Mass AV1 Encoder, AI Media Scanner**: START buttons disabled until all required inputs are set (source path, target if applicable, media types or extensions, AI models). Matches AI Scanner pattern across all panels.
+- **AI Media Scanner**: Model storage moved to user-writable `platformdirs.user_data_dir` (`~/.local/share/ChronoArchiver/models` on Linux). Fixes AUR installs where `/usr/share/chronoarchiver` is read-only.
+- **AI Media Scanner**: Download progress bar now updates during model download; status shows "Downloading..." during setup.
+### Fixed
+- **AI Media Scanner**: START enabled only when both valid folder and ready models are present.
+
 ## [2.0.21] - 2026-03-21
 ### Changed
 - **Media Organizer, AI Media Scanner**: STOP buttons grey when disabled; START turns grey during processing; STOP turns red when active. Matches encoder behavior. Re-enable START on stop.

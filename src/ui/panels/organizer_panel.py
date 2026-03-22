@@ -163,6 +163,13 @@ class MediaOrganizerPanel(QWidget):
         h_ctrl.addWidget(self._btn_stop, 1)
 
         v_exec.addLayout(h_ctrl)
+
+        self._edit_path.textChanged.connect(self._update_start_enabled)
+        self._edit_target.textChanged.connect(self._update_start_enabled)
+        self._chk_photos.stateChanged.connect(self._update_start_enabled)
+        self._chk_videos.stateChanged.connect(self._update_start_enabled)
+        self._edit_exts.textChanged.connect(self._update_start_enabled)
+        self._update_start_enabled()
         grp_exec.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         root.addWidget(grp_exec)
 
@@ -173,6 +180,35 @@ class MediaOrganizerPanel(QWidget):
         self._log_list = QListWidget()
         v_log.addWidget(self._log_list)
         root.addWidget(grp_log, 1)  # Stretch: console takes all remaining vertical space
+
+    def _can_start(self):
+        path = self._edit_path.text().strip()
+        if not path or not os.path.isdir(path):
+            return False
+        exts_override = self._edit_exts.text().strip()
+        if exts_override:
+            exts = set()
+            for p in exts_override.replace(" ", "").split(","):
+                ext = p.strip().lower()
+                if ext and not ext.startswith("."):
+                    ext = "." + ext
+                if ext:
+                    exts.add(ext)
+        else:
+            exts = set()
+            if self._chk_photos.isChecked():
+                exts.update({'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'})
+            if self._chk_videos.isChecked():
+                exts.update({'.mp4', '.mov', '.avi', '.webm', '.mkv', '.m4v', '.wmv'})
+        if not exts:
+            return False
+        target = self._edit_target.text().strip()
+        if target and not os.path.isdir(target):
+            return False
+        return True
+
+    def _update_start_enabled(self):
+        self._btn_start.setEnabled(not self._is_running and self._can_start())
 
     def _browse(self):
         f = QFileDialog.getExistingDirectory(self, "Select Source Folder")
@@ -218,6 +254,7 @@ class MediaOrganizerPanel(QWidget):
             return
 
         debug(UTILITY_MEDIA_ORGANIZER, f"Organization start: path={path}, dry_run={self._chk_dry.isChecked()}, flat={self._chk_flat.isChecked()}, target={target or 'in-place'}")
+        self._is_running = True
         self._btn_start.setEnabled(False)
         self._btn_stop.setEnabled(True)
 
@@ -250,7 +287,7 @@ class MediaOrganizerPanel(QWidget):
         if self._engine:
             self._engine.cancel()
             debug(UTILITY_MEDIA_ORGANIZER, "Organization stopped by user")
-        self._btn_start.setEnabled(True)
+        self._update_start_enabled()
         self._btn_stop.setEnabled(False)
 
     def _on_progress(self, val):
@@ -264,7 +301,7 @@ class MediaOrganizerPanel(QWidget):
 
     def _on_finished(self):
         self._is_running = False
-        self._btn_start.setEnabled(True)
+        self._update_start_enabled()
         self._btn_stop.setEnabled(False)
         self._bar.setFormat("Complete")
         stats = getattr(self, "_last_stats", (0, 0, 0))
