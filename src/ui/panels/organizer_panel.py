@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QLineEdit, QCheckBox,
     QProgressBar, QFileDialog, QListWidget, QSizePolicy,
 )
-from PySide6.QtCore import Qt, Signal, QObject
+from PySide6.QtCore import Qt, Signal, QObject, QTimer
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -169,6 +169,11 @@ class MediaOrganizerPanel(QWidget):
         self._chk_photos.stateChanged.connect(self._update_start_enabled)
         self._chk_videos.stateChanged.connect(self._update_start_enabled)
         self._edit_exts.textChanged.connect(self._update_start_enabled)
+        self._guide_pulse_timer = QTimer(self)
+        self._guide_pulse_timer.setInterval(550)
+        self._guide_pulse_timer.timeout.connect(self._pulse_guide)
+        self._guide_glow_phase = 0
+        self._guide_target = None
         self._update_start_enabled()
         grp_exec.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         root.addWidget(grp_exec)
@@ -207,8 +212,77 @@ class MediaOrganizerPanel(QWidget):
             return False
         return True
 
+    def _get_guide_target(self):
+        """Returns the widget that needs user attention next (step by step)."""
+        if self._is_running:
+            return None
+        path = self._edit_path.text().strip()
+        if not path or not os.path.isdir(path):
+            return self._edit_path
+        exts_override = self._edit_exts.text().strip()
+        if exts_override:
+            exts = set()
+            for p in exts_override.replace(" ", "").split(","):
+                ext = p.strip().lower()
+                if ext and not ext.startswith("."):
+                    ext = "." + ext
+                if ext:
+                    exts.add(ext)
+        else:
+            exts = set()
+            if self._chk_photos.isChecked():
+                exts.update({'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp'})
+            if self._chk_videos.isChecked():
+                exts.update({'.mp4', '.mov', '.avi', '.webm', '.mkv', '.m4v', '.wmv'})
+        if not exts:
+            return self._chk_photos
+        target = self._edit_target.text().strip()
+        if target and not os.path.isdir(target):
+            return self._edit_target
+        return None
+
     def _update_start_enabled(self):
-        self._btn_start.setEnabled(not self._is_running and self._can_start())
+        can = not self._is_running and self._can_start()
+        self._btn_start.setEnabled(can)
+        if can:
+            self._guide_pulse_timer.stop()
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = None
+        else:
+            self._guide_glow_phase = 0
+            self._guide_pulse_timer.start()
+
+    def _clear_guide_glow(self, w):
+        if not w:
+            return
+        if w == self._edit_path or w == self._edit_target:
+            w.setStyleSheet(
+                "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
+                "background:#121212; border:1px solid #1a1a1a;")
+        elif w == self._chk_photos:
+            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
+
+    def _pulse_guide(self):
+        if self._btn_start.isEnabled():
+            self._guide_pulse_timer.stop()
+            return
+        target = self._get_guide_target()
+        if target != self._guide_target:
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = target
+        if not target:
+            self._guide_pulse_timer.stop()
+            return
+        self._guide_glow_phase = 1 - self._guide_glow_phase
+        if self._guide_glow_phase:
+            if target == self._edit_path or target == self._edit_target:
+                target.setStyleSheet(
+                    "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
+                    "background:#121212; border:2px solid #ef4444;")
+            else:
+                target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:1px solid #ef4444;")
+        else:
+            self._clear_guide_glow(target)
 
     def _browse(self):
         f = QFileDialog.getExistingDirectory(self, "Select Source Folder")

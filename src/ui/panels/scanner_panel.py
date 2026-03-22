@@ -130,6 +130,11 @@ class AIScannerPanel(QWidget):
         h_strip.addWidget(grp_mod, 2)
 
         root.addLayout(h_strip)
+        self._guide_pulse_timer = QTimer(self)
+        self._guide_pulse_timer.setInterval(550)
+        self._guide_pulse_timer.timeout.connect(self._pulse_guide)
+        self._guide_glow_phase = 0
+        self._guide_target = None
 
         # ── SCANNING PROGRESS ──────────────────────────────────────────────────
         grp_exec = QGroupBox("Scanning Progress")
@@ -234,11 +239,61 @@ class AIScannerPanel(QWidget):
             debug(UTILITY_AI_MEDIA_SCANNER, f"Models check: missing {self._model_mgr.get_missing_models()}")
         self._update_start_enabled()
 
+    def _get_guide_target(self):
+        if self._is_running:
+            return None
+        if not self._model_mgr.is_up_to_date():
+            return self._btn_setup
+        path = self._edit_path.text().strip()
+        if not path or not os.path.isdir(path):
+            return self._edit_path
+        return None
+
     def _update_start_enabled(self):
         models_ready = self._model_mgr.is_up_to_date()
         path = self._edit_path.text().strip()
         path_ok = bool(path and os.path.isdir(path))
-        self._btn_start.setEnabled(models_ready and path_ok and not self._is_running)
+        can = models_ready and path_ok and not self._is_running
+        self._btn_start.setEnabled(can)
+        if can:
+            self._guide_pulse_timer.stop()
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = None
+        else:
+            self._guide_glow_phase = 0
+            self._guide_pulse_timer.start()
+
+    def _clear_guide_glow(self, w):
+        if not w:
+            return
+        if w == self._edit_path:
+            w.setStyleSheet(
+                "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
+                "background:#121212; border:1px solid #1a1a1a;")
+        elif w == self._btn_setup:
+            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
+
+    def _pulse_guide(self):
+        if self._btn_start.isEnabled():
+            self._guide_pulse_timer.stop()
+            return
+        target = self._get_guide_target()
+        if target != self._guide_target:
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = target
+        if not target:
+            self._guide_pulse_timer.stop()
+            return
+        self._guide_glow_phase = 1 - self._guide_glow_phase
+        if self._guide_glow_phase:
+            if target == self._edit_path:
+                target.setStyleSheet(
+                    "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
+                    "background:#121212; border:2px solid #ef4444;")
+            else:
+                target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
+        else:
+            self._clear_guide_glow(target)
 
     def _setup_models(self):
         self._add_log("Starting model setup...")

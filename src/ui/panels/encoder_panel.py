@@ -406,6 +406,11 @@ class AV1EncoderPanel(QWidget):
         # Initialise slot visibility and CQ hint
         self._on_jobs_changed(self._combo_jobs.currentIndex())
         self._update_cq_hint()
+        self._guide_pulse_timer = QTimer(self)
+        self._guide_pulse_timer.setInterval(550)
+        self._guide_pulse_timer.timeout.connect(self._pulse_guide)
+        self._guide_glow_phase = 0
+        self._guide_target = None
         self._update_start_enabled()
         # Auto-scan if source path already set (e.g. from settings)
         QTimer.singleShot(300, self._auto_scan)
@@ -461,10 +466,55 @@ class AV1EncoderPanel(QWidget):
         dst = self._edit_dst.text().strip()
         return bool(src and os.path.isdir(src) and dst and os.path.isdir(dst))
 
+    def _get_guide_target(self):
+        if self._is_encoding or self._btn_start.text() == "ENCODING COMPLETE":
+            return None
+        src = self._edit_src.text().strip()
+        if not src or not os.path.isdir(src):
+            return self._edit_src
+        dst = self._edit_dst.text().strip()
+        if not dst or not os.path.isdir(dst):
+            return self._edit_dst
+        return None
+
+    def _clear_guide_glow(self, w):
+        if not w:
+            return
+        w.setStyleSheet(
+            "color:#fff; font-size:12px; font-weight:500; "
+            "background:#121212; border:1px solid #1a1a1a;")
+
     def _update_start_enabled(self):
         if self._btn_start.text() == "ENCODING COMPLETE":
             return
-        self._btn_start.setEnabled(self._can_start())
+        can = self._can_start()
+        self._btn_start.setEnabled(can)
+        if can:
+            self._guide_pulse_timer.stop()
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = None
+        else:
+            self._guide_glow_phase = 0
+            self._guide_pulse_timer.start()
+
+    def _pulse_guide(self):
+        if self._btn_start.isEnabled():
+            self._guide_pulse_timer.stop()
+            return
+        target = self._get_guide_target()
+        if target != self._guide_target:
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = target
+        if not target:
+            self._guide_pulse_timer.stop()
+            return
+        self._guide_glow_phase = 1 - self._guide_glow_phase
+        if self._guide_glow_phase:
+            target.setStyleSheet(
+                "color:#fff; font-size:12px; font-weight:500; "
+                "background:#121212; border:2px solid #ef4444;")
+        else:
+            self._clear_guide_glow(target)
 
     def _auto_scan(self):
         if self._is_encoding:

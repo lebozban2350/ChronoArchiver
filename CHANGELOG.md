@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.23] - 2026-03-21
+### Added
+- **Media Organizer, Mass AV1 Encoder, AI Media Scanner**: Pulsing red glow guides users to the next required input (source path, target, media types, Setup Models, etc.). Glow moves step-by-step until START turns green.
+
 ## [2.0.22] - 2026-03-21
 ### Changed
 - **Media Organizer, Mass AV1 Encoder, AI Media Scanner**: START buttons disabled until all required inputs are set (source path, target if applicable, media types or extensions, AI models). Matches AI Scanner pattern across all panels.
