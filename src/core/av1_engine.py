@@ -265,7 +265,22 @@ class AV1EncoderEngine:
                             details_detected = True
 
                     time_match = re.search(r"time=(\d+):(\d+):(\d+\.?\d*)", line) or re.search(r"out_time=(\d+):(\d+):(\d+\.?\d*)", line)
-                    if time_match and duration > 0:
+                    out_time_ms = re.search(r"out_time_ms=(\d+)", line)
+                    if out_time_ms and duration > 0:
+                        curr_time = int(out_time_ms.group(1)) / 1_000_000.0
+                        percent = min((curr_time / duration) * 100, 100.0)
+                        fps_match = re.search(r"fps=\s*([\d.]+)", line)
+                        speed_match = re.search(r"speed=\s*([\d.]+)x", line)
+                        size_match = re.search(r"size=\s*(\d+)kB", line)
+                        if self.on_progress:
+                            self.on_progress(self.job_id, EncodingProgress(
+                                file_name=os.path.basename(input_path), percent=percent,
+                                time_elapsed=f"{int(curr_time//3600):02}:{int((curr_time%3600)//60):02}:{int(curr_time%60):02}",
+                                fps=float(fps_match.group(1)) if fps_match else 0.0,
+                                speed=float(speed_match.group(1)) if speed_match else 0.0,
+                                bytes_processed=int(size_match.group(1)) * 1024 if size_match else 0
+                            ))
+                    elif time_match and duration > 0:
                         h, m, s = map(float, time_match.groups())
                         curr_time = (h * 3600) + (m * 60) + s
                         percent = min((curr_time / duration) * 100, 100.0)

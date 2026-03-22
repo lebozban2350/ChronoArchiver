@@ -971,6 +971,24 @@ class AV1EncoderPanel(QWidget):
         self._done_bytes += f_size
         self._done_count += 1
 
+        # Update master bar + ETA on every file completion (progress may never fire for short encodes)
+        if self._total_q_bytes > 0 and self._is_encoding:
+            pct_total = min(100.0, self._done_bytes / self._total_q_bytes * 100)
+            self._bar_master.setValue(int(pct_total))
+            self._bar_master.setFormat(
+                f"{self._done_count}/{self._total_count} Files — {pct_total:.1f}%")
+            elapsed = time.time() - self._batch_start
+            remaining_bytes = self._total_q_bytes - self._done_bytes
+            if remaining_bytes > 0 and elapsed > 0.5 and self._done_bytes > 0:
+                rate = self._done_bytes / elapsed
+                eta_sec = remaining_bytes / rate
+                eh = int(eta_sec // 3600)
+                em = int((eta_sec % 3600) // 60)
+                es = int(eta_sec % 60)
+                self._lbl_eta.setText(f"ESTIMATED TIME REMAINING: {eh:02}:{em:02}:{es:02}")
+            elif pct_total >= 99.9:
+                self._lbl_eta.setText("ESTIMATED TIME REMAINING: 00:00:00")
+
         if job_id < len(self._job_bars):
             self._job_bars[job_id].setValue(0)
             self._job_speeds[job_id].setText("-")

@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.42] - 2026-03-22
+### Fixed
+- **Mass AV1 Encoder**: Master progress bar and ESTIMATED TIME REMAINING now update on every file completion — previously relied only on FFmpeg progress parsing which may not fire for short encodes; progress now updates in _on_encode_finished.
+- **Mass AV1 Encoder**: Added out_time_ms progress parsing fallback for FFmpeg variants.
+
 ## [2.0.41] - 2026-03-22
 ### Added
 - **Mass AV1 Encoder**: AMD hardware encoding — av1_vaapi (Linux) and av1_amf (Windows) when NVIDIA CUDA is not available.
