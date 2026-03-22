@@ -671,6 +671,7 @@ class AV1EncoderPanel(QWidget):
             self._edit_dst.blockSignals(True)
             self._edit_dst.setText(f)
             self._edit_dst.blockSignals(False)
+            self._update_start_enabled()
 
     # ── encoding lifecycle ────────────────────────────────────────────────────
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.40] - 2026-03-22
+### Fixed
+- **Mass AV1 Encoder**: START button now responds when target was selected via Browse — `_browse_dst` was blocking `textChanged`, so `_update_start_enabled` never ran and the button stayed disabled.
+- **Footer pre-reqs**: Optional status (e.g. OpenCV when not installed) now uses yellow dash; green checkmark for success, red X for failed. Matches requested color scheme.
+### Note
+- Multiple log files in the log folder indicate separate app launches; one file per session; max 3 retained.
+
 ## [2.0.39] - 2026-03-22
 ### Fixed
 - **Guide glow (all panels)**: Third step now correctly shows guide on START button when all inputs are ready (source + target selected); guide was disappearing instead of pulsing on the green START button.

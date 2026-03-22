@@ -280,10 +280,10 @@ class ChronoArchiverApp(QMainWindow):
         self.lbl_status.setText(msg[:100].upper())
 
     def _check_prereqs(self):
-        """Run pre-req checks and update center footer status."""
+        """Run pre-req checks and update center footer status. Green ✓ success, red ✗ failed, yellow — optional."""
         ok = '<span style="color:#10b981">✓</span>'
         fail = '<span style="color:#ef4444">✗</span>'
-        skip = '<span style="color:#6b7280">—</span>'
+        skip = '<span style="color:#eab308">—</span>'
         parts = []
         ffmpeg_ok = bool(shutil.which("ffmpeg"))
         debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'}, OpenCV=check, PySide6=ok")
