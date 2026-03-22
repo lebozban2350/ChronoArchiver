@@ -247,7 +247,7 @@ class AIScannerPanel(QWidget):
         path = self._edit_path.text().strip()
         if not path or not os.path.isdir(path):
             return self._btn_browse
-        return None
+        return self._btn_start
 
     def _update_start_enabled(self):
         models_ready = self._model_mgr.is_up_to_date()
@@ -255,41 +255,40 @@ class AIScannerPanel(QWidget):
         path_ok = bool(path and os.path.isdir(path))
         can = models_ready and path_ok and not self._is_running
         self._btn_start.setEnabled(can)
-        if can:
-            self._guide_pulse_timer.stop()
-            self._clear_guide_glow(self._guide_target)
-            self._guide_target = None
-        else:
-            self._guide_glow_phase = 0
-            self._guide_pulse_timer.start()
+        self._guide_glow_phase = 0
+        self._guide_pulse_timer.start()
 
     def _clear_guide_glow(self, w):
         if not w:
             return
-        if w == self._btn_browse:
+        if w == self._btn_start:
+            w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid transparent; font-size:10px; font-weight:900;")
+        elif w == self._btn_browse:
             w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent; min-height:22px;")
         elif w == self._btn_setup:
             w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent; min-height:20px;")
 
     def _pulse_guide(self):
-        if self._btn_start.isEnabled():
-            self._guide_pulse_timer.stop()
-            return
         target = self._get_guide_target()
         if target != self._guide_target:
             self._clear_guide_glow(self._guide_target)
             self._guide_target = target
         if not target:
             self._guide_pulse_timer.stop()
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = None
             return
         self._guide_glow_phase = 1 - self._guide_glow_phase
         if self._guide_glow_phase:
-            style = "font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;"
-            if target == self._btn_browse:
-                style += " min-height:22px;"
-            elif target == self._btn_setup:
-                style += " min-height:20px;"
-            target.setStyleSheet(style)
+            if target == self._btn_start:
+                target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;")
+            else:
+                style = "font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;"
+                if target == self._btn_browse:
+                    style += " min-height:22px;"
+                elif target == self._btn_setup:
+                    style += " min-height:20px;"
+                target.setStyleSheet(style)
         else:
             self._clear_guide_glow(target)
 

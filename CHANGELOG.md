@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.39] - 2026-03-22
+### Fixed
+- **Guide glow (all panels)**: Third step now correctly shows guide on START button when all inputs are ready (source + target selected); guide was disappearing instead of pulsing on the green START button.
+
 ## [2.0.38] - 2026-03-22
 ### Fixed
 - **Logging**: Single debug log file per session; prune runs after file creation to cap at 3 total instances in log folder.

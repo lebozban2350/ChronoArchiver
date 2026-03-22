@@ -239,41 +239,40 @@ class MediaOrganizerPanel(QWidget):
         target = self._edit_target.text().strip()
         if target and not os.path.isdir(target):
             return self._btn_browse_target
-        return None
+        return self._btn_start
 
     def _update_start_enabled(self):
         can = not self._is_running and self._can_start()
         self._btn_start.setEnabled(can)
-        if can:
-            self._guide_pulse_timer.stop()
-            self._clear_guide_glow(self._guide_target)
-            self._guide_target = None
-        else:
-            self._guide_glow_phase = 0
-            self._guide_pulse_timer.start()
+        self._guide_glow_phase = 0
+        self._guide_pulse_timer.start()
 
     def _clear_guide_glow(self, w):
         if not w:
             return
-        if w == self._btn_browse_src or w == self._btn_browse_target:
+        if w == self._btn_start:
+            w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid transparent; font-size:10px; font-weight:900;")
+        elif w == self._btn_browse_src or w == self._btn_browse_target:
             w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
         elif w == self._chk_photos:
             w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
 
     def _pulse_guide(self):
-        if self._btn_start.isEnabled():
-            self._guide_pulse_timer.stop()
-            return
         target = self._get_guide_target()
         if target != self._guide_target:
             self._clear_guide_glow(self._guide_target)
             self._guide_target = target
         if not target:
             self._guide_pulse_timer.stop()
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = None
             return
         self._guide_glow_phase = 1 - self._guide_glow_phase
         if self._guide_glow_phase:
-            target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
+            if target == self._btn_start:
+                target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;")
+            else:
+                target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
         else:
             self._clear_guide_glow(target)
 
