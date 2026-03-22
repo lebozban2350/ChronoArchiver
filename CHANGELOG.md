@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.29] - 2026-03-22
+### Fixed
+- **Mass AV1 Encoder**: Directories group — increased top padding to align source input with Options; Configuration box bottom aligned with Options via row stretch; progress bar no longer shows indeterminate animation during auto-scan — remains static at "0/0 Files" until scan completes.
+
 ## [2.0.28] - 2026-03-21
 ### Added
 - **Media Organizer**: Disk space check before moving; destination writable check; source/target overlap validation; permission error handling (log and continue); long path (>400 chars) warning.

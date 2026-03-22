@@ -92,7 +92,7 @@ class AV1EncoderPanel(QWidget):
         # 1. Directories (top-left)
         grp_dir = QGroupBox("Directories")
         v_dir = QVBoxLayout(grp_dir)
-        v_dir.setContentsMargins(6, 2, 6, 2)
+        v_dir.setContentsMargins(6, 8, 6, 2)
         v_dir.setSpacing(1)
 
         self._edit_src = QLineEdit()
@@ -208,7 +208,8 @@ class AV1EncoderPanel(QWidget):
         h_a.addWidget(QLabel("Re-encode PCM/unsupported to Opus", styleSheet="font-size:7px; color:#444;"))
         v_cfg.addLayout(h_a)
 
-        grp_cfg.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        v_cfg.addStretch()
+        grp_cfg.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         grid_strip.addWidget(grp_cfg, 1, 0)
 
         # 3. Options (right, same height as Directories + Configuration)
@@ -311,7 +312,7 @@ class AV1EncoderPanel(QWidget):
         grid_strip.addWidget(grp_opts, 0, 1, 2, 1)  # Row 0-1, Col 1, span 2 rows
         grid_strip.setColumnStretch(0, 1)
         grid_strip.setRowStretch(0, 0)
-        grid_strip.setRowStretch(1, 0)
+        grid_strip.setRowStretch(1, 1)
 
         root.addLayout(grid_strip)
 
@@ -553,9 +554,10 @@ class AV1EncoderPanel(QWidget):
             return
         self._source_scanned = False
         self._is_scanning = True
-        self._bar_master.setRange(0, 0)
-        self._bar_master.setFormat("Scanning source...")
-        self._lbl_eta.setText("Scanning...")
+        self._bar_master.setRange(0, 1)
+        self._bar_master.setValue(0)
+        self._bar_master.setFormat("0/0 Files")
+        self._lbl_eta.setText("--:--:--")
         self._add_log("Scanning source folder...")
         self._update_start_enabled()
 
