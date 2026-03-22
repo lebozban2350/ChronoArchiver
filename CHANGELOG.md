@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.45] - 2026-03-22
+### Fixed
+- **Update check**: In-app update checker now uses GitHub tags API instead of releases/latest — the latter returns 404 when no GitHub Releases exist (only tags are pushed), causing AUR users to see "up to date" despite newer versions; tags API correctly detects latest version from pushed tags.
+
 ## [2.0.44] - 2026-03-22
 ### Fixed
 - **Mass AV1 Encoder**: Encoding now automatically transitions to "ENCODING COMPLETE" when the batch finishes — no manual STOP required to see final state; added `batch_complete` signal from worker so UI resets even when finished-signal ordering lags.

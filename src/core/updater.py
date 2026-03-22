@@ -22,7 +22,8 @@ if _src_dir not in sys.path:
     sys.path.insert(0, _src_dir)
 from version import __version__
 
-GIT_API_URL = "https://api.github.com/repos/UnDadFeated/ChronoArchiver/releases/latest"
+# Use tags API — releases/latest 404s when no GitHub Releases exist (only tags are pushed)
+TAGS_API_URL = "https://api.github.com/repos/UnDadFeated/ChronoArchiver/tags?per_page=30"
 
 
 def _parse_version(v: str) -> tuple:
@@ -145,14 +146,23 @@ class ApplicationUpdater:
         def _task():
             try:
                 req = urllib.request.Request(
-                    GIT_API_URL,
+                    TAGS_API_URL,
                     headers={"User-Agent": "ChronoArchiver-Updater"}
                 )
                 with urllib.request.urlopen(req, timeout=10) as resp:
-                    data = json.loads(resp.read().decode())
-                    self._latest_version = data.get("tag_name", "").replace("v", "")
-                    self._changelog = data.get("body", "No changelog provided.")
-                    _put_result(self._latest_version, self._changelog)
+                    tags = json.loads(resp.read().decode())
+                if not tags:
+                    _put_result(None, None)
+                    return
+                # Find highest version among tags (tags API order is not guaranteed)
+                best_version = "0"
+                for t in tags:
+                    name = t.get("name", "").replace("v", "").strip()
+                    if name and _version_gt(name, best_version):
+                        best_version = name
+                self._latest_version = best_version
+                self._changelog = f"Changelog: see CHANGELOG.md on GitHub for v{best_version}."
+                _put_result(self._latest_version, self._changelog)
             except Exception as e:
                 print(f"Update check failed: {e}")
                 _put_result(None, None)
