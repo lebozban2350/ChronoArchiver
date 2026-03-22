@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.43] - 2026-03-22
+### Fixed
+- **Mass AV1 Encoder**: Mirror-folder output no longer recreates redundant top-level folders (e.g. `Source`) in the target; structure root is now the common parent of all queued files, so only meaningful subdirs (e.g. date folders) are mirrored.
+
 ## [2.0.42] - 2026-03-22
 ### Fixed
 - **Mass AV1 Encoder**: Master progress bar and ESTIMATED TIME REMAINING now update on every file completion — previously relied only on FFmpeg progress parsing which may not fire for short encodes; progress now updates in _on_encode_finished.

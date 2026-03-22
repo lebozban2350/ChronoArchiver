@@ -778,12 +778,20 @@ class AV1EncoderPanel(QWidget):
         if self._log_cb:
             self._log_cb(f"AV1 Encoder: {self._total_count} files queued.")
 
+        # Structure root: common parent of all queued files so we mirror only meaningful subdirs
+        # (avoids recreating a top-level "Source" or similar wrapper folder in target)
+        structure_root = None
+        if self._settings.get("maintain_structure") and self._queue:
+            all_dirs = [os.path.dirname(p) for p, _ in self._queue]
+            structure_root = os.path.commonpath(all_dirs) if all_dirs else src
+            debug(UTILITY_MASS_AV1_ENCODER, f"Structure root (mirror): {structure_root}")
+
         num_workers = self._settings.get("concurrent_jobs")
         self._engine_pool = [AV1EncoderEngine(job_id=i) for i in range(num_workers)]
         for eng in self._engine_pool:
             eng.on_progress = lambda j, p: self._sig.progress.emit(j, p)
             eng.on_details  = lambda j, v, a: self._sig.details.emit(j, v, a)
-            threading.Thread(target=self._job_worker, args=(eng, src, dst), daemon=True).start()
+            threading.Thread(target=self._job_worker, args=(eng, src, dst, structure_root), daemon=True).start()
 
     def get_activity(self):
         return "encoding" if self._is_encoding else "idle"
@@ -811,7 +819,7 @@ class AV1EncoderPanel(QWidget):
                 eng.pause()
         self._btn_pause.setText("PAUSE" if paused else "RESUME")
 
-    def _job_worker(self, engine, src, dst):
+    def _job_worker(self, engine, src, dst, structure_root=None):
         with self._active_lock:
             self._active_jobs += 1
         q_lock = self._queue_lock
@@ -840,11 +848,14 @@ class AV1EncoderPanel(QWidget):
                         continue
 
                 # Build output path: stem_av1.mp4 always
+                # When mirroring, use structure_root (common parent of queued files) so we don't
+                # recreate redundant top-level folders like "Source" in the target
                 fname = os.path.basename(input_path)
                 stem = os.path.splitext(fname)[0]
                 out_name = stem + "_av1.mp4"
-                if self._settings.get("maintain_structure") and src:
-                    rel = os.path.relpath(input_path, src)
+                base = structure_root if structure_root else src
+                if self._settings.get("maintain_structure") and base:
+                    rel = os.path.relpath(input_path, base)
                     rel_stem = os.path.splitext(rel)[0]
                     tpath = os.path.join(dst, rel_stem + "_av1.mp4")
                     os.makedirs(os.path.dirname(tpath), exist_ok=True)
