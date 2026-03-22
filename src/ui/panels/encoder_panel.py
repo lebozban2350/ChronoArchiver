@@ -588,6 +588,7 @@ class AV1EncoderPanel(QWidget):
         self._is_scanning = True
         self._add_log("Scanning source folder...")
         self._update_start_enabled()
+        debug(UTILITY_MASS_AV1_ENCODER, f"Auto-scan start: src={src}")
 
         scan_dialog = ScanProgressDialog(self)
         self._sig.scan_progress.connect(scan_dialog.update_progress)
@@ -610,6 +611,7 @@ class AV1EncoderPanel(QWidget):
             except Exception as e:
                 self._sig.log_msg.emit(f"Scan error: {e}")
                 debug(UTILITY_MASS_AV1_ENCODER, f"Scan error: {e}")
+            debug(UTILITY_MASS_AV1_ENCODER, f"Auto-scan complete: count={count}, total_bytes={total_bytes}")
 
             def _done():
                 try:
@@ -640,7 +642,8 @@ class AV1EncoderPanel(QWidget):
         n = len(items)
         src = self._edit_src.text().strip()
         self._add_log(f"Scanned: {n} file{'s' if n != 1 else ''} ready.")
-        debug(UTILITY_MASS_AV1_ENCODER, f"Scan complete: {n} files from {src}")
+        total_b = sum(s for _, s in items)
+        debug(UTILITY_MASS_AV1_ENCODER, f"Apply scan result: n={n}, total_bytes={total_b}, src={src}")
         if self._log_cb and n > 0:
             self._log_cb(f"AV1 Encoder: {n} files in queue.")
         self._update_start_enabled()
@@ -675,6 +678,7 @@ class AV1EncoderPanel(QWidget):
 
         if not self._queue:
             self._add_log("Scanning source...")
+            debug(UTILITY_MASS_AV1_ENCODER, f"Start encoding: queue empty, scanning src={src}")
             scan_dialog = ScanProgressDialog(self)
             self._sig.scan_progress.connect(scan_dialog.update_progress)
             scan_dialog.show()
@@ -715,6 +719,7 @@ class AV1EncoderPanel(QWidget):
         self._continue_start_encoding(src, dst)
 
     def _continue_start_encoding(self, src, dst):
+        debug(UTILITY_MASS_AV1_ENCODER, f"_continue_start_encoding: queue_len={len(self._queue)}, src={src}, dst={dst}")
         if not self._queue:
             self._add_log("No compatible files found.")
             debug(UTILITY_MASS_AV1_ENCODER, f"No compatible files in {src}")
@@ -950,6 +955,7 @@ class AV1EncoderPanel(QWidget):
             self._btn_start.setText("ENCODING COMPLETE")
             self._btn_start.setEnabled(False)
             self._btn_pause.setEnabled(False)
+            debug(UTILITY_MASS_AV1_ENCODER, f"Encoding batch complete: done={self._done_count}, total={self._total_count}")
 
     # ── telemetry ─────────────────────────────────────────────────────────────
 
@@ -982,8 +988,8 @@ class AV1EncoderPanel(QWidget):
             return "0%"
 
     def _open_logs(self):
-        import platformdirs
-        log_dir = platformdirs.user_log_dir("ChronoArchiver", "UnDadFeated")
+        from core.debug_logger import get_log_path
+        log_dir = os.path.dirname(get_log_path())
         if os.path.exists(log_dir):
             try:
                 if platform.system() == "Windows":

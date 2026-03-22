@@ -1,7 +1,7 @@
 """
-debug_logger.py — Centralized DEBUG logging for ChronoArchiver.
-Single file per session, timestamps, utility name. Filenames include date/time;
-keeps last 3 instances.
+debug_logger.py — Single log file for ChronoArchiver per session.
+One file created at startup: chronoarchiver_YYYY-MM-DD_HH-MM-SS.log
+Both debug() and standard logging write to this file. Keeps last 3.
 """
 
 import os
@@ -10,9 +10,9 @@ import platformdirs
 from datetime import datetime
 
 APP_NAME = "ChronoArchiver"
-DEBUG_PREFIX = "chronoarchiver_debug"
-DEBUG_SUFFIX = ".log"
-MAX_DEBUG_FILES = 3
+LOG_PREFIX = "chronoarchiver"
+LOG_SUFFIX = ".log"
+MAX_LOG_FILES = 3
 
 _log_dir = None
 _log_path = None
@@ -32,18 +32,18 @@ def _ensure_init():
     os.makedirs(_log_dir, exist_ok=True)
     _prune_old_logs()
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    _log_path = os.path.join(_log_dir, f"{DEBUG_PREFIX}_{ts}{DEBUG_SUFFIX}")
+    _log_path = os.path.join(_log_dir, f"{LOG_PREFIX}_{ts}{LOG_SUFFIX}")
     _file = open(_log_path, "a", encoding="utf-8")
 
 
 def _prune_old_logs():
-    """Keep only the last MAX_DEBUG_FILES instances (by mtime)."""
-    pattern = os.path.join(_log_dir, f"{DEBUG_PREFIX}_*{DEBUG_SUFFIX}")
+    """Keep only the last MAX_LOG_FILES instances (by mtime)."""
+    pattern = os.path.join(_log_dir, f"{LOG_PREFIX}_*{LOG_SUFFIX}")
     files = glob.glob(pattern)
-    if len(files) <= MAX_DEBUG_FILES:
+    if len(files) <= MAX_LOG_FILES:
         return
     files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-    for p in files[MAX_DEBUG_FILES:]:
+    for p in files[MAX_LOG_FILES:]:
         try:
             os.remove(p)
         except OSError:
@@ -51,7 +51,7 @@ def _prune_old_logs():
 
 
 def debug(utility: str, message: str):
-    """Append a DEBUG entry: timestamp | utility | message."""
+    """Append a log entry: timestamp | utility | message."""
     try:
         _ensure_init()
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -60,6 +60,11 @@ def debug(utility: str, message: str):
         _file.flush()
     except Exception:
         pass
+
+
+def init_log():
+    """Ensure log file is created at startup. Call early in app init."""
+    _ensure_init()
 
 
 def get_log_path() -> str:

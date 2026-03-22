@@ -28,8 +28,8 @@ from ui.panels.organizer_panel import MediaOrganizerPanel
 from ui.panels.encoder_panel import AV1EncoderPanel
 from ui.panels.scanner_panel import AIScannerPanel
 from core.updater import ApplicationUpdater
+from core.debug_logger import init_log, get_log_path, debug, UTILITY_APP
 from core.logger import setup_logger
-from core.debug_logger import get_log_path, debug, UTILITY_APP
 
 # Global Stylesheet (Mass AV1 Encoder QSS)
 QSS = """
@@ -145,6 +145,7 @@ QPushButton#navBtn[active="true"] {
 class ChronoArchiverApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        init_log()
         self.setWindowTitle(f"ChronoArchiver v{__version__}")
         self.setMinimumSize(940, 680)
         self.setStyleSheet(QSS)
@@ -270,8 +271,9 @@ class ChronoArchiverApp(QMainWindow):
             btn.setProperty("active", i == index)
             btn.setChecked(i == index)
             btn.setStyle(btn.style())  # Refresh style
-        # Metrics shown on all panels (encoder panel's timer keeps them updated)
         self.lbl_metrics.setVisible(True)
+        panels = ["Media Organizer", "Mass AV1 Encoder", "AI Media Scanner"]
+        debug(UTILITY_APP, f"Panel switch: {panels[index]}")
 
     def _log(self, msg):
         self.logger.info(msg)
@@ -284,6 +286,7 @@ class ChronoArchiverApp(QMainWindow):
         skip = '<span style="color:#6b7280">—</span>'
         parts = []
         ffmpeg_ok = bool(shutil.which("ffmpeg"))
+        debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'}, OpenCV=check, PySide6=ok")
         parts.append(f"FFmpeg {ok if ffmpeg_ok else fail}")
         try:
             import cv2

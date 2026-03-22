@@ -50,9 +50,12 @@ class AV1EncoderEngine:
     def scan_files(self, directory: str, stop_event: Optional[threading.Event] = None) -> Generator[tuple, None, None]:
         """Scans a directory for supported video files, yielding results for real-time feedback."""
         extensions = (".mpg", ".mp4", ".ts", ".avi", ".3gp", ".mkv", ".mov", ".webm")
+        self.logger.info(f"scan_files: start dir={directory}")
+        debug(UTILITY_MASS_AV1_ENCODER, f"scan_files: start dir={directory}")
 
         def _skip_error(err):
             self.logger.warning(f"Scan skip dir: {err}")
+            debug(UTILITY_MASS_AV1_ENCODER, f"scan_files: skip dir {err}")
 
         try:
             for root, dirs, filenames in os.walk(directory, onerror=_skip_error):
@@ -75,7 +78,7 @@ class AV1EncoderEngine:
                         yield (full_path, size)
         except Exception as e:
             self.logger.error(f"Failed to scan files in {directory}: {e}")
-            debug(UTILITY_MASS_AV1_ENCODER, f"Scan error: {directory} — {e}")
+            debug(UTILITY_MASS_AV1_ENCODER, f"scan_files: exception dir={directory} err={e}")
 
     def pause(self):
         """Pauses the current encoding process."""

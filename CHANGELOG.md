@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.35] - 2026-03-22
+### Changed
+- **Logging**: Single log file per session — `chronoarchiver_YYYY-MM-DD_HH-MM-SS.log` created at startup; standard logging and debug() both write to it; no separate chronoarchiver.log; log level DEBUG; added verbose logging for scan, encode, panel switches, pre-reqs.
+
 ## [2.0.34] - 2026-03-22
 ### Fixed
 - **Mass AV1 Encoder**: Source scanner — broaden emit threshold (first 25 files, then every 100ms) to fix freeze after 10 files; remove processEvents (re-entrancy); engine: catch all exceptions in getsize, add os.walk onerror to skip permission-denied dirs; ensure _done always runs with try/except guards; surface scan errors in console.
