@@ -500,6 +500,7 @@ class AV1EncoderPanel(QWidget):
         self._lbl_cq_hint.setText(f"CQ suggested {h}")
 
     def _on_jobs_changed(self, idx):
+        idx = max(0, min(int(idx), 2))
         jobs = [1, 2, 4][idx]
         self._settings.set("concurrent_jobs", jobs)
         for i, w in enumerate(self._job_widgets):
@@ -794,6 +795,11 @@ class AV1EncoderPanel(QWidget):
             debug(UTILITY_MASS_AV1_ENCODER, f"Structure root (mirror): {structure_root}")
 
         num_workers = self._settings.get("concurrent_jobs")
+        try:
+            num_workers = int(num_workers)
+        except (TypeError, ValueError):
+            num_workers = 2
+        num_workers = max(1, min(8, num_workers))
         self._engine_pool = [AV1EncoderEngine(job_id=i) for i in range(num_workers)]
         for eng in self._engine_pool:
             eng.on_progress = lambda j, p: self._sig.progress.emit(j, p)

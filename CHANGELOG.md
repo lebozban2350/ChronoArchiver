@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.47] - 2026-03-22
+### Fixed
+- **AV1 settings**: Sanitize merged JSON — `concurrent_jobs` snapped to 1/2/4 (avoids 0 workers / hung batch), quality clamped 0–63, reject timers bounded, `existing_output` and `preset` validated; load/save errors logged via debug logger instead of print.
+- **Encoder**: Defensive `concurrent_jobs` int parse and clamp 1–8 before spawning workers; combo index bounds in `_on_jobs_changed`.
+- **Scanner**: Progress callback clamps ratio to ≤1.0 to avoid progress bar overflow.
+- **Updater**: GitHub API request sends `Accept: application/vnd.github+json`.
+
 ## [2.0.46] - 2026-03-22
 ### Fixed
 - **Update check**: When API returns error or non-list JSON, handle gracefully; show "UPDATE CHECK UNAVAILABLE" instead of "up to date" when check fails; log failures via debug logger instead of print.

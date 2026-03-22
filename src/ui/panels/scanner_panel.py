@@ -338,7 +338,8 @@ class AIScannerPanel(QWidget):
         def _log(msg): self._sig.log_msg.emit(msg)
         self._engine = ScannerEngine(logger_callback=_log, model_dir=str(self._model_mgr.model_dir))
         # progress_callback is an attribute, not a constructor arg
-        self._engine.progress_callback = lambda c, t, eta, f: self._sig.progress.emit(c / max(t,1))
+        self._engine.progress_callback = lambda c, t, eta, f: self._sig.progress.emit(
+            min(1.0, c / max(t, 1)))
 
         def _run():
             try:
