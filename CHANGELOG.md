@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.20] - 2026-03-21
+### Changed
+- **Footer**: Metrics (CPU, GPU, RAM) now shown on all panels (Media Organizer, AI Media Scanner, Mass AV1 Encoder); app-level metrics poll.
+- **Footer**: Pre-req checkmarks use bright green (#10b981) for ✓ and Ready; red for ✗ when missing.
+
 ## [2.0.19] - 2026-03-21
 ### Changed
 - **Footer**: Restructured — left shows app activity (Encoding, Organizing, Idle); center shows pre-req status (FFmpeg, OpenCV, PySide6); right unchanged (COPY CONSOLE, DEBUG, metrics).

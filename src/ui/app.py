@@ -12,6 +12,8 @@ import shutil
 import subprocess
 import webbrowser
 
+import psutil
+
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QStackedWidget, QFrame, QMessageBox
@@ -141,6 +143,8 @@ class ChronoArchiverApp(QMainWindow):
         self.updater = ApplicationUpdater()
         self._update_result_queue = queue.Queue()
         self._update_poll_timer = None
+        self._metrics_gpu_cache = "0%"
+        self._metrics_gpu_counter = 0
 
         # UI Components
         self.central_widget = QWidget()
@@ -237,6 +241,9 @@ class ChronoArchiverApp(QMainWindow):
         self._switch_panel(0)
         debug(UTILITY_APP, f"Application started v{__version__}")
         QTimer.singleShot(100, self._check_prereqs)
+        self._metrics_timer = QTimer(self)
+        self._metrics_timer.timeout.connect(self._poll_metrics)
+        self._metrics_timer.start(2000)
         QTimer.singleShot(2000, self._run_updater)
 
     def _create_nav_btn(self, text, index):
@@ -253,10 +260,8 @@ class ChronoArchiverApp(QMainWindow):
             btn.setProperty("active", i == index)
             btn.setChecked(i == index)
             btn.setStyle(btn.style())  # Refresh style
-        # Show metrics only when on Mass AV1 Encoder panel
-        self.lbl_metrics.setVisible(index == 1)
-        if index != 1:
-            self.lbl_metrics.setText("")
+        # Metrics shown on all panels (encoder panel's timer keeps them updated)
+        self.lbl_metrics.setVisible(True)
 
     def _log(self, msg):
         self.logger.info(msg)
@@ -264,18 +269,22 @@ class ChronoArchiverApp(QMainWindow):
 
     def _check_prereqs(self):
         """Run pre-req checks and update center footer status."""
+        ok = '<span style="color:#10b981">✓</span>'
+        fail = '<span style="color:#ef4444">✗</span>'
+        skip = '<span style="color:#6b7280">—</span>'
         parts = []
         ffmpeg_ok = bool(shutil.which("ffmpeg"))
-        parts.append("FFmpeg ✓" if ffmpeg_ok else "FFmpeg ✗")
+        parts.append(f"FFmpeg {ok if ffmpeg_ok else fail}")
         try:
             import cv2
-            parts.append("OpenCV ✓")
+            parts.append(f"OpenCV {ok}")
         except ImportError:
-            parts.append("OpenCV —")
-        parts.append("PySide6 ✓")
+            parts.append(f"OpenCV {skip}")
+        parts.append(f"PySide6 {ok}")
         status = "  ·  ".join(parts)
         if ffmpeg_ok:
-            status += "  ·  Ready"
+            status += f"  ·  <span style=\"color:#10b981\">Ready</span>"
+        self.lbl_prereq.setTextFormat(Qt.RichText)
         self.lbl_prereq.setText(status)
 
     def _copy_console(self):
@@ -301,7 +310,28 @@ class ChronoArchiverApp(QMainWindow):
         except Exception:
             pass
 
+    def _poll_metrics(self):
+        """App-level metrics for footer (CPU, GPU, RAM) — shown on all panels."""
+        try:
+            cpu = f"{psutil.cpu_percent()}%"
+            ram = f"{psutil.virtual_memory().percent}%"
+            self._metrics_gpu_counter += 1
+            if self._metrics_gpu_counter >= 3:
+                try:
+                    out = subprocess.check_output(
+                        ["nvidia-smi", "--query-gpu=utilization.encoder",
+                         "--format=csv,noheader,nounits"],
+                        text=True, stderr=subprocess.DEVNULL).strip()
+                    self._metrics_gpu_cache = f"{out}%"
+                except Exception:
+                    self._metrics_gpu_cache = "0%"
+                self._metrics_gpu_counter = 0
+            self.lbl_metrics.setText(f"  CPU {cpu}  ·  GPU {self._metrics_gpu_cache}  ·  RAM {ram}")
+        except Exception:
+            pass
+
     def _on_encoder_metrics(self, cpu, gpu, ram):
+        """Encoder panel can override with its own (includes encoding Time)."""
         self.lbl_metrics.setText(f"  CPU {cpu}  ·  GPU {gpu}  ·  RAM {ram}")
 
     def _open_donate(self):
