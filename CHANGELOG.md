@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.18] - 2026-03-21
+### Changed
+- **Mass AV1 Encoder**: Preset and Threads dropdowns reduced by 4px vertically (16px) to prevent overlay on Optimize Audio.
+
 ## [2.0.17] - 2026-03-21
 ### Fixed
 - **AI Media Scanner**: Face detection now correctly treats empty result array as no faces (`len(faces) > 0` check).

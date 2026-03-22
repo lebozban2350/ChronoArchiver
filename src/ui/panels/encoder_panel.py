@@ -71,7 +71,7 @@ class AV1EncoderPanel(QWidget):
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
         _slbl  = "font-size: 8px; font-weight: 700; color: #aaa;"
         _combo_style = (
-            "QComboBox { font-size: 9px; padding: 2px 4px; min-height: 18px; }"
+            "QComboBox { font-size: 9px; padding: 0 4px; min-height: 12px; max-height: 16px; }"
             "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: right; width: 16px; }"
             "QComboBox QAbstractItemView { min-height: 80px; max-height: 160px; outline: none; padding: 2px; }"
         )
@@ -160,7 +160,7 @@ class AV1EncoderPanel(QWidget):
         lbl_p = QLabel("Preset"); lbl_p.setStyleSheet(_slbl); lbl_p.setFixedWidth(42)
         self._combo_preset = QComboBox()
         self._combo_preset.setStyleSheet(_combo_style)
-        self._combo_preset.setFixedHeight(20)
+        self._combo_preset.setFixedHeight(16)
         self._combo_preset.addItems([
             "P7: Deep Archival", "P6: High Quality", "P5: Balanced",
             "P4: Standard", "P3: Fast", "P2: Draft", "P1: Preview"
@@ -180,7 +180,7 @@ class AV1EncoderPanel(QWidget):
         lbl_t = QLabel("Threads"); lbl_t.setStyleSheet(_slbl); lbl_t.setFixedWidth(42)
         self._combo_jobs = QComboBox()
         self._combo_jobs.setStyleSheet(_combo_style)
-        self._combo_jobs.setFixedHeight(20)
+        self._combo_jobs.setFixedHeight(16)
         self._combo_jobs.addItems(["1", "2", "4"])
         j = self._settings.get("concurrent_jobs")
         self._combo_jobs.setCurrentIndex(0 if j == 1 else (1 if j == 2 else 2))
