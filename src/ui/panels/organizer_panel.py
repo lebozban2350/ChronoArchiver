@@ -69,11 +69,11 @@ class MediaOrganizerPanel(QWidget):
         h_src = QHBoxLayout()
         h_src.setSpacing(4)
         h_src.addWidget(self._edit_path, 1)
-        btn_br = QPushButton("Browse")
-        btn_br.setFixedWidth(48)
-        btn_br.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
-        btn_br.clicked.connect(self._browse)
-        h_src.addWidget(btn_br)
+        self._btn_browse_src = QPushButton("Browse")
+        self._btn_browse_src.setFixedWidth(48)
+        self._btn_browse_src.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
+        self._btn_browse_src.clicked.connect(self._browse)
+        h_src.addWidget(self._btn_browse_src)
         v_dir.addLayout(h_src)
         v_dir.addWidget(QLabel("Source (EXIF/metadata/ffprobe)", styleSheet=_shint))
         self._edit_target = QLineEdit()
@@ -84,11 +84,11 @@ class MediaOrganizerPanel(QWidget):
         h_tgt = QHBoxLayout()
         h_tgt.setSpacing(4)
         h_tgt.addWidget(self._edit_target, 1)
-        btn_tgt = QPushButton("Browse")
-        btn_tgt.setFixedWidth(48)
-        btn_tgt.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
-        btn_tgt.clicked.connect(self._browse_target)
-        h_tgt.addWidget(btn_tgt)
+        self._btn_browse_target = QPushButton("Browse")
+        self._btn_browse_target.setFixedWidth(48)
+        self._btn_browse_target.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
+        self._btn_browse_target.clicked.connect(self._browse_target)
+        h_tgt.addWidget(self._btn_browse_target)
         v_dir.addLayout(h_tgt)
         v_dir.addWidget(QLabel("Blank = in-place", styleSheet=_shint))
         h_strip.addWidget(grp_dir, 11)
@@ -213,12 +213,12 @@ class MediaOrganizerPanel(QWidget):
         return True
 
     def _get_guide_target(self):
-        """Returns the widget that needs user attention next (step by step)."""
+        """Returns the button/widget that needs user attention next (step by step)."""
         if self._is_running:
             return None
         path = self._edit_path.text().strip()
         if not path or not os.path.isdir(path):
-            return self._edit_path
+            return self._btn_browse_src
         exts_override = self._edit_exts.text().strip()
         if exts_override:
             exts = set()
@@ -238,7 +238,7 @@ class MediaOrganizerPanel(QWidget):
             return self._chk_photos
         target = self._edit_target.text().strip()
         if target and not os.path.isdir(target):
-            return self._edit_target
+            return self._btn_browse_target
         return None
 
     def _update_start_enabled(self):
@@ -255,10 +255,8 @@ class MediaOrganizerPanel(QWidget):
     def _clear_guide_glow(self, w):
         if not w:
             return
-        if w == self._edit_path or w == self._edit_target:
-            w.setStyleSheet(
-                "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
-                "background:#121212; border:1px solid #1a1a1a;")
+        if w == self._btn_browse_src or w == self._btn_browse_target:
+            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
         elif w == self._chk_photos:
             w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
 
@@ -275,12 +273,7 @@ class MediaOrganizerPanel(QWidget):
             return
         self._guide_glow_phase = 1 - self._guide_glow_phase
         if self._guide_glow_phase:
-            if target == self._edit_path or target == self._edit_target:
-                target.setStyleSheet(
-                    "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
-                    "background:#121212; border:2px solid #ef4444;")
-            else:
-                target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:1px solid #ef4444;")
+            target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
         else:
             self._clear_guide_glow(target)
 

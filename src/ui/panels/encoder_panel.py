@@ -101,10 +101,10 @@ class AV1EncoderPanel(QWidget):
 
         h_src = QHBoxLayout(); h_src.setSpacing(4)
         h_src.addWidget(self._edit_src, 1)
-        btn_src = QPushButton("Browse"); btn_src.setFixedWidth(52)
-        btn_src.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
-        btn_src.clicked.connect(self._browse_src)
-        h_src.addWidget(btn_src)
+        self._btn_browse_src = QPushButton("Browse"); self._btn_browse_src.setFixedWidth(52)
+        self._btn_browse_src.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
+        self._btn_browse_src.clicked.connect(self._browse_src)
+        h_src.addWidget(self._btn_browse_src)
         v_dir.addLayout(h_src)
         self._scan_debounce = QTimer(self)
         self._scan_debounce.setSingleShot(True)
@@ -123,10 +123,10 @@ class AV1EncoderPanel(QWidget):
 
         h_dst = QHBoxLayout()
         h_dst.addWidget(self._edit_dst, 1)
-        btn_dst = QPushButton("Browse"); btn_dst.setFixedWidth(52)
-        btn_dst.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
-        btn_dst.clicked.connect(self._browse_dst)
-        h_dst.addWidget(btn_dst)
+        self._btn_browse_dst = QPushButton("Browse"); self._btn_browse_dst.setFixedWidth(52)
+        self._btn_browse_dst.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
+        self._btn_browse_dst.clicked.connect(self._browse_dst)
+        h_dst.addWidget(self._btn_browse_dst)
         self._edit_dst.textChanged.connect(self._update_start_enabled)
         v_dir.addLayout(h_dst)
         v_dir.addWidget(QLabel("Target — AV1 encoded output destination",
@@ -471,18 +471,16 @@ class AV1EncoderPanel(QWidget):
             return None
         src = self._edit_src.text().strip()
         if not src or not os.path.isdir(src):
-            return self._edit_src
+            return self._btn_browse_src
         dst = self._edit_dst.text().strip()
         if not dst or not os.path.isdir(dst):
-            return self._edit_dst
+            return self._btn_browse_dst
         return None
 
     def _clear_guide_glow(self, w):
         if not w:
             return
-        w.setStyleSheet(
-            "color:#fff; font-size:12px; font-weight:500; "
-            "background:#121212; border:1px solid #1a1a1a;")
+        w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
 
     def _update_start_enabled(self):
         if self._btn_start.text() == "ENCODING COMPLETE":
@@ -510,9 +508,7 @@ class AV1EncoderPanel(QWidget):
             return
         self._guide_glow_phase = 1 - self._guide_glow_phase
         if self._guide_glow_phase:
-            target.setStyleSheet(
-                "color:#fff; font-size:12px; font-weight:500; "
-                "background:#121212; border:2px solid #ef4444;")
+            target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
         else:
             self._clear_guide_glow(target)
 

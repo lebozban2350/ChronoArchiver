@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.24] - 2026-03-21
+### Changed
+- **Guide glow**: Pulsing red glow now targets the *buttons* the user clicks (Browse, Setup Models, Photos checkbox) instead of the input fields.
+
 ## [2.0.23] - 2026-03-21
 ### Added
 - **Media Organizer, Mass AV1 Encoder, AI Media Scanner**: Pulsing red glow guides users to the next required input (source path, target, media types, Setup Models, etc.). Glow moves step-by-step until START turns green.

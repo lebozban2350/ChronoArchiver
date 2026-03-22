@@ -75,11 +75,11 @@ class AIScannerPanel(QWidget):
             "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
             "background:#121212; border:1px solid #1a1a1a;")
         h_src.addWidget(self._edit_path, 1)
-        btn_br = QPushButton("Browse")
-        btn_br.setFixedWidth(48)
-        btn_br.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; min-height:22px;")
-        btn_br.clicked.connect(self._browse)
-        h_src.addWidget(btn_br)
+        self._btn_browse = QPushButton("Browse")
+        self._btn_browse.setFixedWidth(48)
+        self._btn_browse.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; min-height:22px;")
+        self._btn_browse.clicked.connect(self._browse)
+        h_src.addWidget(self._btn_browse)
         v_dir.addLayout(h_src)
         v_dir.addWidget(QLabel("Photos for AI detection (YuNet/SSD)", styleSheet=_shint))
         h_strip.addWidget(grp_dir, 10)
@@ -246,7 +246,7 @@ class AIScannerPanel(QWidget):
             return self._btn_setup
         path = self._edit_path.text().strip()
         if not path or not os.path.isdir(path):
-            return self._edit_path
+            return self._btn_browse
         return None
 
     def _update_start_enabled(self):
@@ -266,10 +266,8 @@ class AIScannerPanel(QWidget):
     def _clear_guide_glow(self, w):
         if not w:
             return
-        if w == self._edit_path:
-            w.setStyleSheet(
-                "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
-                "background:#121212; border:1px solid #1a1a1a;")
+        if w == self._btn_browse:
+            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; min-height:22px;")
         elif w == self._btn_setup:
             w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
 
@@ -286,12 +284,10 @@ class AIScannerPanel(QWidget):
             return
         self._guide_glow_phase = 1 - self._guide_glow_phase
         if self._guide_glow_phase:
-            if target == self._edit_path:
-                target.setStyleSheet(
-                    "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
-                    "background:#121212; border:2px solid #ef4444;")
-            else:
-                target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
+            style = "font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;"
+            if target == self._btn_browse:
+                style += " min-height:22px;"
+            target.setStyleSheet(style)
         else:
             self._clear_guide_glow(target)
 
