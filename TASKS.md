@@ -1,8 +1,12 @@
 # TASKS
 
-**Current:** v3.2.18 (2026-03-22)
+**Current:** v3.2.19 (2026-03-22)
 
 ---
+
+- [x] **v3.2.19: Footer + Engine Status queue poll (2026-03-22)**
+  - [x] _refresh_footer and _check_models use queue + poll for cross-thread delivery.
+  - [x] AI Scanner Engine Status labels all caps.
 
 - [x] **v3.2.18: FFmpeg progress queue + footer caps (2026-03-22)**
   - [x] FFmpeg progress: queue + main-thread poll instead of QTimer from worker.

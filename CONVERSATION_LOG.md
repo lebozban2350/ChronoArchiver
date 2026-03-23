@@ -1,6 +1,11 @@
 # CONVERSATION_LOG.md
 
 ---
+## 2026-03-22 (Footer + Engine Status queue poll v3.2.19)
+- Footer center and AI Scanner Engine Status stuck at "CHECKING…". Same root cause: QTimer.singleShot from worker thread unreliable.
+- Fix: queue + main-thread poll for _refresh_footer and scanner _check_models. Engine Status labels all caps. SemVer: PATCH 3.2.19.
+
+---
 ## 2026-03-22 (FFmpeg progress queue + footer caps v3.2.18)
 - FFmpeg bar still stuck at 0%, "Checking..." in footer. QTimer.singleShot from worker thread unreliable for cross-thread UI updates.
 - Fix: queue + main-thread QTimer poll (80ms) for FFmpeg progress, same pattern as updater. Worker puts (phase, pct, detail) in queue; poll timer drains and updates UI.

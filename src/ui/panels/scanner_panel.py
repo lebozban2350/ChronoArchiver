@@ -5,6 +5,7 @@ Visual style exactly matches Mass AV1 Encoder v12.
 
 import csv
 import os
+import queue
 import shutil
 import subprocess
 import sys
@@ -266,7 +267,7 @@ class AIScannerPanel(QWidget):
         v_mod.setContentsMargins(6, 2, 6, 2)
         v_mod.setSpacing(2)
         h_cv = QHBoxLayout()
-        self._lbl_opencv = QLabel("Checking...")
+        self._lbl_opencv = QLabel("CHECKING…")
         self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
         h_cv.addWidget(QLabel("OpenCV:", styleSheet="font-size:7px; color:#888;"))
         h_cv.addWidget(self._lbl_opencv, 1)
@@ -281,7 +282,7 @@ class AIScannerPanel(QWidget):
         h_cv.addWidget(self._btn_uninstall_cv)
         v_mod.addLayout(h_cv)
         h_mod = QHBoxLayout()
-        self._lbl_model = QLabel("Checking...")
+        self._lbl_model = QLabel("CHECKING…")
         self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
         h_mod.addWidget(QLabel("Models:", styleSheet="font-size:7px; color:#888;"))
         h_mod.addWidget(self._lbl_model, 1)
@@ -446,7 +447,7 @@ class AIScannerPanel(QWidget):
             self._cached_cv_ok = cv_ok
             debug(UTILITY_AI_MEDIA_SCANNER, f"_check_models: cv_ok={cv_ok} _opencv_just_installed={self._opencv_just_installed}")
             if self._opencv_just_installed:
-                self._lbl_opencv.setText("Restart required")
+                self._lbl_opencv.setText("RESTART REQUIRED")
                 self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
                 self._btn_install_cv.setText("RESTART")
                 self._btn_install_cv.setFixedWidth(90)
@@ -454,7 +455,7 @@ class AIScannerPanel(QWidget):
                 self._btn_install_cv.show()
                 self._btn_uninstall_cv.hide()
             elif not cv_ok:
-                self._lbl_opencv.setText("Not installed")
+                self._lbl_opencv.setText("NOT INSTALLED")
                 self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
                 self._btn_install_cv.setText("Install OpenCV")
                 self._btn_install_cv.setFixedWidth(165)
@@ -464,7 +465,7 @@ class AIScannerPanel(QWidget):
             else:
                 v = get_opencv_variant()
                 suf = " (CUDA)" if v == "cuda" else " (OpenCL)"
-                self._lbl_opencv.setText(f"Ready{suf}")
+                self._lbl_opencv.setText(f"READY{suf}")
                 self._btn_install_cv.setToolTip("")
                 self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
                 self._btn_install_cv.hide()
@@ -472,7 +473,7 @@ class AIScannerPanel(QWidget):
 
             ready = self._model_mgr.is_up_to_date()
             if ready:
-                self._lbl_model.setText("Ready")
+                self._lbl_model.setText("READY")
                 self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
                 self._btn_setup.hide()
                 self._btn_uninstall_models.show()
@@ -480,7 +481,7 @@ class AIScannerPanel(QWidget):
                 self._btn_update.setVisible(update_avail)
                 self._start_version_check()
             else:
-                self._lbl_model.setText("Missing")
+                self._lbl_model.setText("MISSING")
                 self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
                 self._btn_setup.show()
                 self._btn_uninstall_models.hide()
@@ -489,9 +490,28 @@ class AIScannerPanel(QWidget):
             self._update_start_enabled()
 
         if get_pip_exe().exists():
+            check_queue = queue.Queue()
+
             def _task():
                 cv_ok = check_opencv_in_venv()
-                QTimer.singleShot(0, lambda: _apply(cv_ok))
+                try:
+                    check_queue.put_nowait(cv_ok)
+                except queue.Full:
+                    pass
+
+            def _poll():
+                try:
+                    cv_ok = check_queue.get_nowait()
+                    if getattr(self, "_check_poll_timer", None):
+                        self._check_poll_timer.stop()
+                        self._check_poll_timer = None
+                    _apply(cv_ok)
+                except queue.Empty:
+                    pass
+
+            self._check_poll_timer = QTimer(self)
+            self._check_poll_timer.timeout.connect(_poll)
+            self._check_poll_timer.start(80)
             threading.Thread(target=_task, daemon=True).start()
         else:
             _apply(self._opencv_available_sync())

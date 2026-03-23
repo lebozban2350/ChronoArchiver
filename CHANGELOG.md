@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.2.19] - 2026-03-22
+### Fixed
+- **Footer "CHECKING…" stuck**: `_refresh_footer` and scanner `_check_models` now use queue + main-thread poll (same pattern as FFmpeg) instead of `QTimer.singleShot` from worker thread. Center footer and Engine Status (OpenCV, Models) now update correctly.
+### Changed
+- **AI Scanner Engine Status**: Labels use all caps (CHECKING…, READY, MISSING, NOT INSTALLED, RESTART REQUIRED) for visibility.
+
 ## [3.2.18] - 2026-03-22
 ### Fixed
 - **FFmpeg progress bar stuck at 0%**: Switched from `QTimer.singleShot` (worker thread) to queue + main-thread poll (80ms), matching updater pattern. Progress updates now reliably reach the UI.

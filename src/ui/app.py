@@ -425,7 +425,7 @@ class ChronoArchiverApp(QMainWindow):
         step1()
 
     def _refresh_footer(self):
-        """Update footer pre-req status (OpenCV, AI Models) after install/uninstall. Runs check_opencv_in_venv off main thread."""
+        """Update footer pre-req status (OpenCV, AI Models). Uses queue + poll for cross-thread delivery."""
         ok_sym = '<span style="color:#10b981">✓</span>'
         fail_sym = '<span style="color:#ef4444">✗</span>'
         skip_sym = '<span style="color:#eab308">—</span>'
@@ -445,9 +445,28 @@ class ChronoArchiverApp(QMainWindow):
             self.lbl_prereq.setText(status)
 
         if get_pip_exe().exists():
+            footer_queue = queue.Queue()
+
             def _task():
                 ov = check_opencv_in_venv()
-                QTimer.singleShot(0, lambda: _apply(ov))
+                try:
+                    footer_queue.put_nowait(ov)
+                except queue.Full:
+                    pass
+
+            def _poll():
+                try:
+                    ov = footer_queue.get_nowait()
+                    if getattr(self, "_footer_poll_timer", None):
+                        self._footer_poll_timer.stop()
+                        self._footer_poll_timer = None
+                    _apply(ov)
+                except queue.Empty:
+                    pass
+
+            self._footer_poll_timer = QTimer(self)
+            self._footer_poll_timer.timeout.connect(_poll)
+            self._footer_poll_timer.start(80)
             threading.Thread(target=_task, daemon=True).start()
         else:
             try:
