@@ -14,8 +14,18 @@ try:
 except ImportError:
     platformdirs = None
 
+try:
+    import requests
+except ImportError:
+    requests = None
+
 APP_NAME = "ChronoArchiver"
 APP_AUTHOR = "UnDadFeated"
+OPENCV_CUDA_API = "https://api.github.com/repos/cudawarped/opencv-python-cuda-wheels/releases/latest"
+OPENCV_STANDARD_APPROX_BYTES = 90 * 1024 * 1024  # ~90 MB
+# Fallback when API unavailable: system opencv-cuda (pacman) ~7498 MiB installed
+# (cuda+cuDNN+vtk+openmpi+opencv-cuda+python-opencv-cuda). Our pip wheel is smaller.
+OPENCV_CUDA_FALLBACK_BYTES = 7498 * 1024 * 1024
 
 # Base packages (opencv chosen by get_opencv_package())
 VENV_PACKAGES_BASE = [
@@ -109,9 +119,10 @@ def is_venv_ready() -> bool:
         return False
 
 
-def ensure_venv(progress_callback=None) -> bool:
+def ensure_venv(progress_callback=None, skip_opencv: bool = False) -> bool:
     """
     Create venv and install packages. progress_callback(phase: str, detail: str).
+    skip_opencv: if True, do not install opencv (caller will install separately).
     Returns True on success.
     """
     data = _data_dir()
@@ -137,7 +148,8 @@ def ensure_venv(progress_callback=None) -> bool:
         prog("venv pip not found", "")
         return False
 
-    for pkg in get_venv_packages():
+    packages = VENV_PACKAGES_BASE + ([] if skip_opencv else [get_opencv_package()])
+    for pkg in packages:
         prog(f"Installing {pkg}...", "")
         proc = subprocess.Popen(
             [str(pip), "install", pkg],
@@ -154,6 +166,115 @@ def ensure_venv(progress_callback=None) -> bool:
 
     prog("Setup complete.", "Restart ChronoArchiver.")
     return True
+
+
+def get_opencv_install_size(use_cuda: bool) -> tuple:
+    """Return (size_bytes, human_str) for OpenCV install."""
+    if not use_cuda:
+        return OPENCV_STANDARD_APPROX_BYTES, "~90 MB"
+    if requests:
+        try:
+            r = requests.get(OPENCV_CUDA_API, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                is_win = platform.system() == "Windows"
+                for a in data.get("assets", []):
+                    name = a.get("name", "")
+                    if "linux" in name.lower() and "x86_64" in name and not is_win:
+                        size = a.get("size", 0)
+                        if size > 0:
+                            mb, gb = size / (1024**2), size / (1024**3)
+                            return size, f"~{gb:.2f} GB" if gb >= 0.1 else f"~{mb:.1f} MB"
+                    if "win_amd64" in name and is_win:
+                        size = a.get("size", 0)
+                        if size > 0:
+                            mb, gb = size / (1024**2), size / (1024**3)
+                            return size, f"~{gb:.2f} GB" if gb >= 0.1 else f"~{mb:.1f} MB"
+        except Exception:
+            pass
+    mb = OPENCV_CUDA_FALLBACK_BYTES / (1024**2)
+    return OPENCV_CUDA_FALLBACK_BYTES, f"~{mb/1024:.1f} GB"
+
+
+def install_opencv(progress_callback=None, use_cuda: bool = False) -> bool:
+    """Install OpenCV into venv. use_cuda=True for NVIDIA CUDA wheel."""
+    pip = get_pip_exe()
+    if not pip.exists():
+        if progress_callback:
+            progress_callback("venv not ready", "Run first-time setup first.")
+        return False
+
+    def prog(phase, detail=""):
+        if progress_callback:
+            progress_callback(phase, detail[:100] if detail else "")
+
+    # Uninstall existing opencv (standard and cudawarped wheel both use opencv-contrib-python)
+    prog("Removing existing OpenCV...", "")
+    subprocess.run(
+        [str(pip), "uninstall", "-y",
+         "opencv-python", "opencv-python-headless",
+         "opencv-contrib-python", "opencv-contrib-python-headless"],
+        capture_output=True, timeout=60,
+    )
+
+    if use_cuda and detect_gpu() == "nvidia" and requests:
+        prog("Fetching OpenCV CUDA wheel URL...", "")
+        try:
+            r = requests.get(OPENCV_CUDA_API, timeout=10)
+            if r.status_code != 200:
+                prog("Failed", "Could not fetch release info")
+                return False
+            data = r.json()
+            wheel_url = None
+            is_win = platform.system() == "Windows"
+            for a in data.get("assets", []):
+                name = a.get("name", "")
+                if name.endswith(".whl"):
+                    if is_win and "win_amd64" in name:
+                        wheel_url = a.get("browser_download_url")
+                        break
+                    if not is_win and "linux" in name.lower() and "x86_64" in name:
+                        wheel_url = a.get("browser_download_url")
+                        break
+            if not wheel_url:
+                prog("Failed", "No matching CUDA wheel for this platform")
+                return False
+            prog("Installing OpenCV (CUDA)...", "Downloading wheel...")
+            proc = subprocess.Popen(
+                [str(pip), "install", wheel_url],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+            )
+            for line in iter(proc.stdout.readline, "") if proc.stdout else []:
+                line = (line or "").strip()
+                if line:
+                    prog("Installing OpenCV (CUDA)...", line[:100])
+            proc.wait(timeout=600)
+            if proc.returncode != 0:
+                prog("Failed", "See console for details")
+                return False
+        except Exception as e:
+            prog("Failed", str(e)[:80])
+            return False
+    else:
+        prog("Installing OpenCV...", "")
+        ok = install_package("opencv-python", progress_callback)
+        return ok
+
+    return True
+
+
+def uninstall_opencv(progress_callback=None) -> bool:
+    """Remove OpenCV from venv (standard and cudawarped CUDA wheel)."""
+    pip = get_pip_exe()
+    if not pip.exists():
+        return False
+    r = subprocess.run(
+        [str(pip), "uninstall", "-y",
+         "opencv-python", "opencv-python-headless",
+         "opencv-contrib-python", "opencv-contrib-python-headless"],
+        capture_output=True, text=True, timeout=60,
+    )
+    return r.returncode == 0
 
 
 def install_package(pkg: str, progress_callback=None) -> bool:

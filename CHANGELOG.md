@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.0.6] - 2026-03-21
+### Fixed
+- **AI Media Scanner – OpenCV Setup**: Progress dialog updates now use Qt signals instead of direct widget access from the install worker thread, preventing potential crashes or undefined behavior.
+- **OpenCV uninstall**: Added `opencv-contrib-python-headless` to the uninstall list so cudawarped CUDA wheel and headless variants are fully removed.
+- **venv_manager**: Improved error message when no matching CUDA wheel exists for the platform.
+
 ## [3.0.5] - 2026-03-22
 ### Added
 - **GPU detection**: venv_manager detects NVIDIA/AMD; docs/GPU_ACCELERATION.md for CUDA build-from-source.
