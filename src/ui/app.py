@@ -392,7 +392,7 @@ class ChronoArchiverApp(QMainWindow):
             if self._metrics_gpu_counter >= 3:
                 try:
                     out = subprocess.check_output(
-                        ["nvidia-smi", "--query-gpu=utilization.encoder",
+                        ["nvidia-smi", "--query-gpu=utilization.gpu",
                          "--format=csv,noheader,nounits"],
                         text=True, stderr=subprocess.DEVNULL).strip()
                     self._metrics_gpu_cache = f"{out}%"

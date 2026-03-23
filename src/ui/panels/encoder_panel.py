@@ -1079,7 +1079,7 @@ class AV1EncoderPanel(QWidget):
     def _get_gpu(self) -> str:
         try:
             out = subprocess.check_output(
-                ["nvidia-smi", "--query-gpu=utilization.encoder",
+                ["nvidia-smi", "--query-gpu=utilization.gpu",
                  "--format=csv,noheader,nounits"],
                 text=True, stderr=subprocess.DEVNULL).strip()
             return f"{out}%"

@@ -16,10 +16,57 @@ except ImportError:
 
 APP_NAME = "ChronoArchiver"
 APP_AUTHOR = "UnDadFeated"
-VENV_PACKAGES = [
+
+# Base packages (opencv chosen by get_opencv_package())
+VENV_PACKAGES_BASE = [
     "PySide6", "psutil", "requests", "Pillow", "platformdirs",
-    "opencv-python", "piexif",
+    "piexif",
 ]
+
+
+def detect_gpu() -> str:
+    """Return 'nvidia', 'amd', or ''."""
+    try:
+        r = subprocess.run(
+            ["nvidia-smi"], capture_output=True, timeout=3,
+        )
+        if r.returncode == 0:
+            return "nvidia"
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    try:
+        with open("/sys/class/drm/card0/device/vendor", "r") as f:
+            vendor = f.read().strip()
+        if "0x1002" in vendor or "amd" in vendor.lower():
+            return "amd"
+    except Exception:
+        pass
+    try:
+        r = subprocess.run(
+            ["lspci"], capture_output=True, text=True, timeout=2,
+        )
+        if r.returncode == 0 and "amd" in (r.stdout or "").lower():
+            return "amd"
+    except Exception:
+        pass
+    return ""
+
+
+def get_opencv_package() -> str:
+    """Return opencv package for pip. CUDA requires build-from-source (not automated)."""
+    gpu = detect_gpu()
+    if gpu == "nvidia":
+        # Standard pip opencv has no CUDA. opencv-contrib-python has same.
+        # For CUDA: build from source with -DWITH_CUDA=ON (see docs).
+        return "opencv-python"
+    if gpu == "amd":
+        # Standard opencv-python has OpenCL; scanner will use DNN_TARGET_OPENCL.
+        return "opencv-python"
+    return "opencv-python"
+
+
+def get_venv_packages() -> list:
+    return VENV_PACKAGES_BASE + [get_opencv_package()]
 
 
 def _data_dir() -> Path:
@@ -90,7 +137,7 @@ def ensure_venv(progress_callback=None) -> bool:
         prog("venv pip not found", "")
         return False
 
-    for pkg in VENV_PACKAGES:
+    for pkg in get_venv_packages():
         prog(f"Installing {pkg}...", "")
         proc = subprocess.Popen(
             [str(pip), "install", pkg],

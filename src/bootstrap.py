@@ -11,7 +11,7 @@ from pathlib import Path
 _SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_SCRIPT_DIR))
 
-from core.venv_manager import get_venv_path, get_python_exe, get_pip_exe, ensure_venv, is_venv_ready, VENV_PACKAGES
+from core.venv_manager import get_venv_path, get_python_exe, get_pip_exe, ensure_venv, is_venv_ready
 
 
 def _run_with_ui():

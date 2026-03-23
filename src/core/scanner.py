@@ -85,12 +85,11 @@ class ScannerEngine:
         
         try:
             face_engine = self._init_opencv_face()
-                
-            # If keep_animals is True (Checked), User wants to EXCLUDE animals (per new request).
             if keep_animals:
                 animal_engine = self._init_animal_detector()
                 self.logger("Animal Filter Enabled (Keeping Animals).")
             else:
+                animal_engine = None
                 self.logger("Animal Filter Disabled.")
                 
         except Exception as e:
@@ -162,7 +161,6 @@ class ScannerEngine:
             if has_face:
                 is_excluded = True
             else:
-                # No human. Check animal?
                 if keep_animals and animal_engine:
                     if self._detect_animal(animal_engine, image, animal_threshold):
                         is_excluded = True
@@ -193,12 +191,30 @@ class ScannerEngine:
             self.logger(f"Done. Subjects Found: {len(self.keep_list)}, Others: {len(self.others_list)}")
             debug(UTILITY_AI_MEDIA_SCANNER, f"Scan complete: keep={len(self.keep_list)}, move={len(self.others_list)}")
 
+    def _get_dnn_backend_target(self):
+        """Return (backend_id, target_id) for DNN, preferring GPU. Logs choice."""
+        try:
+            if hasattr(cv2.dnn, 'DNN_BACKEND_CUDA') and hasattr(cv2.dnn, 'DNN_TARGET_CUDA'):
+                debug(UTILITY_AI_MEDIA_SCANNER, "DNN backend: CUDA")
+                return cv2.dnn.DNN_BACKEND_CUDA, cv2.dnn.DNN_TARGET_CUDA
+        except Exception:
+            pass
+        try:
+            if hasattr(cv2.dnn, 'DNN_TARGET_OPENCL'):
+                debug(UTILITY_AI_MEDIA_SCANNER, "DNN backend: OpenCL")
+                return cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_OPENCL
+        except Exception:
+            pass
+        debug(UTILITY_AI_MEDIA_SCANNER, "DNN backend: CPU")
+        return cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_CPU
+
     def _init_opencv_face(self):
         model = self._get_model_path('face_detection_yunet_2023mar.onnx')
+        backend, target = self._get_dnn_backend_target()
         return cv2.FaceDetectorYN.create(
             model=model, config="", input_size=(320, 320),
             score_threshold=0.5, nms_threshold=0.3, top_k=5000,
-            backend_id=cv2.dnn.DNN_BACKEND_OPENCV, target_id=cv2.dnn.DNN_TARGET_OPENCL
+            backend_id=backend, target_id=target
         )
 
     def _detect_face_opencv(self, detector, image):
@@ -212,14 +228,20 @@ class ScannerEngine:
         pb_path = self._get_model_path('ssd_mobilenet_v1_coco.pb')
         pbtxt_path = self._get_model_path('ssd_mobilenet_v1_coco.pbtxt')
         net = cv2.dnn.readNetFromTensorflow(pb_path, pbtxt_path)
+        backend, target = self._get_dnn_backend_target()
+        try:
+            net.setPreferableBackend(backend)
+            net.setPreferableTarget(target)
+        except Exception:
+            pass
         return net
 
-    def _detect_animal(self, net, image, threshold: float = 0.4):
-        """Performs animal detection using OpenCV DNN (SSD Format)."""
+    def _detect_animal(self, net, image, threshold: float = 0.4) -> bool:
+        """Performs animal detection using OpenCV DNN (SSD Format). COCO: 16=bird, 17=cat, 18=dog, 19=horse, 20=sheep, 21=cow, 22=elephant, 23=bear, 24=zebra, 25=giraffe."""
         blob = cv2.dnn.blobFromImage(image, 1.0, (300, 300), swapRB=True, crop=False)
         net.setInput(blob)
         detections = net.forward()
-        animal_ids = {16, 17, 18, 19, 20, 21, 23, 24, 25}
+        animal_ids = {16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
         for i in range(detections.shape[2]):
             score = detections[0, 0, i, 2]
             if score > threshold:

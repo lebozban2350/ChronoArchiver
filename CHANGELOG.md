@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.0.5] - 2026-03-22
+### Added
+- **GPU detection**: venv_manager detects NVIDIA/AMD; docs/GPU_ACCELERATION.md for CUDA build-from-source.
+
+## [3.0.4] - 2026-03-22
+### Fixed
+- **Footer GPU metric**: Switched from `utilization.encoder` (NVENC only) to `utilization.gpu` so GPU usage is shown during AI scan and other GPU compute, not just video encoding.
+- **AI Scanner**: Backend selection now tries CUDA → OpenCL → CPU; animal detector also uses preferred GPU backend when available.
+
 ## [3.0.3] - 2026-03-22
 ### Added
 - **AI Media Scanner**: When Move/Copy files to target (START), photos are now EXIF orientation–corrected so sideways/upside-down images are saved right-side up.
