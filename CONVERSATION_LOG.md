@@ -1,6 +1,11 @@
 # CONVERSATION_LOG.md
 
 ---
+## 2026-03-22 (Wheel filename fix v3.2.8)
+- Log error: "Invalid wheel filename (wrong number of parts): 'tmpza6jh2d2'". Pip expects PEP 427 names.
+- _download_wheel_with_progress: save to tempdir with proper filename via _get_wheel_filename() (Content-Disposition or URL path). SemVer: PATCH 3.2.8.
+
+---
 ## 2026-03-22 (Install debug logging + venv clean v3.2.7)
 - Log analysis: CUDA wheel downloaded OK; pip install of wheel failed; OpenCL fallback also failed. Pip stderr was not in log.
 - Added debug() throughout: install_opencv (each phase, pip stderr on fail), _install_cuda_cudnn_venv, uninstall_opencv, Model setup popup/download_models, OpenCV install popup completion.

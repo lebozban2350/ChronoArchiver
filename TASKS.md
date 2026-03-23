@@ -1,8 +1,11 @@
 # TASKS
 
-**Current:** v3.2.7 (2026-03-22)
+**Current:** v3.2.8 (2026-03-22)
 
 ---
+
+- [x] **v3.2.8: Wheel Filename Fix (2026-03-22)**
+  - [x] Save downloaded wheel with valid PEP 427 filename (not tmpXXX.whl); fixes pip install failure.
 
 - [x] **v3.2.7: Install Debug Logging + Venv Clean (2026-03-22)**
   - [x] Debug log: all OpenCV install phases, pip stderr on fail, Model setup, popup completion.

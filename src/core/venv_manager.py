@@ -5,12 +5,14 @@ Ensures all Python deps run from ~/.local/share/ChronoArchiver/venv.
 
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
+from urllib.parse import urlparse, unquote
 
 try:
     import platformdirs
@@ -376,8 +378,26 @@ def _get_opencv_standard_wheel_url() -> tuple:
         return None, 0
 
 
+def _get_wheel_filename(r, url: str) -> str:
+    """Extract a valid PEP 427 wheel filename from response or URL. Pip requires proper naming."""
+    cd = r.headers.get("Content-Disposition", "")
+    m = re.search(r'filename\*?=(?:UTF-8\'\')?["\']?([^"\';]+)["\']?', cd, re.I)
+    if m:
+        name = unquote(m.group(1).strip()).strip('"')
+        if name.endswith(".whl"):
+            return name
+    for u in (r.url, url):
+        if not u:
+            continue
+        parsed = urlparse(u)
+        name = os.path.basename(unquote(parsed.path))
+        if name.endswith(".whl") and name.count("-") >= 4:
+            return name
+    return "opencv_wheel-0.0.0-py3-none-any.whl"
+
+
 def _download_wheel_with_progress(url: str, progress_callback, total_hint: int = 0) -> Path | None:
-    """Download wheel to temp file, report progress with speed. Returns path or None on failure."""
+    """Download wheel to temp file with valid PEP 427 filename. Returns path or None on failure."""
     if not requests:
         return None
     try:
@@ -385,12 +405,14 @@ def _download_wheel_with_progress(url: str, progress_callback, total_hint: int =
         r.raise_for_status()
         total = int(r.headers.get("content-length", 0) or 0) or total_hint
         progress_callback("Downloading...", "0.00 MB/s", 0, total)
-        fd, path = tempfile.mkstemp(suffix=".whl")
+        filename = _get_wheel_filename(r, url)
+        tmpdir = tempfile.mkdtemp()
+        path = os.path.join(tmpdir, filename)
         try:
             start = time.monotonic()
             last_update = start
             downloaded = 0
-            with os.fdopen(fd, "wb") as f:
+            with open(path, "wb") as f:
                 for chunk in r.iter_content(chunk_size=65536):
                     if chunk:
                         f.write(chunk)
@@ -408,7 +430,10 @@ def _download_wheel_with_progress(url: str, progress_callback, total_hint: int =
             return Path(path)
         except Exception:
             try:
-                os.unlink(path)
+                if os.path.exists(path):
+                    os.unlink(path)
+                if os.path.isdir(tmpdir):
+                    shutil.rmtree(tmpdir, ignore_errors=True)
             except OSError:
                 pass
             return None
@@ -527,6 +552,9 @@ def install_opencv(progress_callback=None, variant: str | None = None) -> tuple[
         )
         try:
             wheel_path.unlink()
+            parent = wheel_path.parent
+            if parent != Path(tempfile.gettempdir()) and parent.exists():
+                shutil.rmtree(parent, ignore_errors=True)
         except OSError:
             pass
         if result.returncode != 0:
@@ -541,6 +569,9 @@ def install_opencv(progress_callback=None, variant: str | None = None) -> tuple[
         if wheel_path and wheel_path.exists():
             try:
                 wheel_path.unlink()
+                parent = wheel_path.parent
+                if parent != Path(tempfile.gettempdir()) and parent.exists():
+                    shutil.rmtree(parent, ignore_errors=True)
             except OSError:
                 pass
 

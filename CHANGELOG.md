@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.2.8] - 2026-03-22
+### Fixed
+- **OpenCV wheel install**: Pip requires PEP 427 wheel filenames. Downloads now save wheels with the correct name (from Content-Disposition or URL) instead of `tmpXXX.whl`, fixing "Invalid wheel filename (wrong number of parts)".
+
 ## [3.2.7] - 2026-03-22
 ### Added
 - **Debug logging for installs and scans**: All OpenCV install phases, Model setup, and pip errors are now written to the debug log file. Enables diagnosing failures (e.g. pip stderr) when installs fail.
