@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.2.23] - 2026-03-23
+### Fixed
+- **Model setup size estimate**: SSD model `approx_size` was ~30 MB (extracted .pb) but the actual download is the tar.gz (~73 MB). Updated to 76.5 MB so the "Approximate download size" dialog matches reality.
+
+## [3.2.22] - 2026-03-23
+### Fixed
+- **Model download log spam**: Progress callback logged every 8KB chunk (~9,500 lines for 76MB model). Now logs only when percentage changes (0–100), reducing log size from ~880KB to ~1KB for model downloads.
+
 ## [3.2.21] - 2026-03-23
 ### Changed
 - **OpenCV no longer auto-installed at startup**: Bootstrap/ensure_venv uses `skip_opencv=True`. User installs OpenCV via Install OpenCV button in AI Scanner module.

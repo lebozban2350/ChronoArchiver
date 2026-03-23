@@ -1,6 +1,14 @@
 # CONVERSATION_LOG.md
 
 ---
+## 2026-03-23 (Model setup size estimate v3.2.23)
+- User: setup popup said ~24 MB but downloaded ~74 MB. Root cause: animal_detection_pb approx_size was 30.2 MB (extracted .pb) but we download the tar.gz (~73 MB). Updated approx_size to 76.5 MB. SemVer: PATCH 3.2.23.
+
+---
+## 2026-03-23 (Model download log throttle v3.2.22)
+- Log review: model download progress logged every chunk (~9,500 lines, 883KB). Throttle to log only when pct changes. SemVer: PATCH 3.2.22.
+
+---
 ## 2026-03-23 (OpenCV manual install + Engine Status buttons v3.2.21)
 - User: do not auto-install OpenCV at startup; install via AI Scanner. Bootstrap ensure_venv(skip_opencv=True).
 - Engine Status: Setup Models and Uninstall OpenCV different sizes; guide glow caused layout shift. Fix: all buttons fixed width 100px; pulse uses font-size 7px (not 8px); all have border:2px solid. SemVer: PATCH 3.2.21.

@@ -1,8 +1,14 @@
 # TASKS
 
-**Current:** v3.2.21 (2026-03-23)
+**Current:** v3.2.23 (2026-03-23)
 
 ---
+
+- [x] **v3.2.23: Model setup size estimate (2026-03-23)**
+  - [x] SSD model approx_size: 30 MB (extracted) → 76.5 MB (tar.gz download).
+
+- [x] **v3.2.22: Model download log throttle (2026-03-23)**
+  - [x] Log only when pct changes; fixes 9k+ line spam.
 
 - [x] **v3.2.21: OpenCV manual install + Engine Status buttons (2026-03-23)**
   - [x] Bootstrap skip_opencv=True; user installs in AI Scanner.

@@ -793,9 +793,14 @@ class AIScannerPanel(QWidget):
         self._update_start_enabled()
         dlg = ModelSetupDialog(self._model_mgr, self)
 
+        _last_log = [None]
         def _progress(downloaded, total_size, filename, overall, label, url):
             dlg.progress_update.emit(url, label, filename, downloaded, total_size, overall)
-            self._sig.log_msg.emit(f"Downloading: {label} ({int(overall * 100)}%)")
+            pct = int(overall * 100)
+            key = (label, pct)
+            if key != _last_log[0]:
+                _last_log[0] = key
+                self._sig.log_msg.emit(f"Downloading: {label} ({pct}%)")
 
         def _on_done(ok):
             debug(UTILITY_MODEL_SETUP, f"Model setup _on_done RECV ok={ok} type={type(ok).__name__}")
