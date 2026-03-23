@@ -1,6 +1,12 @@
 # CONVERSATION_LOG.md
 
 ---
+## 2026-03-22 (nvidia-cublas in CUDA stack v3.2.6)
+- `NVIDIA_CUDA_CUDNN_PIP_PACKAGES`: added `nvidia-cublas` (explicit install + components list ~384 MB).
+- Install dialog order: cuda-runtime, cublas, cudnn, opencv wheel. Scanner panel text updated.
+- `docs/GPU_ACCELERATION.md`: venv pip stack documented. SemVer: PATCH 3.2.6.
+
+---
 ## 2026-03-22 (CUDA/cuDNN venv-only, no sudo v3.2.5)
 - Replaced system CUDA/cuDNN install (pacman + pkexec/sudo) with pip packages in app venv.
 - `_install_cuda_cudnn_venv()`: pip install nvidia-cuda-runtime nvidia-cudnn-cu13 into venv. No sudo.

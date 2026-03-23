@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.2.6] - 2026-03-22
+### Changed
+- **OpenCV CUDA install components**: `nvidia-cublas` is listed in the confirmation dialog and installed explicitly with `nvidia-cuda-runtime` and `nvidia-cudnn-cu13` into the app venv (total size estimate includes cuBLAS).
+
 ## [3.2.5] - 2026-03-22
 ### Changed
 - **OpenCV CUDA: venv-only install (no sudo)**: CUDA runtime and cuDNN are now installed via pip packages (`nvidia-cuda-runtime`, `nvidia-cudnn-cu13`) into the app venv. Removed pacman/pkexec/sudo; all CUDA stack installs app-internally without elevated privileges.

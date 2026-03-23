@@ -241,10 +241,15 @@ def get_opencv_install_size(variant: str | None = None) -> tuple:
 
 # Approximate sizes for NVIDIA pip packages (venv install, no sudo)
 NVIDIA_CUDA_RUNTIME_APPROX_BYTES = int(2.2 * 1024 * 1024)   # ~2.2 MB
+NVIDIA_CUBLAS_APPROX_BYTES = int(384 * 1024 * 1024)        # ~384 MB (manylinux x86_64 wheel)
 NVIDIA_CUDNN_APPROX_BYTES = int(366 * 1024 * 1024)          # ~366 MB
 
 # PyPI packages for CUDA/cuDNN in venv (compatible with cudawarped OpenCV CUDA wheel)
-NVIDIA_CUDA_CUDNN_PIP_PACKAGES = ["nvidia-cuda-runtime", "nvidia-cudnn-cu13"]
+NVIDIA_CUDA_CUDNN_PIP_PACKAGES = [
+    "nvidia-cuda-runtime",
+    "nvidia-cublas",
+    "nvidia-cudnn-cu13",
+]
 
 
 def _is_cuda_cudnn_installed() -> bool:
@@ -272,7 +277,7 @@ def _install_cuda_cudnn_venv(progress_callback=None) -> tuple[bool, str | None]:
     if not pip.exists():
         return False, "venv not ready"
 
-    prog("Installing CUDA runtime and cuDNN...", "pip install into venv (no sudo)")
+    prog("Installing CUDA runtime, cuBLAS, and cuDNN...", "pip install into venv (no sudo)")
     try:
         r = subprocess.run(
             [str(pip), "install", *NVIDIA_CUDA_CUDNN_PIP_PACKAGES],
@@ -295,6 +300,7 @@ def get_opencv_install_components(variant: str | None = None) -> list[tuple[str,
     if v == "cuda":
         components = [
             ("nvidia-cuda-runtime (CUDA, venv)", NVIDIA_CUDA_RUNTIME_APPROX_BYTES),
+            ("nvidia-cublas (cuBLAS, venv)", NVIDIA_CUBLAS_APPROX_BYTES),
             ("nvidia-cudnn-cu13 (cuDNN, venv)", NVIDIA_CUDNN_APPROX_BYTES),
         ]
         wheel_size = OPENCV_CUDA_FALLBACK_BYTES

@@ -611,7 +611,7 @@ class AIScannerPanel(QWidget):
             total_sz = f"{total_gb:.2f} GB" if total_gb >= 0.1 else f"{total_mb:.1f} MB"
             lines.append(f"\nTotal download: {total_sz}")
         if variant == "cuda":
-            lines.append("\nCUDA runtime and cuDNN install via pip into venv (no sudo).")
+            lines.append("\nCUDA runtime, cuBLAS, and cuDNN install via pip into venv (no sudo).")
         lines.append("\nInstall into app's private venv (no sudo required).")
         reply = QMessageBox.question(
             self,

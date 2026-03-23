@@ -1,8 +1,11 @@
 # TASKS
 
-**Current:** v3.2.5 (2026-03-22)
+**Current:** v3.2.6 (2026-03-22)
 
 ---
+
+- [x] **v3.2.6: nvidia-cublas in CUDA Stack (2026-03-22)**
+  - [x] Components list and pip install include `nvidia-cublas` with size estimate (~384 MB).
 
 - [x] **v3.2.5: CUDA/cuDNN Venv-Only (No Sudo) (2026-03-22)**
   - [x] CUDA runtime and cuDNN via pip (nvidia-cuda-runtime, nvidia-cudnn-cu13) into app venv.
