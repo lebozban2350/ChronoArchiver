@@ -269,11 +269,12 @@ class AIScannerPanel(QWidget):
         h_cv = QHBoxLayout()
         self._lbl_opencv = QLabel("CHECKING…")
         self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
+        self._lbl_opencv.setMinimumWidth(110)  # Reserve space to prevent layout shift
         h_cv.addWidget(QLabel("OpenCV:", styleSheet="font-size:7px; color:#888;"))
         h_cv.addWidget(self._lbl_opencv, 1)
         self._btn_install_cv = QPushButton("Install OpenCV")
-        self._btn_install_cv.setFixedWidth(165)
-        self._btn_install_cv.setStyleSheet("font-size:7px; font-weight:700; min-height:16px;")
+        self._btn_install_cv.setFixedWidth(100)
+        self._btn_install_cv.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; border:2px solid transparent;")
         self._btn_install_cv.clicked.connect(self._on_install_opencv)
         self._btn_uninstall_cv = QPushButton("Uninstall OpenCV")
         self._btn_uninstall_cv.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; color:#6b7280;")
@@ -284,6 +285,7 @@ class AIScannerPanel(QWidget):
         h_mod = QHBoxLayout()
         self._lbl_model = QLabel("CHECKING…")
         self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
+        self._lbl_model.setMinimumWidth(70)  # Reserve space to prevent layout shift
         h_mod.addWidget(QLabel("Models:", styleSheet="font-size:7px; color:#888;"))
         h_mod.addWidget(self._lbl_model, 1)
         self._btn_update = QPushButton("Update!")
@@ -291,7 +293,7 @@ class AIScannerPanel(QWidget):
         self._btn_update.clicked.connect(self._setup_models_only)
         self._btn_update.hide()
         self._btn_setup = QPushButton("Setup Models")
-        self._btn_setup.setStyleSheet("font-size:7px; font-weight:700; min-height:16px;")
+        self._btn_setup.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; border:2px solid transparent;")
         self._btn_setup.clicked.connect(self._on_setup_models)
         self._btn_uninstall_models = QPushButton("Uninstall Models")
         self._btn_uninstall_models.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; color:#6b7280;")
@@ -458,7 +460,7 @@ class AIScannerPanel(QWidget):
                 self._lbl_opencv.setText("NOT INSTALLED")
                 self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
                 self._btn_install_cv.setText("Install OpenCV")
-                self._btn_install_cv.setFixedWidth(165)
+                self._btn_install_cv.setFixedWidth(100)
                 self._btn_install_cv.setToolTip(get_opencv_variant_label())
                 self._btn_install_cv.show()
                 self._btn_uninstall_cv.hide()
@@ -596,14 +598,14 @@ class AIScannerPanel(QWidget):
         elif w == self._btn_browse_target:
             w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent; min-height:20px;")
         elif w == self._btn_setup:
-            w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px;")
+            w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; border:2px solid transparent;")
         elif w == self._btn_uninstall_models:
             w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; color:#6b7280;")
         elif w == self._btn_install_cv:
             if self._opencv_just_installed:
                 w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid transparent; font-size:7px; font-weight:700; min-height:16px;")
             else:
-                w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px;")
+                w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; border:2px solid transparent;")
         elif w == self._btn_update:
             w.setStyleSheet("font-size:8px; font-weight:700; color:#eab308; border:2px solid #eab308; min-height:18px; min-width:52px;")
 

@@ -1,8 +1,11 @@
 # TASKS
 
-**Current:** v3.2.19 (2026-03-22)
+**Current:** v3.2.20 (2026-03-22)
 
 ---
+
+- [x] **v3.2.20: Engine Status UI polish (2026-03-22)**
+  - [x] Install OpenCV button 100px; guide blink layout shift fix.
 
 - [x] **v3.2.19: Footer + Engine Status queue poll (2026-03-22)**
   - [x] _refresh_footer and _check_models use queue + poll for cross-thread delivery.

@@ -1,6 +1,10 @@
 # CONVERSATION_LOG.md
 
 ---
+## 2026-03-22 (Engine Status UI polish v3.2.20)
+- Install OpenCV button too big; guide blink caused layout shift. Fix: button 100px; status labels min-width; buttons border:2px solid (transparent when off) so pulse doesn't resize. SemVer: PATCH 3.2.20.
+
+---
 ## 2026-03-22 (Footer + Engine Status queue poll v3.2.19)
 - Footer center and AI Scanner Engine Status stuck at "CHECKING…". Same root cause: QTimer.singleShot from worker thread unreliable.
 - Fix: queue + main-thread poll for _refresh_footer and scanner _check_models. Engine Status labels all caps. SemVer: PATCH 3.2.19.

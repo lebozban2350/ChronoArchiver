@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.2.20] - 2026-03-22
+### Changed
+- **AI Scanner Engine Status**: Install OpenCV button width reduced (165px → 100px). Fixed layout shift when guide pulse blinks — status labels have min-width, buttons use consistent 2px border (transparent/colored).
+
 ## [3.2.19] - 2026-03-22
 ### Fixed
 - **Footer "CHECKING…" stuck**: `_refresh_footer` and scanner `_check_models` now use queue + main-thread poll (same pattern as FFmpeg) instead of `QTimer.singleShot` from worker thread. Center footer and Engine Status (OpenCV, Models) now update correctly.
