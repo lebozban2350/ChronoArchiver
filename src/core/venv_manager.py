@@ -39,7 +39,7 @@ OPENCV_CUDA_FALLBACK_BYTES = 506 * 1024 * 1024
 # Base packages (opencv chosen by get_opencv_package())
 VENV_PACKAGES_BASE = [
     "PySide6", "psutil", "requests", "Pillow", "platformdirs",
-    "piexif", "static-ffmpeg",
+    "piexif", "static-ffmpeg", "GitPython",
 ]
 
 

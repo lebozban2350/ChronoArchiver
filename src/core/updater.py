@@ -313,59 +313,72 @@ class ApplicationUpdater:
         # Caller (app) should quit after this returns
 
     def _spawn_git_updater(self, repo_root: str, launch_cmd: list):
-        """Spawn detached process: wait for app exit, git pull, restart."""
-        if platform.system() == "Windows":
-            script = f'''@echo off
-ping -n 3 127.0.0.1 > nul
-cd /d "{repo_root}"
-git pull
-start "" {" ".join('"%s"' % c for c in launch_cmd)}
+        """Spawn detached process: wait for app exit, git pull (via GitPython), restart."""
+        # Use venv Python (has GitPython) to run helper; no system git required
+        helper_body = '''import os
+import sys
+import time
+import subprocess
+
+time.sleep(3 if os.name == "nt" else 2)
+repo_root = sys.argv[1]
+launch_cmd = sys.argv[2:]
+
+try:
+    import git
+    repo = git.Repo(repo_root)
+    repo.remotes.origin.pull()
+except ImportError:
+    try:
+        subprocess.run(["git", "pull"], cwd=repo_root, capture_output=True, timeout=60)
+    except Exception:
+        pass
+except Exception:
+    pass  # Still restart app
+
+if os.name == "nt":
+    subprocess.Popen(
+        launch_cmd,
+        creationflags=subprocess.CREATE_NEW_PROCESS | subprocess.DETACHED_PROCESS,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    sys.exit(0)
+else:
+    os.execv(launch_cmd[0], launch_cmd)
 '''
-            fd, path = tempfile.mkstemp(suffix=".bat")
+        fd, path = tempfile.mkstemp(suffix=".py")
+        try:
             try:
+                os.write(fd, helper_body.encode("utf-8"))
+            finally:
                 try:
-                    os.write(fd, script.encode("utf-8"))
-                finally:
-                    try:
-                        os.close(fd)
-                    except OSError:
-                        pass
+                    os.close(fd)
+                except OSError:
+                    pass
+            py_exe = sys.executable
+            cmd = [py_exe, path, repo_root] + launch_cmd
+            if platform.system() == "Windows":
                 subprocess.Popen(
-                    ["cmd", "/c", path],
+                    cmd,
                     creationflags=subprocess.CREATE_NEW_PROCESS | subprocess.DETACHED_PROCESS,
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     cwd=os.path.dirname(path),
                 )
-            finally:
-                pass  # Leave script for child to exec; OS temp cleaned on reboot
-        else:
-            cmd_str = " ".join(repr(c) for c in launch_cmd)
-            script = f'''#!/bin/sh
-sleep 2
-cd "{repo_root}" && git pull
-exec {cmd_str}
-'''
-            fd, path = tempfile.mkstemp(suffix=".sh")
-            try:
-                try:
-                    os.write(fd, script.encode("utf-8"))
-                finally:
-                    try:
-                        os.close(fd)
-                    except OSError:
-                        pass
-                os.chmod(path, 0o755)
+            else:
                 subprocess.Popen(
-                    [path],
+                    cmd,
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
+                    cwd=os.path.dirname(path),
                 )
-            finally:
-                pass  # Leave script for child to exec; OS temp cleaned on reboot
+        finally:
+            pass  # Temp file left for child to read; OS cleans on reboot
 
     def _spawn_aur_updater(self, helper: str | None, term: str | None, launch_cmd: list):
         """Spawn process that runs AUR update then restarts app."""

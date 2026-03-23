@@ -1,6 +1,10 @@
 # CONVERSATION_LOG.md
 
 ---
+## 2026-03-22 (GitPython for updater v3.2.14)
+- Added GitPython to VENV_PACKAGES_BASE. _spawn_git_updater now runs a Python helper script that uses git.Repo().remotes.origin.pull() instead of shell + git pull. Removes system git dependency for git-clone updater. Fallback to subprocess git pull if ImportError. SemVer: PATCH 3.2.14.
+
+---
 ## 2026-03-22 (FFmpeg venv auto-install v3.2.13)
 - User requested FFmpeg in venv, auto-install when missing, tiny progress bar with % in left footer.
 - Added static-ffmpeg to VENV_PACKAGES_BASE. check_ffmpeg_in_venv (crumb check), ensure_ffmpeg_in_venv (get_or_fetch in thread), add_ffmpeg_to_path (static_ffmpeg.add_paths).

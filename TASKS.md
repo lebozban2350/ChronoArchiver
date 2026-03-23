@@ -1,8 +1,12 @@
 # TASKS
 
-**Current:** v3.2.13 (2026-03-22)
+**Current:** v3.2.14 (2026-03-22)
 
 ---
+
+- [x] **v3.2.14: GitPython for updater (2026-03-22)**
+  - [x] GitPython in venv; updater uses it for git pull instead of system git.
+  - [x] Fallback to system git if GitPython unavailable.
 
 - [x] **v3.2.13: FFmpeg venv auto-install with footer progress bar (2026-03-22)**
   - [x] static-ffmpeg in VENV_PACKAGES_BASE; check_ffmpeg_in_venv, ensure_ffmpeg_in_venv, add_ffmpeg_to_path.

@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.2.14] - 2026-03-22
+### Changed
+- **Updater**: Git pull now uses GitPython (from venv) instead of system git. Removes system git dependency for git-clone installs when updating in-app. Falls back to system git if GitPython unavailable.
+
 ## [3.2.13] - 2026-03-22
 ### Added
 - **FFmpeg in venv**: FFmpeg and ffprobe are now provided by `static-ffmpeg` in the app venv. Auto-installed on first run when missing. Always uses venv FFmpeg; system FFmpeg is ignored.
