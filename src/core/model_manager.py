@@ -123,6 +123,7 @@ class ModelManager:
 
             self.logger.info(f"Downloading model: {info['filename']} from {url}")
 
+            dl_dest = None
             try:
                 if dest.exists():
                     dest.unlink()
@@ -195,7 +196,7 @@ class ModelManager:
                 debug(UTILITY_MODEL_SETUP, f"Model download failed: {info['filename']} — {e}")
                 if dest.exists():
                     dest.unlink()
-                if "dl_dest" in locals() and dl_dest.exists():
+                if dl_dest is not None and dl_dest.exists():
                     dl_dest.unlink()
                 return False
 

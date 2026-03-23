@@ -1,6 +1,5 @@
 """
-ChronoArchiver v3.0.0 — App-private venv (all Python deps internalized).
-Replicates the high-density visual style of Mass AV1 Encoder v12.
+ChronoArchiver — App-private venv (all Python deps internalized).
 Uses a QStackedWidget to manage distinct application panels.
 """
 

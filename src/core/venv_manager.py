@@ -112,8 +112,6 @@ def get_opencv_variant_label() -> str:
 
 def get_opencv_package() -> str:
     """Return opencv package for pip (bootstrap/ensure_venv). CUDA uses wheel install separately."""
-    if get_opencv_variant() == "cuda":
-        return "opencv-python"  # Bootstrap uses standard; user installs CUDA via Install button
     return "opencv-python"
 
 
@@ -794,7 +792,6 @@ def install_package(pkg: str, progress_callback=None) -> bool:
 
 def remove_venv() -> bool:
     """Remove the app venv. Returns True on success."""
-    import shutil
     venv = get_venv_path()
     if venv.exists():
         try:

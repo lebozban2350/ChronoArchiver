@@ -77,7 +77,11 @@ def main():
     if py.exists() and is_venv_runnable():
         add_venv_to_path()  # LD_LIBRARY_PATH for OpenCV CUDA (libcufft, libcudnn) before execv
         os.chdir(app_root)
-        os.execv(str(py), [str(py), str(app_py)] + sys.argv[1:])
+        try:
+            os.execv(str(py), [str(py), str(app_py)] + sys.argv[1:])
+        except OSError as e:
+            print(f"Failed to launch: {e}")
+            sys.exit(1)
 
     print("ChronoArchiver — First-time setup (creating environment)...")
     ok = _run_with_ui() if os.environ.get("DISPLAY") else _run_headless()
@@ -87,7 +91,11 @@ def main():
     print("Setup complete. Launching...")
     add_venv_to_path()  # LD_LIBRARY_PATH for OpenCV CUDA (libcufft, libcudnn) before execv
     os.chdir(app_root)
-    os.execv(str(py), [str(py), str(app_py)] + sys.argv[1:])
+    try:
+        os.execv(str(py), [str(py), str(app_py)] + sys.argv[1:])
+    except OSError as e:
+        print(f"Failed to launch: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

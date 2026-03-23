@@ -128,8 +128,8 @@ class OrganizerEngine:
 
         # Fail-safes: source/target overlap, writable, disk space
         if target_dir:
-            src_real = os.path.realpath(source_dir)
-            tgt_real = os.path.realpath(target_dir)
+            src_real = os.path.normcase(os.path.realpath(source_dir))
+            tgt_real = os.path.normcase(os.path.realpath(target_dir))
             if src_real == tgt_real:
                 self.logger("ERROR: Source and target are the same directory.")
                 debug(UTILITY_MEDIA_ORGANIZER, "ERROR: source == target")

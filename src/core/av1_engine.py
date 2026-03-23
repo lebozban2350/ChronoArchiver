@@ -174,7 +174,6 @@ class AV1EncoderEngine:
 
         hw_flags = []
         v_args = []
-        vf_before = []
 
         if self._hw_encoder == "nvenc" and hw_accel:
             hw_flags = ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
@@ -220,8 +219,6 @@ class AV1EncoderEngine:
             a_args = ["-c:a", "libopus", "-b:a", "128k", "-af", "aresample=async=1"]
 
         cmd = ["ffmpeg", "-y", "-stats_period", "0.5"] + hw_flags + ["-i", input_path]
-        if vf_before:
-            cmd += ["-vf", ",".join(vf_before)]
         cmd += ["-map", "0", "-map_metadata", "0", "-map_chapters", "0", "-fps_mode", "passthrough"] + v_args + a_args + [output_path]
 
         self.logger.info(f"Engine State [Job {self.job_id}]: Starting encode for {os.path.basename(input_path)}")
