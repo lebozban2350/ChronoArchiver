@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.0.3] - 2026-03-22
+### Added
+- **AI Media Scanner**: When Move/Copy files to target (START), photos are now EXIF orientation–corrected so sideways/upside-down images are saved right-side up.
+
+## [3.0.2] - 2026-03-22
+### Fixed
+- **AI Media Scanner**: Progress bar now shows percentage during scan instead of "Ready"; resets to "Ready" 2s after scan complete.
+- **AI Media Scanner**: Preview pane now updates correctly when clicking files in Move list (clears Keep selection so Move selection is shown).
+- **AI Media Scanner**: Results label updates with dropdown: "Move (others)" or "Copy (others)" based on Move/Copy selection.
+
+## [3.0.1] - 2026-03-22
+### Fixed
+- **AI Model Setup**: At 99% download for tar archives, status switches to "Extracting... please wait..." instead of remaining at "100%" during extraction (~20s).
+
 ## [3.0.0] - 2026-03-21
 ### Changed (Breaking)
 - **App-private venv (MAJOR)**: ChronoArchiver now runs all Python dependencies from an internal venv at `~/.local/share/ChronoArchiver/venv` (or `%LOCALAPPDATA%\ChronoArchiver\venv` on Windows). First launch runs bootstrap to create the venv and install PySide6, psutil, requests, Pillow, platformdirs, opencv-python, piexif. No sudo or system pip required.

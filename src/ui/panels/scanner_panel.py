@@ -11,6 +11,12 @@ import sys
 import threading
 import time
 
+try:
+    from PIL import Image, ImageOps
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QCheckBox, QListWidget, QListWidgetItem,
@@ -276,13 +282,14 @@ class AIScannerPanel(QWidget):
         v_k.addWidget(QLabel("Keep (subjects)", styleSheet="font-size:8px; font-weight:700;"))
         self._list_keep = QListWidget()
         self._list_keep.setMinimumWidth(160)
-        self._list_keep.itemSelectionChanged.connect(self._on_selection_changed)
+        self._list_keep.itemSelectionChanged.connect(self._on_keep_selection_changed)
         v_k.addWidget(self._list_keep)
         v_m = QVBoxLayout()
-        v_m.addWidget(QLabel("Move (others)", styleSheet="font-size:8px; font-weight:700;"))
+        self._lbl_move_copy = QLabel("Move (others)", styleSheet="font-size:8px; font-weight:700;")
+        v_m.addWidget(self._lbl_move_copy)
         self._list_move = QListWidget()
         self._list_move.setMinimumWidth(160)
-        self._list_move.itemSelectionChanged.connect(self._on_selection_changed)
+        self._list_move.itemSelectionChanged.connect(self._on_move_selection_changed)
         v_m.addWidget(self._list_move)
         h_res.addLayout(v_k, 1)
         h_res.addLayout(v_m, 1)
@@ -319,6 +326,7 @@ class AIScannerPanel(QWidget):
         self._combo_action.addItems(["Move", "Copy"])
         self._combo_action.setStyleSheet("font-size:8px; min-width:72px;")
         self._combo_action.setCurrentIndex(0)
+        self._combo_action.currentTextChanged.connect(self._update_move_copy_label)
         h_btns.addWidget(self._combo_action)
         self._btn_start_move = QPushButton("START")
         self._btn_start_move.setObjectName("btnStartMove")
@@ -639,6 +647,10 @@ class AIScannerPanel(QWidget):
 
         debug(UTILITY_AI_MEDIA_SCANNER, f"Scan start: path={path}, recursive={self._chk_recursive.isChecked()}, keep_animals={self._chk_animals.isChecked()}")
         self._is_running = True
+        self._bar.setFormat("%p%")
+        self._bar.setRange(0, 100)
+        self._bar.setValue(0)
+        self._lbl_status.setText("Scanning...")
         if self._status_cb:
             self._status_cb("scanning")
         self._update_start_enabled()
@@ -686,6 +698,7 @@ class AIScannerPanel(QWidget):
             self._status_cb("idle")
         self._update_start_enabled()
         self._btn_stop.setEnabled(False)
+        self._bar.setValue(100)
         self._bar.setFormat("Complete")
         self._lbl_status.setText("Scan Complete")
         self._add_log("Batch scan complete.")
@@ -693,6 +706,14 @@ class AIScannerPanel(QWidget):
             debug(UTILITY_AI_MEDIA_SCANNER, f"Scan finished: keep={len(self._engine.keep_list)}, move={len(self._engine.others_list)}")
         self._populate_results()
         self._update_move_start()
+        QTimer.singleShot(2000, self._reset_bar_to_ready)
+
+    def _reset_bar_to_ready(self):
+        """After scan complete, reset bar to Ready state."""
+        if not self._is_running:
+            self._bar.setFormat("Ready")
+            self._bar.setValue(0)
+            self._lbl_status.setText("Ready")
 
     def _populate_results(self):
         self._list_keep.clear()
@@ -710,24 +731,62 @@ class AIScannerPanel(QWidget):
             it.setData(Qt.UserRole, p)
             self._list_move.addItem(it)
 
-    def _on_selection_changed(self):
-        for lst in (self._list_keep, self._list_move):
-            items = lst.selectedItems()
-            if items:
-                path = items[0].data(Qt.UserRole)
-                if path and os.path.isfile(path):
-                    pix = QPixmap(path)
-                    if not pix.isNull():
-                        scaled = pix.scaled(280, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                        self._lbl_preview.setPixmap(scaled)
-                        self._lbl_preview.setText("")
-                        return
-                else:
-                    self._lbl_preview.clear()
-                    self._lbl_preview.setText("Preview unavailable")
-                    return
+    def _show_preview(self, path):
+        """Show image preview for path, or placeholder."""
+        if path and os.path.isfile(path):
+            pix = QPixmap(path)
+            if not pix.isNull():
+                scaled = pix.scaled(280, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self._lbl_preview.setPixmap(scaled)
+                self._lbl_preview.setText("")
+                return
         self._lbl_preview.clear()
-        self._lbl_preview.setText("Select an item to preview")
+        self._lbl_preview.setText("Preview unavailable" if path else "Select an item to preview")
+
+    def _on_keep_selection_changed(self):
+        self._list_move.blockSignals(True)
+        self._list_move.clearSelection()
+        self._list_move.blockSignals(False)
+        items = self._list_keep.selectedItems()
+        path = items[0].data(Qt.UserRole) if items else None
+        self._show_preview(path)
+
+    def _on_move_selection_changed(self):
+        self._list_keep.blockSignals(True)
+        self._list_keep.clearSelection()
+        self._list_keep.blockSignals(False)
+        items = self._list_move.selectedItems()
+        path = items[0].data(Qt.UserRole) if items else None
+        self._show_preview(path)
+
+    def _update_move_copy_label(self):
+        self._lbl_move_copy.setText(f"{self._combo_action.currentText()} (others)")
+
+    def _copy_or_move_with_exif_correction(self, src: str, dest: str, action: str) -> bool:
+        """Copy or move file with EXIF orientation correction for images. Returns True on success."""
+        IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".tiff", ".tif", ".bmp", ".heic"}
+        ext = os.path.splitext(src)[1].lower()
+        if PIL_AVAILABLE and ext in IMAGE_EXTS:
+            try:
+                with Image.open(src) as img:
+                    corrected = ImageOps.exif_transpose(img)
+                    save_kw = {}
+                    if ext in (".jpg", ".jpeg"):
+                        if corrected.mode in ("RGBA", "P"):
+                            corrected = corrected.convert("RGB")
+                        save_kw["quality"] = 95
+                    corrected.save(dest, **save_kw)
+                if action == "move":
+                    os.unlink(src)
+                return True
+            except Exception as e:
+                debug(UTILITY_AI_MEDIA_SCANNER, f"EXIF correct failed for {src}: {e}")
+                return False
+        if action == "move":
+            shutil.move(src, dest)
+        else:
+            shutil.copy2(src, dest)
+        return True
 
     def _update_move_start(self):
         target = self._edit_target.text().strip()
@@ -757,7 +816,6 @@ class AIScannerPanel(QWidget):
             debug(UTILITY_AI_MEDIA_SCANNER, f"Apply ERROR: invalid target {dest_dir}")
             return
         action = self._combo_action.currentText().lower()
-        fn = shutil.move if action == "move" else shutil.copy2
         count = 0
         for p in self._engine.others_list:
             if os.path.isfile(p):
@@ -769,8 +827,15 @@ class AIScannerPanel(QWidget):
                             dest_path = os.path.join(dest_dir, f"{base}_{n}{ext}")
                             if not os.path.exists(dest_path):
                                 break
-                    fn(p, dest_path)
-                    count += 1
+                    if self._copy_or_move_with_exif_correction(p, dest_path, action):
+                        count += 1
+                    else:
+                        # Fallback to plain copy/move if EXIF correction failed
+                        if action == "move":
+                            shutil.move(p, dest_path)
+                        else:
+                            shutil.copy2(p, dest_path)
+                        count += 1
                 except Exception as e:
                     self._add_log(f"{action.title()} failed: {p} — {e}")
                     debug(UTILITY_AI_MEDIA_SCANNER, f"{action} failed: {p} — {e}")

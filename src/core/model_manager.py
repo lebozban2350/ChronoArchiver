@@ -150,7 +150,8 @@ class ModelManager:
                             overall = (done_bytes + downloaded) / max(total_bytes, 1) if total_bytes else 0
                             overall = min(1.0, overall)
                             if progress_callback:
-                                progress_callback(downloaded, total_size, dl_dest.name, overall, label, url)
+                                status = "Extracting... please wait..." if (is_tar and overall >= 0.99) else dl_dest.name
+                                progress_callback(downloaded, total_size, status, overall, label, url)
 
                 if self.stop_event.is_set():
                     if dl_dest.exists():
