@@ -103,6 +103,18 @@ def get_pip_exe() -> Path:
     return venv / "bin" / "pip"
 
 
+def check_opencv_in_venv() -> bool:
+    """True if venv exists and can import cv2 (runtime check, not import-time cache)."""
+    py = get_python_exe()
+    if not py.exists():
+        return False
+    try:
+        r = subprocess.run([str(py), "-c", "import cv2"], capture_output=True, timeout=5)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
 def is_venv_ready() -> bool:
     """True if venv exists and has the required packages."""
     venv = get_venv_path()

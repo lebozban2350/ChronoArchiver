@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.7] - 2026-03-21
+### Fixed
+- **OpenCV status accuracy**: Footer and AI Scanner Engine Status now use a runtime check (`check_opencv_in_venv`) instead of import-time detection. Fixes incorrect green checkmark when OpenCV was manually uninstalled from the venv.
+- **Uninstall OpenCV**: Uninstall now runs in a background thread and the UI updates immediately after completion without requiring a restart.
+### Changed
+- **AI Scanner layout**: Options (Recursive, Keep Animals, Conf %) are stacked vertically; Directories, Options, and Engine Status boxes share the same height.
+
 ## [3.0.6] - 2026-03-21
 ### Fixed
 - **AI Media Scanner – OpenCV Setup**: Progress dialog updates now use Qt signals instead of direct widget access from the install worker thread, preventing potential crashes or undefined behavior.

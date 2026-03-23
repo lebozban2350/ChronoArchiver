@@ -35,6 +35,7 @@ from core.model_manager import ModelManager
 from core.venv_manager import (
     get_pip_exe, install_package, ensure_venv,
     detect_gpu, get_opencv_install_size, install_opencv, uninstall_opencv,
+    check_opencv_in_venv,
 )
 from core.debug_logger import debug, UTILITY_AI_MEDIA_SCANNER
 
@@ -183,9 +184,9 @@ class AIScannerPanel(QWidget):
         # ── COMMAND STRIP ─────────────────────────────────────────────────────
         h_strip = QHBoxLayout()
         h_strip.setSpacing(6)
-        _strip_h = 70  # Compact height for top row
+        _strip_h = 100  # Same height for Directories, Options, Engine Status
 
-        # 1. Directories (compact)
+        # 1. Directories
         grp_dir = QGroupBox("Directories")
         grp_dir.setFixedHeight(_strip_h)
         v_dir = QVBoxLayout(grp_dir)
@@ -209,18 +210,19 @@ class AIScannerPanel(QWidget):
         v_dir.addWidget(QLabel("Photos for AI detection (YuNet/SSD)", styleSheet=_shint))
         h_strip.addWidget(grp_dir, 10)
 
-        # 2. Options (compact, single row)
+        # 2. Options (stacked vertically)
         grp_opts = QGroupBox("Options")
         grp_opts.setFixedHeight(_strip_h)
-        h_opts = QHBoxLayout(grp_opts)
-        h_opts.setContentsMargins(6, 2, 6, 2)
-        h_opts.setSpacing(8)
+        v_opts = QVBoxLayout(grp_opts)
+        v_opts.setContentsMargins(6, 2, 6, 2)
+        v_opts.setSpacing(4)
         self._chk_recursive = QCheckBox("Recursive")
         self._chk_recursive.setChecked(True)
         self._chk_recursive.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
         self._chk_animals = QCheckBox("Keep Animals")
         self._chk_animals.setStyleSheet("font-size:8px; font-weight:700; color:#aaa;")
         self._chk_animals.setToolTip("Also keep photos with detected animals")
+        h_conf = QHBoxLayout()
         lbl_conf = QLabel("Conf:")
         lbl_conf.setStyleSheet("font-size:7px; color:#888;")
         self._spin_thresh = QSpinBox()
@@ -229,16 +231,18 @@ class AIScannerPanel(QWidget):
         self._spin_thresh.setSuffix("%")
         self._spin_thresh.setStyleSheet("font-size:8px;")
         self._spin_thresh.setFixedWidth(55)
-        h_opts.addWidget(self._chk_recursive)
-        h_opts.addWidget(self._chk_animals)
-        h_opts.addWidget(lbl_conf)
-        h_opts.addWidget(self._spin_thresh)
-        h_opts.addStretch()
+        h_conf.addWidget(lbl_conf)
+        h_conf.addWidget(self._spin_thresh)
+        h_conf.addStretch()
+        v_opts.addWidget(self._chk_recursive)
+        v_opts.addWidget(self._chk_animals)
+        v_opts.addLayout(h_conf)
+        v_opts.addStretch()
         h_strip.addWidget(grp_opts, 2)
 
-        # 3. Engine Status (expanded: OpenCV row + Models row)
+        # 3. Engine Status
         grp_mod = QGroupBox("Engine Status")
-        grp_mod.setFixedHeight(100)
+        grp_mod.setFixedHeight(_strip_h)
         v_mod = QVBoxLayout(grp_mod)
         v_mod.setContentsMargins(6, 2, 6, 2)
         v_mod.setSpacing(2)
@@ -409,8 +413,15 @@ class AIScannerPanel(QWidget):
         if not self._setup_in_progress:
             self._check_models()
 
+    def _opencv_available(self) -> bool:
+        """Runtime check: venv cv2 if venv exists, else import-time OPENCV_AVAILABLE."""
+        if get_pip_exe().exists():
+            return check_opencv_in_venv()
+        return bool(OPENCV_AVAILABLE)
+
     def _check_models(self):
-        if not OPENCV_AVAILABLE:
+        cv_ok = self._opencv_available()
+        if not cv_ok:
             self._lbl_opencv.setText("Not installed")
             self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
             self._btn_install_cv.show()
@@ -475,7 +486,7 @@ class AIScannerPanel(QWidget):
     def _get_guide_target(self):
         if self._is_running or self._setup_in_progress:
             return None
-        if not OPENCV_AVAILABLE:
+        if not self._opencv_available():
             return self._btn_install_cv
         if not self._model_mgr.is_up_to_date():
             return self._btn_setup
@@ -494,12 +505,13 @@ class AIScannerPanel(QWidget):
         models_ready = self._model_mgr.is_up_to_date()
         path = self._edit_path.text().strip()
         path_ok = bool(path and os.path.isdir(path))
-        can = OPENCV_AVAILABLE and models_ready and path_ok and not self._is_running
+        cv_ok = self._opencv_available()
+        can = cv_ok and models_ready and path_ok and not self._is_running
         self._btn_start.setEnabled(can)
         busy = self._setup_in_progress or self._is_running
         self._btn_remove.setEnabled(not busy)
         self._btn_install_cv.setEnabled(not busy)
-        self._btn_uninstall_cv.setEnabled(not busy and OPENCV_AVAILABLE)
+        self._btn_uninstall_cv.setEnabled(not busy and cv_ok)
         self._guide_glow_phase = 0
         self._guide_pulse_timer.start()
 
@@ -615,12 +627,21 @@ class AIScannerPanel(QWidget):
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
-        if uninstall_opencv():
-            self._add_log("OpenCV uninstalled. Restart ChronoArchiver.")
-        else:
-            self._add_log("OpenCV uninstall failed or not found.")
-        self._check_models()
+        self._setup_in_progress = True
         self._update_start_enabled()
+
+        def _task():
+            ok = uninstall_opencv()
+            self._sig.setup_complete.emit(ok)
+
+        def _on_done(ok):
+            self._setup_in_progress = False
+            self._add_log("OpenCV uninstalled." if ok else "OpenCV uninstall failed or not found.")
+            self._check_models()
+            self._update_start_enabled()
+
+        self._sig.setup_complete.connect(_on_done, Qt.ConnectionType.SingleShotConnection)
+        threading.Thread(target=_task, daemon=True).start()
 
     def _on_setup_models(self):
         missing = self._model_mgr.get_missing_models()
