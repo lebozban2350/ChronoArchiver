@@ -48,6 +48,7 @@ class _Signals(QObject):
     remove_done = Signal()
     version_check_done = Signal(bool, bool)  # models_update, opencv_update
     setup_phase = Signal(str, str)  # phase_name, detail
+    prereqs_changed = Signal()  # OpenCV or models installed/uninstalled — refresh footer
 
 
 class OpenCVSetupDialog(QDialog):
@@ -272,13 +273,13 @@ class AIScannerPanel(QWidget):
         self._btn_setup = QPushButton("Setup Models")
         self._btn_setup.setStyleSheet("font-size:7px; font-weight:700; min-height:16px;")
         self._btn_setup.clicked.connect(self._on_setup_models)
-        self._btn_remove = QPushButton("Remove Models")
-        self._btn_remove.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; color:#6b7280;")
-        self._btn_remove.clicked.connect(self._remove_models_only)
-        self._btn_remove.setToolTip("Remove AI model files only")
+        self._btn_uninstall_models = QPushButton("Uninstall Models")
+        self._btn_uninstall_models.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; color:#6b7280;")
+        self._btn_uninstall_models.clicked.connect(self._remove_models_only)
+        self._btn_uninstall_models.setToolTip("Remove AI model files only")
         h_mod.addWidget(self._btn_update)
         h_mod.addWidget(self._btn_setup)
-        h_mod.addWidget(self._btn_remove)
+        h_mod.addWidget(self._btn_uninstall_models)
         v_mod.addLayout(h_mod)
         h_strip.addWidget(grp_mod, 3)
 
@@ -439,6 +440,7 @@ class AIScannerPanel(QWidget):
             self._lbl_model.setText("Ready")
             self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
             self._btn_setup.hide()
+            self._btn_uninstall_models.show()
             update_avail = self._model_update_available or self._opencv_update_available
             self._btn_update.setVisible(update_avail)
             self._start_version_check()
@@ -446,6 +448,7 @@ class AIScannerPanel(QWidget):
             self._lbl_model.setText("Missing")
             self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
             self._btn_setup.show()
+            self._btn_uninstall_models.hide()
             self._btn_update.hide()
 
         self._update_start_enabled()
@@ -509,7 +512,7 @@ class AIScannerPanel(QWidget):
         can = cv_ok and models_ready and path_ok and not self._is_running
         self._btn_start.setEnabled(can)
         busy = self._setup_in_progress or self._is_running
-        self._btn_remove.setEnabled(not busy)
+        self._btn_uninstall_models.setEnabled(not busy and models_ready)
         self._btn_install_cv.setEnabled(not busy)
         self._btn_uninstall_cv.setEnabled(not busy and cv_ok)
         self._guide_glow_phase = 0
@@ -531,6 +534,8 @@ class AIScannerPanel(QWidget):
             w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent; min-height:20px;")
         elif w == self._btn_setup:
             w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px;")
+        elif w == self._btn_uninstall_models:
+            w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; color:#6b7280;")
         elif w == self._btn_install_cv:
             w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px;")
         elif w == self._btn_update:
@@ -612,6 +617,7 @@ class AIScannerPanel(QWidget):
             self._check_models()
             self._update_start_enabled()
             self._add_log("OpenCV installed. Restart ChronoArchiver." if ok else "OpenCV install failed.")
+            self._sig.prereqs_changed.emit()
 
         self._sig.setup_complete.connect(_on_done, Qt.ConnectionType.SingleShotConnection)
         dlg.show()
@@ -639,6 +645,7 @@ class AIScannerPanel(QWidget):
             self._add_log("OpenCV uninstalled." if ok else "OpenCV uninstall failed or not found.")
             self._check_models()
             self._update_start_enabled()
+            self._sig.prereqs_changed.emit()
 
         self._sig.setup_complete.connect(_on_done, Qt.ConnectionType.SingleShotConnection)
         threading.Thread(target=_task, daemon=True).start()
@@ -683,6 +690,7 @@ class AIScannerPanel(QWidget):
             self._check_models()
             self._update_start_enabled()
             self._add_log("Model setup complete." if ok else "Model setup failed or cancelled.")
+            self._sig.prereqs_changed.emit()
 
         self._sig.setup_complete.connect(_on_done, Qt.ConnectionType.SingleShotConnection)
 
@@ -696,8 +704,8 @@ class AIScannerPanel(QWidget):
     def _remove_models_only(self):
         reply = QMessageBox.question(
             self,
-            "Remove AI Models",
-            "Remove AI model files only?\n\nRun Setup Models to re-download.",
+            "Uninstall Models",
+            "Remove AI model files?\n\nRun Setup Models to re-download.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -726,6 +734,7 @@ class AIScannerPanel(QWidget):
             self._setup_in_progress = False
             self._check_models()
             self._update_start_enabled()
+            self._sig.prereqs_changed.emit()
 
         self._sig.remove_done.connect(_on_done, Qt.ConnectionType.SingleShotConnection)
         threading.Thread(target=_task, daemon=True).start()

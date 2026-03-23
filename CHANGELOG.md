@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.0.8] - 2026-03-21
+### Changed
+- **AI Scanner – Models row**: When models are not installed, only "Setup Models" is shown (like Install OpenCV). When installed, "Uninstall Models" is shown instead. Update! appears only when models are ready and an update is available.
+- **Footer refresh**: Footer (OpenCV, AI Models status) now refreshes immediately when OpenCV or models are installed or uninstalled, without restart.
+
 ## [3.0.7] - 2026-03-21
 ### Fixed
 - **OpenCV status accuracy**: Footer and AI Scanner Engine Status now use a runtime check (`check_opencv_in_venv`) instead of import-time detection. Fixes incorrect green checkmark when OpenCV was manually uninstalled from the venv.

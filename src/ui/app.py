@@ -210,7 +210,8 @@ class ChronoArchiverApp(QMainWindow):
         self.stack.addWidget(self.panel_org)
         self.stack.addWidget(self.panel_enc)
         self.stack.addWidget(self.panel_scn)
-        
+        self.panel_scn._sig.prereqs_changed.connect(self._refresh_footer)
+
         self.layout.addWidget(self.stack)
 
         # ── STATUS BAR ──
@@ -332,30 +333,7 @@ class ChronoArchiverApp(QMainWindow):
             QTimer.singleShot(400, step5)
 
         def step5():
-            ok = '<span style="color:#10b981">✓</span>'
-            fail = '<span style="color:#ef4444">✗</span>'
-            skip = '<span style="color:#eab308">—</span>'
-            parts = []
-            ffmpeg_ok = bool(shutil.which("ffmpeg"))
-            parts.append(f"FFmpeg {ok if ffmpeg_ok else fail}")
-            if get_pip_exe().exists():
-                opencv_ok = check_opencv_in_venv()
-            else:
-                try:
-                    from core.scanner import OPENCV_AVAILABLE
-                    opencv_ok = bool(OPENCV_AVAILABLE)
-                except Exception:
-                    opencv_ok = False
-            parts.append(f"OpenCV {ok if opencv_ok else skip}")
-            models_ready = self.panel_scn._model_mgr.is_up_to_date()
-            parts.append(f"AI Models {ok if models_ready else skip}")
-            parts.append(f"PySide6 {ok}")
-            debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'}, OpenCV={'ok' if opencv_ok else 'missing'}, AI Models={'ok' if models_ready else 'missing'}, PySide6=ok")
-            status = "  ·  ".join(parts)
-            if ffmpeg_ok:
-                status += f"  ·  <span style=\"color:#10b981\">Ready</span>"
-            self.lbl_prereq.setTextFormat(Qt.RichText)
-            self.lbl_prereq.setText(status)
+            self._refresh_footer()
             self.lbl_status.setText("Pre-check complete")
             self._precheck_done = True
             QTimer.singleShot(3000, _go_idle)
@@ -366,6 +344,33 @@ class ChronoArchiverApp(QMainWindow):
             self._activity_timer.stop()
 
         step1()
+
+    def _refresh_footer(self):
+        """Update footer pre-req status (OpenCV, AI Models) after install/uninstall."""
+        ok = '<span style="color:#10b981">✓</span>'
+        fail = '<span style="color:#ef4444">✗</span>'
+        skip = '<span style="color:#eab308">—</span>'
+        parts = []
+        ffmpeg_ok = bool(shutil.which("ffmpeg"))
+        parts.append(f"FFmpeg {ok if ffmpeg_ok else fail}")
+        if get_pip_exe().exists():
+            opencv_ok = check_opencv_in_venv()
+        else:
+            try:
+                from core.scanner import OPENCV_AVAILABLE
+                opencv_ok = bool(OPENCV_AVAILABLE)
+            except Exception:
+                opencv_ok = False
+        parts.append(f"OpenCV {ok if opencv_ok else skip}")
+        models_ready = self.panel_scn._model_mgr.is_up_to_date()
+        parts.append(f"AI Models {ok if models_ready else skip}")
+        parts.append(f"PySide6 {ok}")
+        debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'}, OpenCV={'ok' if opencv_ok else 'missing'}, AI Models={'ok' if models_ready else 'missing'}, PySide6=ok")
+        status = "  ·  ".join(parts)
+        if ffmpeg_ok:
+            status += f"  ·  <span style=\"color:#10b981\">Ready</span>"
+        self.lbl_prereq.setTextFormat(Qt.RichText)
+        self.lbl_prereq.setText(status)
 
     def _copy_console(self):
         panel = self.stack.currentWidget()
