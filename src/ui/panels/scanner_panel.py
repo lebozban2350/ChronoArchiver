@@ -426,65 +426,75 @@ class AIScannerPanel(QWidget):
         self._version_check_started = False
         self._setup_in_progress = False
         self._opencv_just_installed = False
-        # Check models and version on init
-        QTimer.singleShot(500, self._check_models)
+        self._cached_cv_ok = False  # Updated by _check_models; used by _get_guide_target, _update_start_enabled
+        # _check_models runs when prereqs done (app calls it) and on showEvent — avoids blocking main thread during FFmpeg install
 
     def showEvent(self, event: QShowEvent):
         super().showEvent(event)
         if not self._setup_in_progress:
             self._check_models()
 
-    def _opencv_available(self) -> bool:
-        """Runtime check: venv cv2 if venv exists, else import-time OPENCV_AVAILABLE."""
+    def _opencv_available_sync(self) -> bool:
+        """Synchronous: avoid calling from main thread (blocks ~500ms)."""
         if get_pip_exe().exists():
             return check_opencv_in_venv()
         return bool(OPENCV_AVAILABLE)
 
     def _check_models(self):
-        cv_ok = self._opencv_available()
-        debug(UTILITY_AI_MEDIA_SCANNER, f"_check_models: cv_ok={cv_ok} _opencv_just_installed={self._opencv_just_installed}")
-        if self._opencv_just_installed:
-            self._lbl_opencv.setText("Restart required")
-            self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
-            self._btn_install_cv.setText("RESTART")
-            self._btn_install_cv.setFixedWidth(90)
-            self._btn_install_cv.setToolTip("Restart ChronoArchiver to use the new OpenCV installation")
-            self._btn_install_cv.show()
-            self._btn_uninstall_cv.hide()
-        elif not cv_ok:
-            self._lbl_opencv.setText("Not installed")
-            self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
-            self._btn_install_cv.setText("Install OpenCV")
-            self._btn_install_cv.setFixedWidth(165)
-            self._btn_install_cv.setToolTip(get_opencv_variant_label())
-            self._btn_install_cv.show()
-            self._btn_uninstall_cv.hide()
-        else:
-            v = get_opencv_variant()
-            suf = " (CUDA)" if v == "cuda" else " (OpenCL)"
-            self._lbl_opencv.setText(f"Ready{suf}")
-            self._btn_install_cv.setToolTip("")
-            self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
-            self._btn_install_cv.hide()
-            self._btn_uninstall_cv.show()
+        """Run OpenCV check off main thread, then apply UI updates."""
+        def _apply(cv_ok: bool):
+            self._cached_cv_ok = cv_ok
+            debug(UTILITY_AI_MEDIA_SCANNER, f"_check_models: cv_ok={cv_ok} _opencv_just_installed={self._opencv_just_installed}")
+            if self._opencv_just_installed:
+                self._lbl_opencv.setText("Restart required")
+                self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
+                self._btn_install_cv.setText("RESTART")
+                self._btn_install_cv.setFixedWidth(90)
+                self._btn_install_cv.setToolTip("Restart ChronoArchiver to use the new OpenCV installation")
+                self._btn_install_cv.show()
+                self._btn_uninstall_cv.hide()
+            elif not cv_ok:
+                self._lbl_opencv.setText("Not installed")
+                self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
+                self._btn_install_cv.setText("Install OpenCV")
+                self._btn_install_cv.setFixedWidth(165)
+                self._btn_install_cv.setToolTip(get_opencv_variant_label())
+                self._btn_install_cv.show()
+                self._btn_uninstall_cv.hide()
+            else:
+                v = get_opencv_variant()
+                suf = " (CUDA)" if v == "cuda" else " (OpenCL)"
+                self._lbl_opencv.setText(f"Ready{suf}")
+                self._btn_install_cv.setToolTip("")
+                self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
+                self._btn_install_cv.hide()
+                self._btn_uninstall_cv.show()
 
-        ready = self._model_mgr.is_up_to_date()
-        if ready:
-            self._lbl_model.setText("Ready")
-            self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
-            self._btn_setup.hide()
-            self._btn_uninstall_models.show()
-            update_avail = self._model_update_available or self._opencv_update_available
-            self._btn_update.setVisible(update_avail)
-            self._start_version_check()
-        else:
-            self._lbl_model.setText("Missing")
-            self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
-            self._btn_setup.show()
-            self._btn_uninstall_models.hide()
-            self._btn_update.hide()
+            ready = self._model_mgr.is_up_to_date()
+            if ready:
+                self._lbl_model.setText("Ready")
+                self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
+                self._btn_setup.hide()
+                self._btn_uninstall_models.show()
+                update_avail = self._model_update_available or self._opencv_update_available
+                self._btn_update.setVisible(update_avail)
+                self._start_version_check()
+            else:
+                self._lbl_model.setText("Missing")
+                self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
+                self._btn_setup.show()
+                self._btn_uninstall_models.hide()
+                self._btn_update.hide()
 
-        self._update_start_enabled()
+            self._update_start_enabled()
+
+        if get_pip_exe().exists():
+            def _task():
+                cv_ok = check_opencv_in_venv()
+                QTimer.singleShot(0, lambda: _apply(cv_ok))
+            threading.Thread(target=_task, daemon=True).start()
+        else:
+            _apply(self._opencv_available_sync())
 
     def _on_version_check(self, models_update: bool, opencv_update: bool):
         self._model_update_available = bool(models_update)
@@ -522,7 +532,7 @@ class AIScannerPanel(QWidget):
     def _get_guide_target(self):
         if self._is_running or self._setup_in_progress:
             return None
-        if self._opencv_just_installed or not self._opencv_available():
+        if self._opencv_just_installed or not self._cached_cv_ok:
             return self._btn_install_cv
         if not self._model_mgr.is_up_to_date():
             return self._btn_setup
@@ -541,7 +551,7 @@ class AIScannerPanel(QWidget):
         models_ready = self._model_mgr.is_up_to_date()
         path = self._edit_path.text().strip()
         path_ok = bool(path and os.path.isdir(path))
-        cv_ok = self._opencv_available()
+        cv_ok = self._cached_cv_ok
         can = cv_ok and models_ready and path_ok and not self._is_running
         self._btn_start.setEnabled(can)
         busy = self._setup_in_progress or self._is_running

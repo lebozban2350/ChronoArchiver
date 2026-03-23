@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.2.17] - 2026-03-22
+### Fixed
+- **Startup hang during FFmpeg install**: Scanner panel's `_check_models` (which called `check_opencv_in_venv` and blocked ~500ms) ran at 500ms via timer, blocking the main thread and preventing FFmpeg progress callbacks from running. Deferred until prereqs complete; `check_opencv_in_venv` now runs off main thread in both footer refresh and scanner status.
+- **Footer "Checking…" stuck**: Same root cause — main thread blocked by OpenCV subprocess, so FFmpeg progress and footer update never processed.
+
 ## [3.2.16] - 2026-03-22
 ### Fixed
 - **OpenCV CUDA import after restart**: `check_opencv_in_venv` subprocess now receives `LD_LIBRARY_PATH` with nvidia lib dirs (cu13, cudnn) so cv2 import succeeds. Bootstrap calls `add_venv_to_path()` before execv so child process starts with correct library path.

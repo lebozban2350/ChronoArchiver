@@ -347,6 +347,8 @@ class ChronoArchiverApp(QMainWindow):
             self._refresh_footer()
             self.lbl_status.setText("Pre-check complete")
             self._precheck_done = True
+            if hasattr(self, "panel_scn") and hasattr(self.panel_scn, "_check_models"):
+                self.panel_scn._check_models()  # Deferred from init — was blocking main thread during FFmpeg install
             QTimer.singleShot(3000, _go_idle)
 
         def _go_idle():
@@ -410,31 +412,37 @@ class ChronoArchiverApp(QMainWindow):
         step1()
 
     def _refresh_footer(self):
-        """Update footer pre-req status (OpenCV, AI Models) after install/uninstall."""
-        ok = '<span style="color:#10b981">✓</span>'
-        fail = '<span style="color:#ef4444">✗</span>'
-        skip = '<span style="color:#eab308">—</span>'
-        parts = []
+        """Update footer pre-req status (OpenCV, AI Models) after install/uninstall. Runs check_opencv_in_venv off main thread."""
+        ok_sym = '<span style="color:#10b981">✓</span>'
+        fail_sym = '<span style="color:#ef4444">✗</span>'
+        skip_sym = '<span style="color:#eab308">—</span>'
         ffmpeg_ok = bool(shutil.which("ffmpeg"))
-        parts.append(f"FFmpeg {ok if ffmpeg_ok else fail}")
+
+        def _apply(opencv_ok: bool):
+            parts = [f"FFmpeg {ok_sym if ffmpeg_ok else fail_sym}"]
+            parts.append(f"OpenCV {ok_sym if opencv_ok else skip_sym}")
+            models_ready = self.panel_scn._model_mgr.is_up_to_date()
+            parts.append(f"AI Models {ok_sym if models_ready else skip_sym}")
+            parts.append(f"PySide6 {ok_sym}")
+            debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'}, OpenCV={'ok' if opencv_ok else 'missing'}, AI Models={'ok' if models_ready else 'missing'}, PySide6=ok")
+            status = "  ·  ".join(parts)
+            if ffmpeg_ok:
+                status += "  ·  <span style=\"color:#10b981\">Ready</span>"
+            self.lbl_prereq.setTextFormat(Qt.RichText)
+            self.lbl_prereq.setText(status)
+
         if get_pip_exe().exists():
-            opencv_ok = check_opencv_in_venv()
+            def _task():
+                ov = check_opencv_in_venv()
+                QTimer.singleShot(0, lambda: _apply(ov))
+            threading.Thread(target=_task, daemon=True).start()
         else:
             try:
                 from core.scanner import OPENCV_AVAILABLE
                 opencv_ok = bool(OPENCV_AVAILABLE)
             except Exception:
                 opencv_ok = False
-        parts.append(f"OpenCV {ok if opencv_ok else skip}")
-        models_ready = self.panel_scn._model_mgr.is_up_to_date()
-        parts.append(f"AI Models {ok if models_ready else skip}")
-        parts.append(f"PySide6 {ok}")
-        debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'}, OpenCV={'ok' if opencv_ok else 'missing'}, AI Models={'ok' if models_ready else 'missing'}, PySide6=ok")
-        status = "  ·  ".join(parts)
-        if ffmpeg_ok:
-            status += "  ·  <span style=\"color:#10b981\">Ready</span>"
-        self.lbl_prereq.setTextFormat(Qt.RichText)
-        self.lbl_prereq.setText(status)
+            _apply(opencv_ok)
 
     def _copy_console(self):
         panel = self.stack.currentWidget()

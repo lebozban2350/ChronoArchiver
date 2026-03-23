@@ -1,8 +1,12 @@
 # TASKS
 
-**Current:** v3.2.16 (2026-03-22)
+**Current:** v3.2.17 (2026-03-22)
 
 ---
+
+- [x] **v3.2.17: Startup hang during FFmpeg install (2026-03-22)**
+  - [x] Defer scanner _check_models until prereqs done; run check_opencv_in_venv off main thread.
+  - [x] _refresh_footer and _check_models use thread + QTimer for opencv check.
 
 - [x] **v3.2.16: OpenCV CUDA fix after restart (2026-03-22)**
   - [x] check_opencv_in_venv: _add_nvidia_libs_to_ld_path + env=os.environ for subprocess.

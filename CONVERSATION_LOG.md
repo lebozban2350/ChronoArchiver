@@ -1,6 +1,12 @@
 # CONVERSATION_LOG.md
 
 ---
+## 2026-03-22 (Startup hang during FFmpeg install v3.2.17)
+- User: FFmpeg bar stuck at 0%, footer "Checking…", nothing moving, guide blinking. Log showed check_opencv_in_venv every ~500ms.
+- Root cause: Scanner's _check_models ran at 500ms (QTimer), called check_opencv_in_venv (subprocess ~500ms) on main thread. Blocked event loop so FFmpeg progress callbacks never processed.
+- Fix: (1) Defer scanner _check_models until step5 (prereqs done); app calls it explicitly. (2) _refresh_footer runs check_opencv_in_venv in thread, applies result via QTimer. (3) Scanner _check_models runs opencv check in thread, _apply on main thread. (4) _cached_cv_ok for _get_guide_target/_update_start_enabled. SemVer: PATCH 3.2.17.
+
+---
 ## 2026-03-22 (OpenCV CUDA fix after restart v3.2.16)
 - Continued OpenCV fix: cv2 import fails with libcufft/libcudnn when LD_LIBRARY_PATH not set.
 - check_opencv_in_venv: call _add_nvidia_libs_to_ld_path() before subprocess; pass env=os.environ.copy() so child gets nvidia lib dirs.
