@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.2.9] - 2026-03-22
+### Fixed
+- **OpenCV install success not reported**: Signal was `Signal(bool)` but we emitted `(ok, err)` tuple. Changed to `Signal(object)` so the slot receives the tuple correctly; install success is now reported properly.
+### Changed
+- **Debug logging**: More intensive logging for install flow (task start/return/emit, slot receive, check_opencv_in_venv result).
+
 ## [3.2.8] - 2026-03-22
 ### Fixed
 - **OpenCV wheel install**: Pip requires PEP 427 wheel filenames. Downloads now save wheels with the correct name (from Content-Disposition or URL) instead of `tmpXXX.whl`, fixing "Invalid wheel filename (wrong number of parts)".

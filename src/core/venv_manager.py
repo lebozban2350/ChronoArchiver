@@ -147,13 +147,22 @@ def get_pip_exe() -> Path:
 
 def check_opencv_in_venv() -> bool:
     """True if venv exists and can import cv2 (runtime check, not import-time cache)."""
+    try:
+        from .debug_logger import debug, UTILITY_OPENCV_INSTALL
+    except ImportError:
+        debug = lambda *a: None
+        UTILITY_OPENCV_INSTALL = "OpenCV"
     py = get_python_exe()
     if not py.exists():
+        debug(UTILITY_OPENCV_INSTALL, "check_opencv_in_venv: python exe not found")
         return False
     try:
         r = subprocess.run([str(py), "-c", "import cv2"], capture_output=True, timeout=5)
-        return r.returncode == 0
-    except Exception:
+        ok = r.returncode == 0
+        debug(UTILITY_OPENCV_INSTALL, f"check_opencv_in_venv: returncode={r.returncode} ok={ok}")
+        return ok
+    except Exception as e:
+        debug(UTILITY_OPENCV_INSTALL, f"check_opencv_in_venv: exception {e}")
         return False
 
 
@@ -562,7 +571,7 @@ def install_opencv(progress_callback=None, variant: str | None = None) -> tuple[
             debug(UTILITY_OPENCV_INSTALL, f"install_opencv FAIL pip install wheel: {err[:800]}")
             prog("Failed", err[:80], 0, 0)
             return False, err
-        debug(UTILITY_OPENCV_INSTALL, "install_opencv SUCCESS")
+        debug(UTILITY_OPENCV_INSTALL, "install_opencv SUCCESS, returning (True, None)")
         prog("Complete.", "", 1, 1)
         return True, None
     finally:

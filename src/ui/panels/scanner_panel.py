@@ -45,7 +45,7 @@ class _Signals(QObject):
     log_msg  = Signal(str)
     progress = Signal(float)
     finished = Signal()
-    setup_complete = Signal(bool)
+    setup_complete = Signal(object)  # (ok, err) for OpenCV install, bool for uninstall/model setup
     remove_done = Signal()
     version_check_done = Signal(bool, bool)  # models_update, opencv_update
     setup_phase = Signal(str, str)  # phase_name, detail
@@ -440,6 +440,7 @@ class AIScannerPanel(QWidget):
 
     def _check_models(self):
         cv_ok = self._opencv_available()
+        debug(UTILITY_AI_MEDIA_SCANNER, f"_check_models: cv_ok={cv_ok}")
         if not cv_ok:
             self._lbl_opencv.setText("Not installed")
             self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
@@ -631,26 +632,35 @@ class AIScannerPanel(QWidget):
 
         def _task():
             try:
+                debug(UTILITY_OPENCV_INSTALL, "OpenCV install _task START")
                 pip = get_pip_exe()
                 if not pip.exists():
+                    debug(UTILITY_OPENCV_INSTALL, "OpenCV install: pip not found, ensuring venv")
                     _prog("Creating venv...", "")
                     ok = ensure_venv(progress_callback=_prog, skip_opencv=True)
                     if not ok:
+                        debug(UTILITY_OPENCV_INSTALL, "OpenCV install: ensure_venv FAILED")
                         _prog("Failed", "Could not create venv")
                         time.sleep(2)
-                        self._sig.setup_complete.emit(False)
+                        self._sig.setup_complete.emit((False, "Could not create venv"))
                         return
                 ok, err = install_opencv(progress_callback=_prog, variant=variant)
+                debug(UTILITY_OPENCV_INSTALL, f"OpenCV install _task: install_opencv returned ok={ok} err={err[:100] if err else None}")
                 if not ok and err and variant == "cuda":
+                    debug(UTILITY_OPENCV_INSTALL, "OpenCV install: trying OpenCL fallback")
                     _prog("Trying OpenCL fallback...", "")
                     ok, err = install_opencv(progress_callback=_prog, variant="opencl")
+                    debug(UTILITY_OPENCV_INSTALL, f"OpenCV install _task: fallback returned ok={ok}")
+                debug(UTILITY_OPENCV_INSTALL, f"OpenCV install _task: emitting setup_complete ({ok}, {err[:50] if err else None})")
                 self._sig.setup_complete.emit((ok, err))
             except Exception as e:
+                debug(UTILITY_OPENCV_INSTALL, f"OpenCV install _task EXCEPTION: {e}")
                 _prog("Failed", str(e)[:80])
                 time.sleep(2)
                 self._sig.setup_complete.emit((False, str(e)))
 
         def _on_done(result):
+            debug(UTILITY_OPENCV_INSTALL, f"OpenCV install _on_done RECV: type={type(result).__name__} value={str(result)[:200]}")
             ok = result[0] if isinstance(result, tuple) else result
             err = result[1] if isinstance(result, tuple) and len(result) > 1 else None
             debug(UTILITY_OPENCV_INSTALL, f"OpenCV install popup DONE ok={ok} err={str(err)[:300] if err else 'None'}")
@@ -690,6 +700,7 @@ class AIScannerPanel(QWidget):
             self._sig.setup_complete.emit(ok)
 
         def _on_done(ok):
+            debug(UTILITY_OPENCV_INSTALL, f"OpenCV uninstall _on_done ok={ok}")
             self._setup_in_progress = False
             self._add_log("OpenCV uninstalled." if ok else "OpenCV uninstall failed or not found.")
             self._check_models()
@@ -731,7 +742,7 @@ class AIScannerPanel(QWidget):
             self._sig.log_msg.emit(f"Downloading: {label} ({int(overall * 100)}%)")
 
         def _on_done(ok):
-            debug(UTILITY_MODEL_SETUP, f"Model setup popup DONE ok={ok}")
+            debug(UTILITY_MODEL_SETUP, f"Model setup _on_done RECV ok={ok} type={type(ok).__name__}")
             self._setup_in_progress = False
             dlg.close()
             self._bar.setFormat("Ready")

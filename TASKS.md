@@ -1,8 +1,12 @@
 # TASKS
 
-**Current:** v3.2.8 (2026-03-22)
+**Current:** v3.2.9 (2026-03-22)
 
 ---
+
+- [x] **v3.2.9: Signal Type Fix + Intensive Debug (2026-03-22)**
+  - [x] setup_complete Signal(bool)→Signal(object); fix install success not reported.
+  - [x] More debug: task emit, slot recv, check_opencv_in_venv, _check_models.
 
 - [x] **v3.2.8: Wheel Filename Fix (2026-03-22)**
   - [x] Save downloaded wheel with valid PEP 427 filename (not tmpXXX.whl); fixes pip install failure.
