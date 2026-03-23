@@ -1,8 +1,11 @@
 # TASKS
 
-**Current:** v3.2.23 (2026-03-23)
+**Current:** v3.2.24 (2026-03-23)
 
 ---
+
+- [x] **v3.2.24: AUR changelog install (2026-03-23)**
+  - [x] PKGBUILD installs CHANGELOG.md to /usr/share/doc/chronoarchiver/.
 
 - [x] **v3.2.23: Model setup size estimate (2026-03-23)**
   - [x] SSD model approx_size: 30 MB (extracted) → 76.5 MB (tar.gz download).

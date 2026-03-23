@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.2.24] - 2026-03-23
+### Changed
+- **AUR package**: Install CHANGELOG.md to `/usr/share/doc/chronoarchiver/` so users can read release notes locally.
+
 ## [3.2.23] - 2026-03-23
 ### Fixed
 - **Model setup size estimate**: SSD model `approx_size` was ~30 MB (extracted .pb) but the actual download is the tar.gz (~73 MB). Updated to 76.5 MB so the "Approximate download size" dialog matches reality.
@@ -63,6 +67,7 @@
 ## [3.2.11] - 2026-03-22
 ### Fixed
 - **RESTART button overflow**: RESTART button width reduced to 90px (from 165px) so it no longer clips into the Engine Status border. Install OpenCV keeps 165px width.
+
 ## [3.2.10] - 2026-03-22
 ### Added
 - **Restart after OpenCV install**: When OpenCV install succeeds, the Install button becomes a green glowing "RESTART" button. Clicking it relaunches ChronoArchiver so the new installation takes effect. New `restart_app()` in `core/updater.py` spawns a helper to relaunch after exit.

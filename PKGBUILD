@@ -1,6 +1,6 @@
 # Maintainer: UnDadFeated <jscheema@gmail.com>
 pkgname=chronoarchiver
-pkgver=3.2.23
+pkgver=3.2.24
 pkgrel=1
 pkgdesc="Unified Media Archive Organizer and AV1 Encoder - Time to Archive!"
 arch=('any')
@@ -17,6 +17,7 @@ package() {
     
     # Create necessary directories
     install -d "${pkgdir}/usr/share/${pkgname}"
+    install -d "${pkgdir}/usr/share/doc/${pkgname}"
     install -d "${pkgdir}/usr/bin"
     install -d "${pkgdir}/usr/share/applications"
     install -d "${pkgdir}/usr/share/pixmaps"
@@ -25,6 +26,7 @@ package() {
 
     # Install main application files
     cp -rv src/* "${pkgdir}/usr/share/${pkgname}/"
+    install -m644 CHANGELOG.md "${pkgdir}/usr/share/doc/${pkgname}/"
     
     # Install the launcher script (bootstrap creates venv on first run, then execs into app)
     printf '%s\n' '#!/bin/bash' "export PYTHONPATH=\"\${PYTHONPATH:+\$PYTHONPATH:}/usr/share/${pkgname}\"" "exec python /usr/share/${pkgname}/bootstrap.py \"\$@\"" > "${pkgdir}/usr/bin/${pkgname}"

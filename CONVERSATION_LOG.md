@@ -1,6 +1,14 @@
 # CONVERSATION_LOG.md
 
 ---
+## 2026-03-23 (AUR changelog install v3.2.24)
+- Install CHANGELOG.md to /usr/share/doc/chronoarchiver/ in PKGBUILD so AUR users have release notes locally. SemVer: PATCH 3.2.24.
+
+---
+## 2026-03-23 (Push git + AUR)
+- User: push git and AUR. Committed v3.2.22–3.2.23 (log throttle, SSD size), tagged v3.2.23, pushed to GitHub. Updated chronoarchiver-aur PKGBUILD/.SRCINFO, pushed to AUR.
+
+---
 ## 2026-03-23 (Model setup size estimate v3.2.23)
 - User: setup popup said ~24 MB but downloaded ~74 MB. Root cause: animal_detection_pb approx_size was 30.2 MB (extracted .pb) but we download the tar.gz (~73 MB). Updated approx_size to 76.5 MB. SemVer: PATCH 3.2.23.
 
