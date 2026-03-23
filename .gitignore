@@ -156,3 +156,6 @@ cython_debug/
 # Project context (local only)
 brain/
 .gemini/
+
+# AUR-only (main repo does not need this)
+.SRCINFO
