@@ -259,11 +259,13 @@ def get_opencv_install_size(variant: str | None = None) -> tuple:
 NVIDIA_CUDA_RUNTIME_APPROX_BYTES = int(2.2 * 1024 * 1024)   # ~2.2 MB
 NVIDIA_CUBLAS_APPROX_BYTES = int(384 * 1024 * 1024)        # ~384 MB (manylinux x86_64 wheel)
 NVIDIA_CUDNN_APPROX_BYTES = int(366 * 1024 * 1024)          # ~366 MB
+NVIDIA_CUFFT_APPROX_BYTES = int(25 * 1024 * 1024)          # ~25 MB (libcufft.so.12 for OpenCV CUDA wheel)
 
-# PyPI packages for CUDA/cuDNN in venv (compatible with cudawarped OpenCV CUDA wheel)
+# PyPI packages for CUDA/cuDNN/cuFFT in venv (compatible with cudawarped OpenCV CUDA wheel)
 NVIDIA_CUDA_CUDNN_PIP_PACKAGES = [
     "nvidia-cuda-runtime",
     "nvidia-cublas",
+    "nvidia-cufft",  # libcufft.so.12 required by OpenCV CUDA wheel
     "nvidia-cudnn-cu13",
 ]
 
@@ -294,8 +296,8 @@ def _install_cuda_cudnn_venv(progress_callback=None) -> tuple[bool, str | None]:
         debug(UTILITY_OPENCV_INSTALL, "CUDA/cuDNN install: venv not ready")
         return False, "venv not ready"
 
-    debug(UTILITY_OPENCV_INSTALL, "CUDA/cuDNN install: starting pip install (~750 MB, may take 2–5 min)")
-    prog("Installing CUDA runtime, cuBLAS, and cuDNN...", "Downloading ~750 MB (may take 2–5 min)...")
+    debug(UTILITY_OPENCV_INSTALL, "CUDA/cuDNN/cuFFT install: starting pip install (~775 MB, may take 2–5 min)")
+    prog("Installing CUDA runtime, cuBLAS, cuFFT, and cuDNN...", "Downloading ~775 MB (may take 2–5 min)...")
     try:
         r = subprocess.run(
             [str(pip), "install", *NVIDIA_CUDA_CUDNN_PIP_PACKAGES],
@@ -323,6 +325,7 @@ def get_opencv_install_components(variant: str | None = None) -> list[tuple[str,
         components = [
             ("nvidia-cuda-runtime (CUDA, venv)", NVIDIA_CUDA_RUNTIME_APPROX_BYTES),
             ("nvidia-cublas (cuBLAS, venv)", NVIDIA_CUBLAS_APPROX_BYTES),
+            ("nvidia-cufft (cuFFT, venv)", NVIDIA_CUFFT_APPROX_BYTES),
             ("nvidia-cudnn-cu13 (cuDNN, venv)", NVIDIA_CUDNN_APPROX_BYTES),
         ]
         wheel_size = OPENCV_CUDA_FALLBACK_BYTES
@@ -596,7 +599,7 @@ def uninstall_opencv(progress_callback=None) -> bool:
         "opencv-contrib-python", "opencv-contrib-python-headless",
         "opencv-openvino-contrib-python",
         # CUDA stack (pip installs into venv; safe to uninstall even if not present)
-        "nvidia-cudnn-cu13", "nvidia-cuda-runtime", "nvidia-cublas",
+        "nvidia-cudnn-cu13", "nvidia-cuda-runtime", "nvidia-cublas", "nvidia-cufft",
     ]
     r = subprocess.run(
         [str(pip), "uninstall", "-y", *packages],

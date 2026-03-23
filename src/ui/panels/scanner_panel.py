@@ -447,6 +447,7 @@ class AIScannerPanel(QWidget):
             self._lbl_opencv.setText("Restart required")
             self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
             self._btn_install_cv.setText("RESTART")
+            self._btn_install_cv.setFixedWidth(90)
             self._btn_install_cv.setToolTip("Restart ChronoArchiver to use the new OpenCV installation")
             self._btn_install_cv.show()
             self._btn_uninstall_cv.hide()
@@ -454,6 +455,7 @@ class AIScannerPanel(QWidget):
             self._lbl_opencv.setText("Not installed")
             self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
             self._btn_install_cv.setText("Install OpenCV")
+            self._btn_install_cv.setFixedWidth(165)
             self._btn_install_cv.setToolTip(get_opencv_variant_label())
             self._btn_install_cv.show()
             self._btn_uninstall_cv.hide()
@@ -630,7 +632,7 @@ class AIScannerPanel(QWidget):
             total_sz = f"{total_gb:.2f} GB" if total_gb >= 0.1 else f"{total_mb:.1f} MB"
             lines.append(f"\nTotal download: {total_sz}")
         if variant == "cuda":
-            lines.append("\nCUDA runtime, cuBLAS, and cuDNN install via pip into venv (no sudo).")
+            lines.append("\nCUDA runtime, cuBLAS, cuFFT, and cuDNN install via pip into venv (no sudo).")
         lines.append("\nInstall into app's private venv (no sudo required).")
         reply = QMessageBox.question(
             self,

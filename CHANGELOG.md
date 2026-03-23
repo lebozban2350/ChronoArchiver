@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.2.12] - 2026-03-22
+### Fixed
+- **OpenCV CUDA libcufft.so.12**: Added `nvidia-cufft` to the CUDA stack so cv2 imports successfully after install and restart. Resolves "Not installed" and yellow OpenCV status when CUDA wheel was installed but libcufft was missing.
+### Changed
+- CUDA install components: nvidia-cufft (cuFFT) now included; install dialog and docs updated.
+
+## [3.2.11] - 2026-03-22
+### Fixed
+- **RESTART button overflow**: RESTART button width reduced to 90px (from 165px) so it no longer clips into the Engine Status border. Install OpenCV keeps 165px width.
 ## [3.2.10] - 2026-03-22
 ### Added
 - **Restart after OpenCV install**: When OpenCV install succeeds, the Install button becomes a green glowing "RESTART" button. Clicking it relaunches ChronoArchiver so the new installation takes effect. New `restart_app()` in `core/updater.py` spawns a helper to relaunch after exit.

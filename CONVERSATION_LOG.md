@@ -1,6 +1,17 @@
 # CONVERSATION_LOG.md
 
 ---
+## 2026-03-22 (nvidia-cufft in CUDA stack v3.2.12)
+- Added nvidia-cufft to NVIDIA_CUDA_CUDNN_PIP_PACKAGES. OpenCV CUDA wheel requires libcufft.so.12; nvidia-cublas/cudnn did not provide it, causing cv2 import to fail after install/restart.
+- Components list: nvidia-cufft (~25 MB) between cublas and cudnn. Uninstall list, scanner dialog, GPU_ACCELERATION.md updated. SemVer: PATCH 3.2.12.
+
+---
+## 2026-03-22 (RESTART button width + OpenCV libcufft + venv clean)
+- RESTART button too wide: cut into Engine Status 1px border. Fix: setFixedWidth(90) when RESTART, 165 when Install OpenCV.
+- After restart, OpenCV showed yellow dash and "Not installed" with red guide pulse. Debug log: check_opencv_in_venv returncode=1. Venv has opencv-contrib-python 4.13.0.90 + nvidia-*. Root cause: cv2 import fails with `ImportError: libcufft.so.12: cannot open shared object file`. CUDA OpenCV wheel requires libcufft.so.12; nvidia-cublas/cudnn do not provide it. Future fix: add nvidia-cufft-cu13 or switch to OpenCL build.
+- Cleaned venv for next test: uninstall opencv, nvidia packages, remove nvidia/ from site-packages.
+
+---
 ## 2026-03-22 (Green RESTART button after OpenCV install v3.2.10)
 - User reported: Install OpenCV did not turn into green glowing RESTART button after successful install. cv2 import fails with libcufft.so.12, so check_opencv_in_venv stays False and _check_models kept showing "Install OpenCV".
 - Fix: Add _opencv_just_installed flag. When install succeeds (ok=True), set flag before _check_models. In _check_models, when flag is True: show "Restart required", btn "RESTART" with green base style, guide pulse uses green glow (#34d399 border). _get_guide_target returns _btn_install_cv when flag set. _on_install_opencv: if flag, call restart_app() and QApplication.quit(). Added restart_app() to core/updater.py (spawns helper to relaunch after exit). Uninstall clears flag. SemVer: PATCH 3.2.10.

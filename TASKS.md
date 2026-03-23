@@ -1,8 +1,17 @@
 # TASKS
 
-**Current:** v3.2.10 (2026-03-22)
+**Current:** v3.2.12 (2026-03-22)
 
 ---
+
+- [x] **v3.2.12: nvidia-cufft for OpenCV CUDA (2026-03-22)**
+  - [x] Add nvidia-cufft to CUDA stack; provides libcufft.so.12 required by OpenCV CUDA wheel.
+  - [x] Fixes post-restart "Not installed" / yellow OpenCV when cv2 import failed with missing libcufft.
+  - [x] Components, uninstall list, scanner dialog, docs updated.
+
+- [x] **v3.2.11: RESTART Button Width Fix (2026-03-22)**
+  - [x] RESTART button 90px (was 165px) to avoid clipping into Engine Status border.
+  - [x] Venv cleaned for re-test.
 
 - [x] **v3.2.10: Green RESTART Button After OpenCV Install (2026-03-22)**
   - [x] After successful OpenCV install, Install button becomes green glowing RESTART; restart_app() in updater; click relaunches app.
