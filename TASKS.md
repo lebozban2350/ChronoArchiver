@@ -1,8 +1,13 @@
 # TASKS
 
-**Current:** v3.2.12 (2026-03-22)
+**Current:** v3.2.13 (2026-03-22)
 
 ---
+
+- [x] **v3.2.13: FFmpeg venv auto-install with footer progress bar (2026-03-22)**
+  - [x] static-ffmpeg in VENV_PACKAGES_BASE; check_ffmpeg_in_venv, ensure_ffmpeg_in_venv, add_ffmpeg_to_path.
+  - [x] Pre-req: when venv exists and FFmpeg missing, auto-install with tiny progress bar + % in left footer.
+  - [x] Always use venv FFmpeg; PKGBUILD no longer depends on system ffmpeg.
 
 - [x] **v3.2.12: nvidia-cufft for OpenCV CUDA (2026-03-22)**
   - [x] Add nvidia-cufft to CUDA stack; provides libcufft.so.12 required by OpenCV CUDA wheel.

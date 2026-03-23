@@ -1,6 +1,13 @@
 # CONVERSATION_LOG.md
 
 ---
+## 2026-03-22 (FFmpeg venv auto-install v3.2.13)
+- User requested FFmpeg in venv, auto-install when missing, tiny progress bar with % in left footer.
+- Added static-ffmpeg to VENV_PACKAGES_BASE. check_ffmpeg_in_venv (crumb check), ensure_ffmpeg_in_venv (get_or_fetch in thread), add_ffmpeg_to_path (static_ffmpeg.add_paths).
+- app.py: _bar_ffmpeg (72x12, % format) in status bar; _check_prereqs runs ensure in thread when FFmpeg missing, simulated progress 0→95→100, then add_ffmpeg_to_path.
+- PKGBUILD: removed ffmpeg from depends. SemVer: PATCH 3.2.13.
+
+---
 ## 2026-03-22 (nvidia-cufft in CUDA stack v3.2.12)
 - Added nvidia-cufft to NVIDIA_CUDA_CUDNN_PIP_PACKAGES. OpenCV CUDA wheel requires libcufft.so.12; nvidia-cublas/cudnn did not provide it, causing cv2 import to fail after install/restart.
 - Components list: nvidia-cufft (~25 MB) between cublas and cudnn. Uninstall list, scanner dialog, GPU_ACCELERATION.md updated. SemVer: PATCH 3.2.12.

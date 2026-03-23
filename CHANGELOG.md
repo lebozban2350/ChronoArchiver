@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.13] - 2026-03-22
+### Added
+- **FFmpeg in venv**: FFmpeg and ffprobe are now provided by `static-ffmpeg` in the app venv. Auto-installed on first run when missing. Always uses venv FFmpeg; system FFmpeg is ignored.
+- **FFmpeg install progress**: Tiny left-aligned progress bar with % in the footer during FFmpeg download.
+### Changed
+- **PKGBUILD**: Removed `ffmpeg` from depends; app bundles FFmpeg via static-ffmpeg in venv.
+
 ## [3.2.12] - 2026-03-22
 ### Fixed
 - **OpenCV CUDA libcufft.so.12**: Added `nvidia-cufft` to the CUDA stack so cv2 imports successfully after install and restart. Resolves "Not installed" and yellow OpenCV status when CUDA wheel was installed but libcufft was missing.

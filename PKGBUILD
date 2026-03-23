@@ -1,12 +1,12 @@
 # Maintainer: UnDadFeated <jscheema@gmail.com>
 pkgname=chronoarchiver
-pkgver=3.2.12
+pkgver=3.2.13
 pkgrel=1
 pkgdesc="Unified Media Archive Organizer and AV1 Encoder - Time to Archive!"
 arch=('any')
 url="https://github.com/UnDadFeated/ChronoArchiver"
 license=('MIT')
-depends=('python' 'ffmpeg')
+depends=('python')
 makedepends=('git' 'python-setuptools')
 source=("git+https://github.com/UnDadFeated/ChronoArchiver.git#tag=v${pkgver}")
 sha256sums=('SKIP')

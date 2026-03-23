@@ -39,7 +39,7 @@ OPENCV_CUDA_FALLBACK_BYTES = 506 * 1024 * 1024
 # Base packages (opencv chosen by get_opencv_package())
 VENV_PACKAGES_BASE = [
     "PySide6", "psutil", "requests", "Pillow", "platformdirs",
-    "piexif",
+    "piexif", "static-ffmpeg",
 ]
 
 
@@ -163,6 +163,57 @@ def check_opencv_in_venv() -> bool:
         return ok
     except Exception as e:
         debug(UTILITY_OPENCV_INSTALL, f"check_opencv_in_venv: exception {e}")
+        return False
+
+
+def check_ffmpeg_in_venv() -> bool:
+    """True if venv has static-ffmpeg with binaries installed (installed.crumb exists). No download triggered."""
+    py = get_python_exe()
+    if not py.exists():
+        return False
+    try:
+        r = subprocess.run(
+            [str(py), "-c", (
+                "import os; "
+                "from static_ffmpeg.run import get_platform_dir; "
+                "crumb = os.path.join(get_platform_dir(), 'installed.crumb'); "
+                "exit(0 if os.path.isfile(crumb) else 1)"
+            )],
+            capture_output=True, timeout=10,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def ensure_ffmpeg_in_venv() -> bool:
+    """
+    Ensure FFmpeg/ffprobe binaries are available via static-ffmpeg. Downloads on first run.
+    Call add_ffmpeg_to_path() after this returns True.
+    """
+    py = get_python_exe()
+    if not py.exists():
+        return False
+    try:
+        subprocess.run(
+            [str(py), "-c", (
+                "from static_ffmpeg.run import get_or_fetch_platform_executables_else_raise; "
+                "get_or_fetch_platform_executables_else_raise()"
+            )],
+            capture_output=True, timeout=600,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def add_ffmpeg_to_path() -> bool:
+    """Add static-ffmpeg ffmpeg/ffprobe to PATH. Call after ensure_ffmpeg_in_venv or when check_ffmpeg_in_venv."""
+    try:
+        from static_ffmpeg import add_paths
+        add_paths()
+        return True
+    except Exception:
         return False
 
 

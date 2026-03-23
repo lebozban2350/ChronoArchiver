@@ -10,6 +10,7 @@ import platform
 import queue
 import shutil
 import subprocess
+import threading
 import webbrowser
 from pathlib import Path
 
@@ -17,12 +18,16 @@ import psutil
 
 # Add app root and app-private venv to path (v3.0: all Python deps in venv)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from core.venv_manager import add_venv_to_path, check_opencv_in_venv, get_pip_exe
+from core.venv_manager import (
+    add_venv_to_path, add_ffmpeg_to_path,
+    check_opencv_in_venv, check_ffmpeg_in_venv, ensure_ffmpeg_in_venv,
+    get_pip_exe,
+)
 add_venv_to_path()
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QStackedWidget, QFrame, QMessageBox
+    QPushButton, QLabel, QStackedWidget, QFrame, QMessageBox, QProgressBar
 )
 from PySide6.QtCore import Qt, QTimer
 
@@ -232,6 +237,14 @@ class ChronoArchiverApp(QMainWindow):
         self._activity_timer.timeout.connect(self._animate_activity)
         self._precheck_done = False
         self.status_layout.addWidget(self.lbl_status)
+        self._bar_ffmpeg = QProgressBar()
+        self._bar_ffmpeg.setFixedSize(72, 12)
+        self._bar_ffmpeg.setRange(0, 100)
+        self._bar_ffmpeg.setValue(0)
+        self._bar_ffmpeg.setFormat("%p%")
+        self._bar_ffmpeg.setStyleSheet("font-size: 7px; font-weight: 700;")
+        self._bar_ffmpeg.hide()
+        self.status_layout.addWidget(self._bar_ffmpeg)
         self.status_layout.addStretch()
 
         self.lbl_prereq = QLabel("Checking…")
@@ -314,13 +327,7 @@ class ChronoArchiverApp(QMainWindow):
 
     def _check_prereqs(self):
         """Run pre-req checks, show updates on left footer, then Pre-check complete for 3s, then Idle."""
-        def step1():
-            self.lbl_status.setText("Checking FFmpeg…")
-            QTimer.singleShot(400, step2)
-
         def step2():
-            ffmpeg_ok = bool(shutil.which("ffmpeg"))
-            debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'}")
             self.lbl_status.setText("Checking OpenCV…")
             QTimer.singleShot(400, step3)
 
@@ -342,6 +349,56 @@ class ChronoArchiverApp(QMainWindow):
             if self._activity == "idle":
                 self.lbl_status.setText("Idle")
             self._activity_timer.stop()
+
+        def step1():
+            self.lbl_status.setText("Checking FFmpeg…")
+            QTimer.singleShot(200, _do_ffmpeg_check)
+
+        def _do_ffmpeg_check():
+            pip = get_pip_exe()
+            if pip.exists() and check_ffmpeg_in_venv():
+                add_ffmpeg_to_path()
+                debug(UTILITY_APP, "Pre-reqs: FFmpeg=ok (venv)")
+                step2()
+                return
+            if pip.exists():
+                _install_ffmpeg_async(step2)
+                return
+            ffmpeg_ok = bool(shutil.which("ffmpeg"))
+            debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'} (no venv)")
+            step2()
+
+        def _install_ffmpeg_async(on_done):
+            self.lbl_status.setText("Installing FFmpeg")
+            self._bar_ffmpeg.setValue(0)
+            self._bar_ffmpeg.show()
+            self._ffmpeg_pct = 0
+            self._ffmpeg_done = False
+            self._ffmpeg_done_handled = False
+
+            def _simulate():
+                if self._ffmpeg_done:
+                    if not self._ffmpeg_done_handled:
+                        self._ffmpeg_done_handled = True
+                        self._bar_ffmpeg.setValue(100)
+                        self._bar_ffmpeg.hide()
+                        add_ffmpeg_to_path()
+                        self._refresh_footer()
+                        on_done()
+                    return
+                self._ffmpeg_pct = min(95, self._ffmpeg_pct + 8)
+                self._bar_ffmpeg.setValue(self._ffmpeg_pct)
+                QTimer.singleShot(400, _simulate)
+
+            def _worker():
+                ok = ensure_ffmpeg_in_venv()
+                self._ffmpeg_done = True
+                if not ok:
+                    debug(UTILITY_APP, "Pre-reqs: FFmpeg install failed")
+                QTimer.singleShot(0, _simulate)
+
+            threading.Thread(target=_worker, daemon=True).start()
+            QTimer.singleShot(400, _simulate)
 
         step1()
 
@@ -368,7 +425,7 @@ class ChronoArchiverApp(QMainWindow):
         debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'}, OpenCV={'ok' if opencv_ok else 'missing'}, AI Models={'ok' if models_ready else 'missing'}, PySide6=ok")
         status = "  ·  ".join(parts)
         if ffmpeg_ok:
-            status += f"  ·  <span style=\"color:#10b981\">Ready</span>"
+            status += "  ·  <span style=\"color:#10b981\">Ready</span>"
         self.lbl_prereq.setTextFormat(Qt.RichText)
         self.lbl_prereq.setText(status)
 
