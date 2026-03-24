@@ -177,7 +177,7 @@ First launch creates an app-private virtual environment at `~/.local/share/Chron
 
 **AUR:** `pacman -R chronoarchiver` removes the application and all user data (models, config, logs).
 
-**Windows/macOS setup:** **Windows** — Settings → Apps → Installed apps → **ChronoArchiver** (also Start Menu → ChronoArchiver → **Uninstall ChronoArchiver**). **macOS** — in the install folder, open **Uninstall ChronoArchiver.app** or run **Uninstall ChronoArchiver.command**.
+**Windows/macOS setup:** **Windows** — Settings → Apps → **ChronoArchiver** → Uninstall (or Start Menu → ChronoArchiver → **Uninstall ChronoArchiver**). Confirm in the dialog; the install folder under `%LOCALAPPDATA%\ChronoArchiver`, shortcuts, and the Installed Apps entry are removed. **macOS** — in the install folder, open **Uninstall ChronoArchiver.app** or run **Uninstall ChronoArchiver.command**.
 
 **Source install:** Delete the following directories to remove all traces:
 

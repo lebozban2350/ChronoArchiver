@@ -5,6 +5,9 @@
 - **Windows / macOS setup**: Optional `ChronoArchiver_installer.log` **appends** each run (session separator + header) instead of replacing the file, so troubleshooting history is preserved.
 - **Windows / macOS setup**: Welcome screen shows the **hourglass logo** (PNG, ~half the README inline width, proportional) above the title; setup window uses bundled **icon.ico** / **icon.png** for the taskbar/dock when available.
 
+### Fixed
+- **Windows — Installed Apps uninstall**: `UninstallString` is now a properly **quoted** `cmd.exe /c "…Uninstall ChronoArchiver.cmd"` line so paths with spaces (e.g. **Start Menu**) work from **Settings → Apps**. Confirmation uses a **GUI dialog** (not `choice`), which failed when Settings launched the uninstall **without a console**. Uninstall removes the install folder (`%LOCALAPPDATA%\ChronoArchiver`), desktop shortcut, Start Menu **ChronoArchiver** folder (after a short delay), and the **HKCU** uninstall registry key. Re-run setup once to refresh the uninstaller + registry on existing installs.
+
 ## [3.7.10] - 2026-03-24
 ### Changed
 - **UI**: Application uses the Fusion style for consistent themed controls on all platforms.

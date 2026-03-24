@@ -591,6 +591,23 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> tuple[bool, str]:
     return True, ""
 
 
+def _reg_sz_quoted_path(p: str) -> str:
+    """REG_SZ value for paths that may contain spaces (e.g. Start Menu, user name)."""
+    p = p.strip()
+    if not p:
+        return p
+    return p if (p.startswith('"') and p.endswith('"')) else f'"{p}"'
+
+
+def _windows_uninstall_registry_command(uninstall_bat: Path) -> str:
+    """
+    Full command line for UninstallString so Settings → Apps works when paths contain spaces.
+    Using cmd.exe /c ensures the .bat runs reliably when invoked from the shell.
+    """
+    comspec = os.environ.get("ComSpec", r"C:\Windows\System32\cmd.exe")
+    return f'{_reg_sz_quoted_path(comspec)} /c {_reg_sz_quoted_path(str(uninstall_bat))}'
+
+
 def _create_windows_shortcuts(app_root: Path):
     """Create desktop/start-menu shortcuts and uninstaller without VBS."""
     start_menu = Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
@@ -642,8 +659,11 @@ $Shortcut.Save()
     except OSError:
         pass
 
-    # Uninstaller CMD: no VBS dependency
-    install_dir = str(_app_dir())
+    # Uninstaller CMD: lives under Start Menu (outside install dir so we can delete that tree first).
+    # PowerShell confirm — works from Settings → Apps (no console; plain "choice" does not).
+    install_dir = str(app_root.resolve())
+    sm_ps = str(folder).replace("'", "''")
+    desk_ps = str(desktop / "ChronoArchiver.lnk").replace("'", "''")
     uninstall_key = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ChronoArchiver"
     uninstall_cmd = folder / "Uninstall ChronoArchiver.cmd"
     uninstall_cmd.write_text(
@@ -651,28 +671,29 @@ $Shortcut.Save()
 setlocal
 set "TARGET={install_dir}"
 set "UNKEY={uninstall_key}"
-echo Remove ChronoArchiver and all its data?
-choice /M "Continue"
-if errorlevel 2 goto :eof
-rmdir /S /Q "%TARGET%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; $r=[System.Windows.Forms.MessageBox]::Show('Remove ChronoArchiver and all data from this PC?','ChronoArchiver Uninstall','YesNo','Question'); if ($r -ne [System.Windows.Forms.DialogResult]::Yes) {{ exit 1 }}"
+if errorlevel 1 exit /b 0
+if exist "%TARGET%" rmdir /S /Q "%TARGET%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path -LiteralPath '{desk_ps}') {{ Remove-Item -LiteralPath '{desk_ps}' -Force }}"
+start "" /MIN powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Sleep -Seconds 2; if (Test-Path -LiteralPath '{sm_ps}') {{ Remove-Item -LiteralPath '{sm_ps}' -Recurse -Force }}"
 reg delete "%UNKEY%" /f >nul 2>&1
-echo ChronoArchiver has been uninstalled.
-pause
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('ChronoArchiver has been uninstalled.','ChronoArchiver','OK','Information')" 2>nul
+exit /b 0
 ''',
         encoding="utf-8",
     )
 
     # Register in Windows Installed Apps (no admin required, HKCU)
     try:
-        uninstall_cmd_path = str(uninstall_cmd)
         display_icon = str(icon_path) if icon_path.exists() else str(launcher_pyw)
-        reg = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ChronoArchiver"
+        reg = uninstall_key
+        uninstall_reg_cmd = _windows_uninstall_registry_command(uninstall_cmd)
         subprocess.run(["reg", "add", reg, "/v", "DisplayName", "/t", "REG_SZ", "/d", "ChronoArchiver", "/f"], capture_output=True, timeout=8)
         subprocess.run(["reg", "add", reg, "/v", "DisplayVersion", "/t", "REG_SZ", "/d", VERSION, "/f"], capture_output=True, timeout=8)
         subprocess.run(["reg", "add", reg, "/v", "Publisher", "/t", "REG_SZ", "/d", "ChronoArchiver", "/f"], capture_output=True, timeout=8)
         subprocess.run(["reg", "add", reg, "/v", "InstallLocation", "/t", "REG_SZ", "/d", str(app_root), "/f"], capture_output=True, timeout=8)
         subprocess.run(["reg", "add", reg, "/v", "DisplayIcon", "/t", "REG_SZ", "/d", display_icon, "/f"], capture_output=True, timeout=8)
-        subprocess.run(["reg", "add", reg, "/v", "UninstallString", "/t", "REG_SZ", "/d", uninstall_cmd_path, "/f"], capture_output=True, timeout=8)
+        subprocess.run(["reg", "add", reg, "/v", "UninstallString", "/t", "REG_SZ", "/d", uninstall_reg_cmd, "/f"], capture_output=True, timeout=8)
         subprocess.run(["reg", "add", reg, "/v", "NoModify", "/t", "REG_DWORD", "/d", "1", "/f"], capture_output=True, timeout=8)
         subprocess.run(["reg", "add", reg, "/v", "NoRepair", "/t", "REG_DWORD", "/d", "1", "/f"], capture_output=True, timeout=8)
         subprocess.run(
