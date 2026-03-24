@@ -7,7 +7,7 @@
 ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application. Built on PySide6 with an app-private Python environment; no system-wide package installation required.
 </div>
 
-[![Version](https://img.shields.io/badge/version-3.6.0-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
 
@@ -115,14 +115,14 @@ yay -S chronoarchiver
 
 ### Windows (x64) / macOS
 
-Download the installer from the [Releases](https://github.com/UnDadFeated/ChronoArchiver/releases) page:
+Download the setup from the [Releases](https://github.com/UnDadFeated/ChronoArchiver/releases) page:
 
 | Platform | File |
 |----------|------|
-| **Windows x64** | `ChronoArchiver-Setup-3.6.0-win64.exe` |
-| **macOS** | `ChronoArchiver-Setup-3.6.0-mac64.zip` |
+| **Windows x64** | `ChronoArchiver-Setup-3.7.0-win64.exe` |
+| **macOS** | `ChronoArchiver-Setup-3.7.0-mac64.zip` |
 
-The setup (~6MB) downloads the full app on first run with a progress bar. Extract the zip and run the setup app. The app installs to `%LOCALAPPDATA%\ChronoArchiver\app` (Windows) or `~/Library/Application Support/ChronoArchiver/app` (macOS).
+The setup (~6MB) downloads Python source on first run. Requires Python 3.11+ installed. The app runs as `.pyw` via `pythonw` for fast startup. Install location: `%LOCALAPPDATA%\ChronoArchiver\app` (Windows) or `~/Library/Application Support/ChronoArchiver/app` (macOS). Uninstall via Start Menu (Windows) or `Uninstall ChronoArchiver.command` (macOS).
 
 ### From Source
 
@@ -177,6 +177,8 @@ First launch creates an app-private virtual environment at `~/.local/share/Chron
 
 **AUR:** `pacman -R chronoarchiver` removes the application and all user data (models, config, logs).
 
+**Windows/macOS setup:** Use the Start Menu "Uninstall ChronoArchiver" (Windows) or run `Uninstall ChronoArchiver.command` (macOS).
+
 **Source install:** Delete the following directories to remove all traces:
 
 - `~/.local/share/ChronoArchiver` (venv, models)
@@ -189,8 +191,8 @@ On Windows, use `%LOCALAPPDATA%\ChronoArchiver` and `%APPDATA%\ChronoArchiver`. 
 
 ## Troubleshooting
 
-**First startup is slow (1–3 minutes)**  
-The Windows installer uses PyInstaller. On first run, the app unpacks itself to a temp directory before launching. This can take 1–3 minutes depending on disk speed. Subsequent launches are faster.
+**Python required (Windows/macOS)**  
+The setup installs the app as a Python program. Install Python 3.11+ from [python.org](https://python.org) if prompted.
 
 **Debug log location**  
 Session logs: `chronoarchiver_YYYY-MM-DD_HH-MM-SS.log`  
@@ -208,7 +210,7 @@ The application checks GitHub tags on startup. In-app updates work on:
 
 - **Arch Linux (AUR)**: `paru`/`yay` — app closes, updates, restarts.
 - **Git clone (Linux, Windows, macOS)**: `git pull` — app closes, pulls, restarts.
-- **Other installs**: Update check still works; if newer version available, offers to open GitHub releases.
+- **Windows/macOS setup**: Fetches the new setup launcher; running it performs the update.
 
 ---
 

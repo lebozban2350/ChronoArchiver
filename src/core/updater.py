@@ -64,15 +64,15 @@ def _find_repo_root(start: str) -> str | None:
 
 
 def _is_frozen() -> bool:
-    """True when running as PyInstaller bundle (.exe or .app)."""
+    """True when running as PyInstaller bundle (legacy; no longer used)."""
     return getattr(sys, "frozen", False)
 
 
 def _is_installer_install() -> bool:
-    """True when running from Windows .exe or macOS .app (installer distribution)."""
-    if not _is_frozen():
-        return False
-    return platform.system() in ("Windows", "Darwin")
+    """True when running from setup-installed Python app (Windows/macOS)."""
+    if os.environ.get("CHRONOARCHIVER_INSTALL_ROOT") and platform.system() in ("Windows", "Darwin"):
+        return True
+    return bool(_is_frozen() and platform.system() in ("Windows", "Darwin"))
 
 
 def _get_install_method() -> str | None:
@@ -92,8 +92,24 @@ def _find_app_launch_cmd(install_method: str) -> list:
         return ["/usr/bin/chronoarchiver"]
     if getattr(sys, "frozen", False):
         return [sys.executable]
+    install_root = os.environ.get("CHRONOARCHIVER_INSTALL_ROOT")
+    if install_method == "installer" and install_root:
+        root = os.path.abspath(install_root)
+        launcher = os.path.join(root, "chronoarchiver.pyw")
+        if platform.system() == "Windows":
+            venv_py = os.path.join(root, "venv", "Scripts", "pythonw.exe")
+            if os.path.isfile(venv_py):
+                return [venv_py, launcher]
+        else:
+            venv_py = os.path.join(root, "venv", "bin", "python")
+            if os.path.isfile(venv_py):
+                return [venv_py, launcher]
+        return [sys.executable, launcher]
     app_py = os.path.join(_script_dir, "..", "ui", "app.py")
     app_py = os.path.abspath(app_py)
+    if not os.path.isfile(app_py):
+        app_py = os.path.join(_script_dir, "..", "..", "src", "ui", "app.py")
+        app_py = os.path.abspath(app_py)
     if os.path.isfile(app_py):
         return [sys.executable, app_py]
     return ["chronoarchiver"]
@@ -107,9 +123,16 @@ def restart_app() -> bool:
     """
     method = _get_install_method() or "git"  # fallback for dev
     launch_cmd = _find_app_launch_cmd(method)
-    app_py = os.path.join(_script_dir, "..", "ui", "app.py")
-    app_py = os.path.abspath(app_py)
-    src_dir = os.path.dirname(os.path.dirname(app_py)) if os.path.isfile(app_py) else os.getcwd()
+    install_root = os.environ.get("CHRONOARCHIVER_INSTALL_ROOT")
+    if install_root:
+        src_dir = os.path.abspath(install_root)
+    else:
+        app_py = os.path.join(_script_dir, "..", "ui", "app.py")
+        app_py = os.path.abspath(app_py)
+        if not os.path.isfile(app_py):
+            app_py = os.path.join(_script_dir, "..", "..", "src", "ui", "app.py")
+            app_py = os.path.abspath(app_py)
+        src_dir = os.path.dirname(os.path.dirname(app_py)) if os.path.isfile(app_py) else os.getcwd()
     # Avoid shell injection: reject paths containing quotes or newlines
     if '"' in src_dir or "'" in src_dir or "\n" in src_dir or "\r" in src_dir:
         src_dir = os.getcwd()

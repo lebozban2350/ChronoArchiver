@@ -30,8 +30,10 @@ MANIFEST
 #  Usually these files are written by a python script, but may be useful to exclude
 *.manifest
 *.spec
-!tools/chronoarchiver.spec
 !tools/chronoarchiver_setup.spec
+
+# Stray clone / worktree
+/ChronoArchiver/
 
 # Setup launcher build artifact
 tools/_setup_version.txt

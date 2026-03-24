@@ -1,6 +1,6 @@
-# Build small setup launcher (~6MB) + full app zip for Windows and macOS.
-# Setup downloads full app on first run with progress bar.
-# Release: ChronoArchiver-Setup-*.exe (small), ChronoArchiver-*.zip (payload)
+# Build small setup launcher (~6MB) for Windows and macOS.
+# Setup downloads Python source zip on first run; app runs via pythonw (.pyw).
+# Release: ChronoArchiver-Setup-*.exe, ChronoArchiver-Setup-*.zip, ChronoArchiver-*-src.zip
 
 name: Release Installers
 
@@ -25,23 +25,6 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Install full app dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller static-ffmpeg opencv-python GitPython
-
-      - name: Build full app
-        run: |
-          pyinstaller --noconfirm tools/chronoarchiver.spec
-          ls -la dist/ChronoArchiver
-        shell: bash
-
-      - name: Create full app zip (payload for setup)
-        run: |
-          Compress-Archive -Path dist/ChronoArchiver -DestinationPath "dist/ChronoArchiver-${{ steps.ver.outputs.VERSION }}-win64.zip"
-        shell: pwsh
-
       - name: Build minimal setup launcher
         env:
           CHRONOARCHIVER_VERSION: ${{ steps.ver.outputs.VERSION }}
@@ -49,15 +32,12 @@ jobs:
           pip install pyinstaller
           pyinstaller --noconfirm tools/chronoarchiver_setup.spec
           ls -la dist/
-        shell: bash
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: ChronoArchiver-win64
-          path: |
-            dist/ChronoArchiver-Setup.exe
-            dist/ChronoArchiver-${{ steps.ver.outputs.VERSION }}-win64.zip
+          path: dist/ChronoArchiver-Setup.exe
 
   build-macos:
     runs-on: macos-latest
@@ -84,21 +64,6 @@ jobs:
           iconutil -c icns "$ICONSET" -o src/ui/assets/icon.icns
           rm -rf "$ICONSET"
 
-      - name: Install full app dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller static-ffmpeg opencv-python GitPython
-
-      - name: Build full app
-        run: |
-          pyinstaller --noconfirm tools/chronoarchiver.spec
-          ls -la dist/
-
-      - name: Create full app zip (payload for setup)
-        run: |
-          cd dist && zip -r "ChronoArchiver-${{ steps.ver.outputs.VERSION }}-mac64.zip" ChronoArchiver.app && cd ..
-
       - name: Build minimal setup launcher and zip
         env:
           CHRONOARCHIVER_VERSION: ${{ steps.ver.outputs.VERSION }}
@@ -108,13 +73,11 @@ jobs:
           ls -la dist/
           cd dist && zip -r "ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-mac64.zip" ChronoArchiver-Setup.app && cd ..
 
-      - name: Upload macOS artifacts
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: ChronoArchiver-mac64
-          path: |
-            dist/ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-mac64.zip
-            dist/ChronoArchiver-${{ steps.ver.outputs.VERSION }}-mac64.zip
+          path: dist/ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-mac64.zip
 
   release:
     needs: [build-windows, build-macos]
@@ -122,6 +85,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -131,16 +96,20 @@ jobs:
         id: ver
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Flatten and rename artifacts
+      - name: Create source zip
         run: |
           mkdir -p release
-          for f in artifacts/ChronoArchiver-win64/*; do
-            case "$f" in
-              *ChronoArchiver-Setup.exe) cp "$f" "release/ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-win64.exe" ;;
-              *) cp "$f" release/ ;;
-            esac
-          done
-          cp artifacts/ChronoArchiver-mac64/* release/ 2>/dev/null || true
+          mkdir -p staging/ChronoArchiver
+          cp -r src chronoarchiver.pyw requirements.txt staging/ChronoArchiver/
+          [ -f CHANGELOG.md ] && cp CHANGELOG.md staging/ChronoArchiver/
+          cd staging && zip -r "../release/ChronoArchiver-${{ steps.ver.outputs.VERSION }}-src.zip" ChronoArchiver \
+            -x "*.pyc" -x "*__pycache__*" -x "*.git*" -x "ChronoArchiver/src/core/models/*" -x "*.onnx"
+          cd ..
+
+      - name: Flatten and rename artifacts
+        run: |
+          cp artifacts/ChronoArchiver-win64/ChronoArchiver-Setup.exe "release/ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-win64.exe"
+          cp artifacts/ChronoArchiver-mac64/*.zip release/
           ls -la release/
 
       - name: Create Release

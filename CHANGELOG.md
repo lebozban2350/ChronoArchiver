@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.7.0] - 2026-03-24
+### Changed
+- **Python-based install**: Windows and macOS setup no longer install compiled binaries. App runs as `.pyw` via `pythonw`, eliminating 3–4 minute startup delays caused by PyInstaller extraction on Windows.
+- **Setup payload**: Downloads `ChronoArchiver-{ver}-src.zip` (Python source); creates venv on first run. Fast startup; venv lives in install dir for clean uninstall.
+- **Uninstallers**: Windows: "Uninstall ChronoArchiver.bat" in Start Menu. macOS: "Uninstall ChronoArchiver.command" in app bundle.
+
+### Removed
+- PyInstaller full-app build (`chronoarchiver.spec`), Inno Setup (`ChronoArchiver.iss`). Setup launcher (~6MB) retained.
+
 ## [3.6.0] - 2026-03-23
 ### Added
 - **Small setup launcher (~6MB)**: Windows and macOS installers are now minimal bootstrap executables. On first run, a progress window downloads the full app (component name, download speed MB/s, % progress bar), extracts it, then launches. Subsequent runs start instantly.

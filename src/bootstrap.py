@@ -10,7 +10,7 @@ from pathlib import Path
 _SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_SCRIPT_DIR))
 
-from core.venv_manager import get_venv_path, get_python_exe, ensure_venv, is_venv_runnable, add_venv_to_path, _is_frozen
+from core.venv_manager import get_venv_path, get_python_exe, ensure_venv, is_venv_runnable, add_venv_to_path
 
 
 def _run_with_ui():
@@ -67,40 +67,26 @@ def _run_headless():
     return ensure_venv(progress_callback=progress, skip_opencv=True)
 
 
-def _run_frozen_app():
-    """Load app.py with importlib; runpy.run_path fails on frozen bundles (no __main__)."""
-    import importlib.util
-
-    base = Path(getattr(sys, "_MEIPASS", str(_SCRIPT_DIR)))
-    app_py = base / "src" / "ui" / "app.py"
-    if not app_py.is_file():
-        app_py = base / "ui" / "app.py"
-    if not app_py.is_file():
-        print(f"ChronoArchiver: missing app (looked under {base})", file=sys.stderr)
-        sys.exit(1)
-    os.chdir(str(base))
-    src_root = str(base / "src")
-    if os.path.isdir(src_root) and src_root not in sys.path:
-        sys.path.insert(0, src_root)
-    add_venv_to_path()
-    spec = importlib.util.spec_from_file_location("__main__", app_py)
-    if spec is None or spec.loader is None:
-        print("ChronoArchiver: cannot load app", file=sys.stderr)
-        sys.exit(1)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules["__main__"] = mod
-    spec.loader.exec_module(mod)
+def _find_app_py() -> Path:
+    """Locate app.py for repo (src/ui/) or installed (app/src/ui/) layout."""
+    for candidate in (
+        _SCRIPT_DIR / "src" / "ui" / "app.py",
+        _SCRIPT_DIR / "ui" / "app.py",
+    ):
+        if candidate.is_file():
+            return candidate
+    return _SCRIPT_DIR / "ui" / "app.py"  # fallback for error msg
 
 
 def main():
     get_venv_path()
-    # When frozen (PyInstaller), run app directly without venv
-    if _is_frozen():
-        _run_frozen_app()
-        return
     py = get_python_exe()
-    app_py = _SCRIPT_DIR / "ui" / "app.py"
-    app_root = str(_SCRIPT_DIR)
+    app_py = _find_app_py()
+    app_root = str(app_py.parent.parent.parent)
+
+    if not app_py.is_file():
+        print(f"ChronoArchiver: app not found (looked for {app_py})", file=sys.stderr)
+        sys.exit(1)
 
     if py.exists() and is_venv_runnable():
         add_venv_to_path()  # LD_LIBRARY_PATH for OpenCV CUDA (libcufft, libcudnn) before execv

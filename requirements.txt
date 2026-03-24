@@ -5,3 +5,5 @@ Pillow
 platformdirs
 opencv-python
 piexif
+static-ffmpeg
+GitPython

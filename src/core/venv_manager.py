@@ -125,14 +125,15 @@ def get_venv_packages() -> list:
 
 
 def _data_dir() -> Path:
+    install_root = os.environ.get("CHRONOARCHIVER_INSTALL_ROOT")
+    if install_root:
+        return Path(install_root)
     if platformdirs:
         return Path(platformdirs.user_data_dir(APP_NAME, APP_AUTHOR))
     return Path.home() / ".local" / "share" / APP_NAME
 
 
 def get_venv_path() -> Path:
-    if _is_frozen():
-        return Path(os.devnull)  # No venv when frozen
     return _data_dir() / "venv"
 
 
