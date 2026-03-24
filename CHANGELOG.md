@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.3.29] - 2026-03-24
+### Fixed
+- **Updater changelog popup**: Show changelog newest-first (top-down), matching CHANGELOG.md format.
+
 ## [3.3.28] - 2026-03-24
 ### Changed
 - **Main window**: Use green hourglass app icon in window title bar instead of default placeholder.

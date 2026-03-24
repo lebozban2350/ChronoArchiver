@@ -286,7 +286,7 @@ class ApplicationUpdater:
         return self._changelog
 
     def fetch_changelog_since(self, current_version: str) -> str:
-        """Fetch CHANGELOG.md and return all sections from (current, latest], oldest first. Falls back on single latest on failure."""
+        """Fetch CHANGELOG.md and return all sections from (current, latest], newest first. Falls back on single latest on failure."""
         current = (current_version or "").replace("v", "").strip()
         latest = (self._latest_version or "").replace("v", "").strip()
         if not latest or not _version_gt(latest, current):
@@ -309,7 +309,7 @@ class ApplicationUpdater:
             next_m = re.search(r"\n## \[", text[m.end() :])
             end = m.end() + next_m.start() if next_m else len(text)
             sections.append((v, text[start:end].strip()))
-        sections.sort(key=lambda x: _parse_version(x[0]))
+        sections.sort(key=lambda x: _parse_version(x[0]), reverse=True)
         result = "\n\n".join(s for _, s in sections) if sections else f"Changelog for v{latest} — see CHANGELOG.md on GitHub."
         return result
 
