@@ -8,6 +8,13 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver without v — must match an existing release tag (e.g. 3.7.9)'
+        required: true
+        default: '3.7.9'
+        type: string
 
 jobs:
   build-windows:
@@ -20,10 +27,15 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Get version from tag
+      - name: Resolve version (tag push or manual)
         id: ver
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
         shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build minimal setup launcher
         env:
@@ -50,9 +62,15 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Get version from tag
+      - name: Resolve version (tag push or manual)
         id: ver
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Generate icon.icns for macOS bundle
         run: |
@@ -93,9 +111,15 @@ jobs:
         with:
           path: artifacts
 
-      - name: Get version from tag
+      - name: Resolve version (tag push or manual)
         id: ver
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create source zip
         run: |
@@ -116,7 +140,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}
           name: ChronoArchiver ${{ steps.ver.outputs.VERSION }}
           draft: false
           prerelease: false
