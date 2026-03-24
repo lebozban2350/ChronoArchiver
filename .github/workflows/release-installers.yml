@@ -73,6 +73,17 @@ jobs:
         id: ver
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+      - name: Generate icon.icns for macOS bundle
+        run: |
+          ICONSET="src/ui/assets/icon.iconset"
+          mkdir -p "$ICONSET"
+          for sz in 16 32 64 128 256 512; do
+            sips -z $sz $sz src/ui/assets/icon.png --out "$ICONSET/icon_${sz}x${sz}.png"
+            sips -z $((sz*2)) $((sz*2)) src/ui/assets/icon.png --out "$ICONSET/icon_${sz}x${sz}@2x.png"
+          done
+          iconutil -c icns "$ICONSET" -o src/ui/assets/icon.icns
+          rm -rf "$ICONSET"
+
       - name: Install full app dependencies
         run: |
           python -m pip install --upgrade pip
@@ -81,7 +92,7 @@ jobs:
 
       - name: Build full app
         run: |
-          pyinstaller tools/chronoarchiver.spec
+          pyinstaller --noconfirm tools/chronoarchiver.spec
           ls -la dist/
 
       - name: Create full app zip (payload for setup)
@@ -93,7 +104,11 @@ jobs:
           CHRONOARCHIVER_VERSION: ${{ steps.ver.outputs.VERSION }}
         run: |
           pip install pyinstaller
-          pyinstaller tools/chronoarchiver_setup.spec
+          pyinstaller --noconfirm tools/chronoarchiver_setup.spec
+          ls -la dist/ChronoArchiver-Setup.app
+
+      - name: Create setup launcher zip
+        run: |
           cd dist && zip -r "ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-mac64.zip" ChronoArchiver-Setup.app && cd ..
 
       - name: Upload macOS artifacts
