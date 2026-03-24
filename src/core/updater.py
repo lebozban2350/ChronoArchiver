@@ -72,9 +72,9 @@ def _get_install_method() -> str | None:
 
 
 def _find_app_launch_cmd(install_method: str) -> list:
-    """Return command to restart the app: [executable, app.py] for git, ['chronoarchiver'] for AUR."""
+    """Return command to restart the app: [executable, app.py] for git, ['/usr/bin/chronoarchiver'] for AUR."""
     if install_method == "aur":
-        return ["chronoarchiver"]
+        return ["/usr/bin/chronoarchiver"]
     if getattr(sys, "frozen", False):
         return [sys.executable]
     app_py = os.path.join(_script_dir, "..", "ui", "app.py")
@@ -432,8 +432,7 @@ sleep 2
 if {update_cmd}; then
   setsid nohup {launch_str} </dev/null >/dev/null 2>&1 &
   disown -a 2>/dev/null || true
-  parent_pid=$PPID
-  nohup bash -c "sleep 2.5; kill $parent_pid 2>/dev/null" </dev/null &>/dev/null &
+  sleep 3
   exit 0
 else
   echo "Update failed. Press Enter to close."
