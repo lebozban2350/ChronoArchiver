@@ -65,7 +65,7 @@ QLineEdit {{
     background-color: #121212;
     border: 1px solid #1a1a1a;
     border-radius: 3px;
-    padding: 4px;
+    padding: 2px 6px;
     color: #fff;
     font-size: 11px;
 }}
@@ -73,7 +73,27 @@ QLineEdit:focus {{ border: 1px solid #3b82f6; }}
 
 QCheckBox {{
     font-size: 9px;
-    spacing: 4px;
+    spacing: 6px;
+}}
+QCheckBox::indicator {{
+    width: 15px;
+    height: 15px;
+    border-radius: 3px;
+}}
+QCheckBox::indicator:unchecked {{
+    background-color: #1f2937;
+    border: 1px solid #4b5563;
+}}
+QCheckBox::indicator:checked {{
+    background-color: #0f766e;
+    border: 1px solid #5eead4;
+}}
+QCheckBox::indicator:hover:unchecked {{
+    border: 1px solid #6b7280;
+}}
+QCheckBox::indicator:hover:checked {{
+    background-color: #0d9488;
+    border: 1px solid #99f6e4;
 }}
 
 QPushButton {{
@@ -893,6 +913,7 @@ if __name__ == "__main__":
         QMessageBox.warning(None, "ChronoArchiver", "Another instance is already running.")
         sys.exit(1)
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
     app.setApplicationName("ChronoArchiver")
     app.aboutToQuit.connect(release_single_instance)
     _load_bundled_fonts()

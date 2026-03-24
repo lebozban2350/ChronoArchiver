@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QCheckBox, QListWidget, QListWidgetItem,
     QProgressBar, QFileDialog, QSpinBox, QFrame, QDialog, QComboBox, QMessageBox,
-    QInputDialog, QTextEdit,
+    QInputDialog, QTextEdit, QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal, QObject, QTimer
 from PySide6.QtGui import QShowEvent, QPixmap, QTextCursor
@@ -213,8 +213,8 @@ class AIScannerPanel(QWidget):
         _bar_h = 28
         _browse_w, _browse_h = 60, _bar_h
         _edit_ss = (
-            f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; "
-            "background:#121212; border:1px solid #1a1a1a;"
+            f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; max-height:{_bar_h}px; "
+            "padding:2px 6px; background:#121212; border:1px solid #1a1a1a;"
         )
         _btn_ss = "font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626;"
 
@@ -226,17 +226,19 @@ class AIScannerPanel(QWidget):
         v_dir.setSpacing(0)
         h_src = QHBoxLayout()
         h_src.setSpacing(6)
+        h_src.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self._edit_path = QLineEdit()
         self._edit_path.setPlaceholderText("SELECT PHOTO LIBRARY...")
         self._edit_path.textChanged.connect(self._update_start_enabled)
         self._edit_path.setStyleSheet(_edit_ss)
-        self._edit_path.setMinimumHeight(_bar_h)
-        h_src.addWidget(self._edit_path, 1)
+        self._edit_path.setFixedHeight(_bar_h)
+        h_src.addWidget(self._edit_path, 1, Qt.AlignmentFlag.AlignVCenter)
         self._btn_browse = QPushButton("Browse")
         self._btn_browse.setFixedSize(_browse_w, _browse_h)
+        self._btn_browse.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._btn_browse.setStyleSheet(_btn_ss)
         self._btn_browse.clicked.connect(self._browse)
-        h_src.addWidget(self._btn_browse)
+        h_src.addWidget(self._btn_browse, 0, Qt.AlignmentFlag.AlignVCenter)
         v_dir.addLayout(h_src)
         v_dir.addWidget(QLabel("Photos for AI detection (YuNet/YOLOv8)", styleSheet=_shint))
         h_strip.addWidget(grp_dir, 8)
@@ -255,13 +257,15 @@ class AIScannerPanel(QWidget):
         self._chk_animals.setToolTip("Also keep photos with detected persons and animals")
         h_conf = QHBoxLayout()
         lbl_conf = QLabel("Conf:")
-        lbl_conf.setStyleSheet("font-size:7px; color:#888;")
+        lbl_conf.setStyleSheet("font-size:8px; color:#888;")
         self._spin_thresh = QSpinBox()
         self._spin_thresh.setRange(10, 90)
         self._spin_thresh.setValue(40)
         self._spin_thresh.setSuffix("%")
-        self._spin_thresh.setStyleSheet("font-size:9px;")
-        self._spin_thresh.setFixedWidth(55)
+        self._spin_thresh.setStyleSheet(
+            "font-size:9px; padding-left:4px; padding-right:6px; min-height:22px;"
+        )
+        self._spin_thresh.setFixedWidth(72)
         h_conf.addWidget(lbl_conf)
         h_conf.addWidget(self._spin_thresh)
         h_conf.addStretch()

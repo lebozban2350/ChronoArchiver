@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.7.10] - 2026-03-24
+### Changed
+- **UI**: Application uses the Fusion style for consistent themed controls on all platforms.
+- **UI — Media Organizer**: Path fields fixed to 28px height with spacing between rows; Browse buttons use fixed size policy so they stay aligned with line edits; Folder structure / Action / Dup dropdown label and text sizes increased slightly; Photos and Videos checkboxes no longer use a bordered frame; global checkbox indicator styling improves checked-state contrast (teal fill vs grey-on-blue).
+- **UI — Mass AV1 Encoder**: Source and target directory rows use matching fixed line-edit height and vertical spacing between rows; Browse buttons no longer stretch taller than their row.
+- **UI — AI Media Scanner**: Library path row vertically centers line edit and Browse; confidence label text slightly larger; confidence spin box widened so the “%” suffix is not clipped.
+
 ## [3.7.9] - 2026-03-24
 ### Changed
 - **Windows / macOS setup (bootstrap)**: Updates no longer delete the entire install directory. The source zip is **merged** over the existing tree: `venv/` is never removed, and files whose size already matches the archive entry are **not rewritten** (faster re-runs and upgrades).

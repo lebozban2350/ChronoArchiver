@@ -141,20 +141,20 @@ class AV1EncoderPanel(QWidget):
         _bar_h = 28
         _browse_w, _browse_h = 60, _bar_h
         _dir_edit_ss = (
-            f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; "
-            "background:#121212; border:1px solid #1a1a1a;"
+            f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; max-height:{_bar_h}px; "
+            "padding:2px 6px; background:#121212; border:1px solid #1a1a1a;"
         )
         _dir_btn_ss = "font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626;"
 
         grp_dir = QGroupBox("Directories")
         v_dir = QVBoxLayout(grp_dir)
         v_dir.setContentsMargins(6, 8, 6, 2)
-        v_dir.setSpacing(1)
+        v_dir.setSpacing(6)
 
         self._edit_src = QLineEdit()
         self._edit_src.setPlaceholderText("SOURCE PATH (local or smb://)")
         self._edit_src.setStyleSheet(_dir_edit_ss)
-        self._edit_src.setMinimumHeight(_bar_h)
+        self._edit_src.setFixedHeight(_bar_h)
         self._edit_src.setText("")
 
         h_src = QHBoxLayout()
@@ -162,6 +162,7 @@ class AV1EncoderPanel(QWidget):
         h_src.addWidget(self._edit_src, 1)
         self._btn_browse_src = QPushButton("Browse")
         self._btn_browse_src.setFixedSize(_browse_w, _browse_h)
+        self._btn_browse_src.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._btn_browse_src.setStyleSheet(_dir_btn_ss)
         self._btn_browse_src.clicked.connect(self._browse_src)
         h_src.addWidget(self._btn_browse_src)
@@ -177,7 +178,7 @@ class AV1EncoderPanel(QWidget):
         self._edit_dst = QLineEdit()
         self._edit_dst.setPlaceholderText("TARGET PATH (local or smb://)")
         self._edit_dst.setStyleSheet(_dir_edit_ss)
-        self._edit_dst.setMinimumHeight(_bar_h)
+        self._edit_dst.setFixedHeight(_bar_h)
         self._edit_dst.setText("")
 
         h_dst = QHBoxLayout()
@@ -185,6 +186,7 @@ class AV1EncoderPanel(QWidget):
         h_dst.addWidget(self._edit_dst, 1)
         self._btn_browse_dst = QPushButton("Browse")
         self._btn_browse_dst.setFixedSize(_browse_w, _browse_h)
+        self._btn_browse_dst.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._btn_browse_dst.setStyleSheet(_dir_btn_ss)
         self._btn_browse_dst.clicked.connect(self._browse_dst)
         h_dst.addWidget(self._btn_browse_dst)

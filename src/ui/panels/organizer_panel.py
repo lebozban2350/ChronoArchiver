@@ -50,7 +50,10 @@ class MediaOrganizerPanel(QWidget):
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
         _bar_h = 28
         _browse_w, _browse_h = 60, _bar_h
-        _edit_ss = f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; background:#121212; border:1px solid #1a1a1a;"
+        _edit_ss = (
+            f"color:#fff; font-size:11px; font-weight:500; background:#121212; border:1px solid #1a1a1a; "
+            f"padding:2px 6px; min-height:{_bar_h}px; max-height:{_bar_h}px;"
+        )
         _btn_ss = "font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626;"
 
         root = QVBoxLayout(self)
@@ -67,7 +70,7 @@ class MediaOrganizerPanel(QWidget):
         grp_paths.setFixedHeight(_box_height)
         v_paths = QVBoxLayout(grp_paths)
         v_paths.setContentsMargins(6, 4, 6, 4)
-        v_paths.setSpacing(4)
+        v_paths.setSpacing(8)
 
         # Source row
         h_src = QHBoxLayout()
@@ -75,10 +78,11 @@ class MediaOrganizerPanel(QWidget):
         self._edit_path = QLineEdit()
         self._edit_path.setPlaceholderText("SOURCE — folder containing media...")
         self._edit_path.setStyleSheet(_edit_ss)
-        self._edit_path.setMinimumHeight(_bar_h)
+        self._edit_path.setFixedHeight(_bar_h)
         h_src.addWidget(self._edit_path, 1)
         self._btn_browse_src = QPushButton("Browse")
         self._btn_browse_src.setFixedSize(_browse_w, _browse_h)
+        self._btn_browse_src.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._btn_browse_src.setStyleSheet(_btn_ss)
         self._btn_browse_src.clicked.connect(self._browse)
         h_src.addWidget(self._btn_browse_src)
@@ -90,10 +94,11 @@ class MediaOrganizerPanel(QWidget):
         self._edit_target = QLineEdit()
         self._edit_target.setPlaceholderText("TARGET (optional, blank = in-place)")
         self._edit_target.setStyleSheet(_edit_ss)
-        self._edit_target.setMinimumHeight(_bar_h)
+        self._edit_target.setFixedHeight(_bar_h)
         h_tgt.addWidget(self._edit_target, 1)
         self._btn_browse_target = QPushButton("Browse")
         self._btn_browse_target.setFixedSize(_browse_w, _browse_h)
+        self._btn_browse_target.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._btn_browse_target.setStyleSheet(_btn_ss)
         self._btn_browse_target.clicked.connect(self._browse_target)
         h_tgt.addWidget(self._btn_browse_target)
@@ -112,7 +117,7 @@ class MediaOrganizerPanel(QWidget):
         self._chk_videos = QCheckBox("Videos")
         self._chk_videos.setChecked(True)
         for cb in [self._chk_photos, self._chk_videos]:
-            cb.setStyleSheet("font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626;")
+            cb.setStyleSheet("font-size:9px; font-weight:700; color:#aaa; border:none;")
             h_media.addWidget(cb)
         v_paths.addLayout(h_media)
         h_strip.addWidget(grp_paths, 1)
@@ -129,7 +134,7 @@ class MediaOrganizerPanel(QWidget):
         self._chk_dry.setStyleSheet("font-size:9px; font-weight:700; color:#aaa;")
         v_mode.addWidget(self._chk_dry)
         lbl_struct = QLabel("Folder structure:")
-        lbl_struct.setStyleSheet("font-size:7px; color:#888; margin-top:4px;")
+        lbl_struct.setStyleSheet("font-size:8px; color:#888; margin-top:4px;")
         v_mode.addWidget(lbl_struct)
         self._combo_structure = QComboBox()
         self._combo_structure.addItems([
@@ -138,23 +143,23 @@ class MediaOrganizerPanel(QWidget):
             "YYYY-MM-DD (flat day)",
             "YYYY/YYYY-MM/YYYY-MM-DD (nested day)",
         ])
-        self._combo_structure.setStyleSheet("font-size:8px; min-height:20px;")
+        self._combo_structure.setStyleSheet("font-size:9px; min-height:21px;")
         v_mode.addWidget(self._combo_structure)
         h_mode = QHBoxLayout()
         self._combo_action = QComboBox()
         self._combo_action.addItems(["Move", "Copy", "Symlink"])
         self._combo_action.setToolTip("Move=relocate; Copy=duplicate; Symlink=create links")
-        self._combo_action.setStyleSheet("font-size:7px; min-height:18px;")
+        self._combo_action.setStyleSheet("font-size:8px; min-height:19px;")
         self._combo_dup = QComboBox()
         self._combo_dup.addItems([
             "Rename", "Skip", "Keep newer",
             "Overwrite if same name", "Overwrite if same name+size",
         ])
         self._combo_dup.setToolTip("Rename=add _1, _2… on collision; Skip=skip if exists; Keep newer=skip if target newer; Overwrite name=replace any; Overwrite name+size=replace only when size matches, else rename")
-        self._combo_dup.setStyleSheet("font-size:7px; min-height:18px;")
-        h_mode.addWidget(QLabel("Action:", styleSheet="font-size:7px; color:#888;"))
+        self._combo_dup.setStyleSheet("font-size:8px; min-height:19px;")
+        h_mode.addWidget(QLabel("Action:", styleSheet="font-size:8px; color:#888;"))
         h_mode.addWidget(self._combo_action, 1)
-        h_mode.addWidget(QLabel("Dup:", styleSheet="font-size:7px; color:#888;"))
+        h_mode.addWidget(QLabel("Dup:", styleSheet="font-size:8px; color:#888;"))
         h_mode.addWidget(self._combo_dup, 1)
         v_mode.addLayout(h_mode)
         h_strip.addWidget(grp_mode, 0)
@@ -271,7 +276,7 @@ class MediaOrganizerPanel(QWidget):
         elif w in (self._btn_browse_src, self._btn_browse_target):
             w.setStyleSheet("font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626;")
         elif w in (self._chk_photos, self._chk_videos):
-            w.setStyleSheet("font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626;")
+            w.setStyleSheet("font-size:9px; font-weight:700; color:#aaa; border:none;")
 
     def _pulse_guide(self):
         target = self._get_guide_target()
@@ -290,7 +295,7 @@ class MediaOrganizerPanel(QWidget):
             elif target in (self._btn_browse_src, self._btn_browse_target):
                 target.setStyleSheet("font-size:9px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
             else:
-                target.setStyleSheet("font-size:9px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
+                target.setStyleSheet("font-size:9px; font-weight:700; color:#ef4444; border:none;")
         else:
             self._clear_guide_glow(target)
 

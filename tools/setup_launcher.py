@@ -35,7 +35,7 @@ def _read_version() -> str:
                 return open(vpath, "r", encoding="utf-8").read().strip()
     except Exception:
         pass
-    return os.environ.get("CHRONOARCHIVER_VERSION", "3.7.9")
+    return os.environ.get("CHRONOARCHIVER_VERSION", "3.7.10")
 
 
 VERSION = _read_version()
@@ -175,7 +175,7 @@ def _can_launch_without_setup(app_dir: Path | None = None) -> bool:
     """
     True only when the install tree already contains this setup's source (src/version.py).
     Do not use version.txt alone — it can get ahead of a failed/partial upgrade and would
-    skip downloading/extracting while leaving an older app (e.g. 3.7.7 UI with 3.7.9 stamp).
+    skip downloading/extracting while leaving an older app (e.g. 3.7.7 UI with 3.7.10 stamp).
     """
     root = app_dir if app_dir is not None else _app_dir()
     return _should_skip_source_zip(root)
