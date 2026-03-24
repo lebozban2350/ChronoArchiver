@@ -58,12 +58,14 @@ def _setup_install_logging(enabled: bool) -> None:
         return
     p = _installer_log_dir() / "ChronoArchiver_installer.log"
     try:
-        p.write_text(
-            f"ChronoArchiver installer log — v{VERSION}\n"
+        # ASCII in header avoids mojibake in some Windows viewers; BOM helps Notepad detect UTF-8.
+        header = (
+            f"ChronoArchiver installer log - v{VERSION}\n"
             f"Started {datetime.now().isoformat(timespec='seconds')}\n"
-            f"frozen={getattr(sys, 'frozen', False)} executable={sys.executable!r}\n\n",
-            encoding="utf-8",
+            f"frozen={getattr(sys, 'frozen', False)} executable={sys.executable!r}\n"
+            f"platform={platform.system()} {platform.release()} python={sys.version.split()[0]}\n\n"
         )
+        p.write_text("\ufeff" + header, encoding="utf-8")
         _INSTALL_LOG_FILE = p
     except OSError:
         _INSTALL_LOG_FILE = None
