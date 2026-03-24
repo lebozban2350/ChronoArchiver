@@ -32,6 +32,7 @@ jobs:
           pip install pyinstaller
           pyinstaller --noconfirm tools/chronoarchiver_setup.spec
           ls -la dist/
+        shell: bash
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
