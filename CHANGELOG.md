@@ -5,6 +5,13 @@
 - **Windows / macOS setup (bootstrap)**: Updates no longer delete the entire install directory. The source zip is **merged** over the existing tree: `venv/` is never removed, and files whose size already matches the archive entry are **not rewritten** (faster re-runs and upgrades).
 - **Setup**: If `src/version.py`, `chronoarchiver.pyw`, and `requirements.txt` already match this setup’s version, the **source zip is not downloaded** again.
 - **Setup**: When a working venv already exists, setup runs **`pip install -r requirements.txt`** so new or changed dependencies are applied; it no longer exits early without syncing after an app upgrade.
+- **Mass AV1 Encoder settings**: `av1_config.json` now lives under `<install root>/Settings` for setup-installed Windows/macOS (next to `Logs`, `src`, `venv`), instead of a nested `%LOCALAPPDATA%\\ChronoArchiver\\ChronoArchiver` folder. Other installs use `user_config_dir` with no duplicate app segment. Existing files are migrated once from the legacy path.
+
+### Fixed
+- **Windows in-app update**: Replaced invalid `subprocess.CREATE_NEW_PROCESS` with `CREATE_NEW_PROCESS_GROUP` when spawning the post-exit installer helper (Python has no `CREATE_NEW_PROCESS`). Same correction for git-update and setup launcher app spawn. If installer spawn fails, the app no longer quits immediately after the error dialog.
+
+### Added
+- **GitHub Actions**: Manual **Run workflow** on `release-installers.yml` to rebuild Windows/macOS setup artifacts for a chosen version (e.g. `3.7.9`) and upload them to the matching release tag.
 
 ### Note
 - The **in-app updater** still downloads the small **Setup** executable (~6 MB) for each upgrade; that is separate from the large **source** zip, which setup now reuses or merges as above.

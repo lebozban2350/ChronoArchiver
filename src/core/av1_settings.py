@@ -1,5 +1,8 @@
 import json
 import os
+import shutil
+from pathlib import Path
+
 import platformdirs
 
 try:
@@ -48,12 +51,50 @@ def _sanitize_encoder_config(data: dict, defaults: dict) -> dict:
     return out
 
 
+def _av1_config_dir() -> Path:
+    """
+    Writable directory for av1_config.json.
+
+    - Installer / portable layout: <install root>/Settings (alongside Logs, venv, src).
+    - Else: platformdirs without a second app-name segment (Windows was
+      Local/ChronoArchiver/ChronoArchiver; we use Local/ChronoArchiver only).
+    """
+    install_root = os.environ.get("CHRONOARCHIVER_INSTALL_ROOT", "").strip()
+    if install_root:
+        return Path(install_root) / "Settings"
+    return Path(platformdirs.user_config_dir("ChronoArchiver", appauthor=False))
+
+
+def _legacy_av1_config_file() -> Path:
+    """Older releases used platformdirs default (nested ChronoArchiver on Windows)."""
+    return Path(platformdirs.user_config_dir("ChronoArchiver")) / "av1_config.json"
+
+
+def _migrate_legacy_av1_config(dest: Path) -> None:
+    if dest.exists():
+        return
+    legacy = _legacy_av1_config_file()
+    if not legacy.is_file() or legacy.resolve() == dest.resolve():
+        return
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(legacy, dest)
+        try:
+            legacy.unlink()
+        except OSError:
+            pass
+    except OSError:
+        pass
+
+
 class AV1Settings:
     """Handles persistent settings for ChronoArchiver AV1 Encoder."""
     
     def __init__(self):
-        self.config_dir = platformdirs.user_config_dir("ChronoArchiver")
-        self.config_path = os.path.join(self.config_dir, "av1_config.json")
+        cfg_dir = _av1_config_dir()
+        self.config_path = str(cfg_dir / "av1_config.json")
+        _migrate_legacy_av1_config(Path(self.config_path))
+        self.config_dir = str(cfg_dir)
         self.defaults = {
             "quality": 30,
             "preset": "p4",

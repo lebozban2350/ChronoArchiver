@@ -558,7 +558,7 @@ def _run_app(app_root: Path):
         pyw = app_root / "venv" / "Scripts" / "pythonw.exe"
         launcher = app_root / "chronoarchiver.pyw"
         cmd = [str(pyw), str(launcher)] if pyw.exists() else ["pythonw", str(launcher)]
-        flags = getattr(subprocess, "CREATE_NEW_PROCESS", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
+        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
         subprocess.Popen(cmd, cwd=str(app_root), creationflags=flags, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     else:
         app_bundle = app_root / "ChronoArchiver.app"

@@ -846,9 +846,12 @@ class ChronoArchiverApp(QMainWindow):
             def on_error(msg):
                 QMessageBox.warning(self, "Update Failed", msg)
 
-            self.updater.perform_installer_update(latest, installer_path, on_error=on_error)
-            debug(UTILITY_APP, "Installer spawn done, quitting app")
-            QApplication.instance().quit()
+            if self.updater.perform_installer_update(latest, installer_path, on_error=on_error):
+                debug(UTILITY_APP, "Installer spawn done, quitting app")
+                QApplication.instance().quit()
+            else:
+                self.btn_update.setText(f"UPDATE v{latest} AVAILABLE")
+                self._update_pulse_timer.start()
             return
 
         method_desc = "git pull" if method == "git" else "AUR (paru/yay)"

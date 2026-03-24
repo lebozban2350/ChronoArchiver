@@ -154,7 +154,7 @@ start "" {" ".join('"%s"' % c for c in launch_cmd)}
                     pass
             subprocess.Popen(
                 ["cmd", "/c", path],
-                creationflags=subprocess.CREATE_NEW_PROCESS | subprocess.DETACHED_PROCESS,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -401,7 +401,8 @@ class ApplicationUpdater:
     ):
         """
         Spawn a helper that waits for this process to exit, runs the installer, then the
-        installer launches the updated app. Call QApplication.quit() after this returns.
+        installer launches the updated app. Call QApplication.quit() after this returns
+        only if this returns True.
         """
         launch_cmd = _find_app_launch_cmd("installer")
         if platform.system() == "Windows":
@@ -440,7 +441,7 @@ fi
             if platform.system() == "Windows":
                 subprocess.Popen(
                     ["cmd", "/c", path],
-                    creationflags=subprocess.CREATE_NEW_PROCESS | subprocess.DETACHED_PROCESS,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -454,9 +455,11 @@ fi
                     stderr=subprocess.DEVNULL,
                     start_new_session=True,
                 )
+            return True
         except Exception as e:
             if on_error:
                 on_error(f"Failed to run installer: {e}")
+            return False
 
     def fetch_changelog_since(self, current_version: str) -> str:
         """Fetch CHANGELOG.md and return all sections from (current, latest], newest first. Falls back on single latest on failure."""
@@ -545,7 +548,7 @@ except Exception:
 if os.name == "nt":
     subprocess.Popen(
         launch_cmd,
-        creationflags=subprocess.CREATE_NEW_PROCESS | subprocess.DETACHED_PROCESS,
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -570,7 +573,7 @@ else:
             if platform.system() == "Windows":
                 subprocess.Popen(
                     cmd,
-                    creationflags=subprocess.CREATE_NEW_PROCESS | subprocess.DETACHED_PROCESS,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
