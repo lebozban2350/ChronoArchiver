@@ -63,14 +63,14 @@ class MediaOrganizerPanel(QWidget):
         # ── COMMAND STRIP ─────────────────────────────────────────────────────
         h_strip = QHBoxLayout()
         h_strip.setSpacing(6)
-        _box_height = 126
+        _box_height = 118
 
         # 1. Paths (Source, Target, Photos/Videos — merged)
         grp_paths = QGroupBox("Paths")
         grp_paths.setFixedHeight(_box_height)
         v_paths = QVBoxLayout(grp_paths)
-        v_paths.setContentsMargins(6, 4, 6, 4)
-        v_paths.setSpacing(8)
+        v_paths.setContentsMargins(6, 2, 6, 3)
+        v_paths.setSpacing(5)
 
         # Source row
         h_src = QHBoxLayout()
@@ -105,10 +105,16 @@ class MediaOrganizerPanel(QWidget):
         v_paths.addLayout(h_tgt)
 
         # Row 3: Date hint (was row 4)
-        v_paths.addWidget(QLabel("Date from EXIF/ffprobe. Blank target = in-place.", styleSheet=_shint))
+        v_paths.addWidget(
+            QLabel(
+                "Date from EXIF/ffprobe. Blank target = in-place.",
+                styleSheet=_shint + " margin-bottom: -2px;",
+            )
+        )
 
         # Row 4: Organize + Photos/Videos — right aligned
         h_media = QHBoxLayout()
+        h_media.setContentsMargins(0, -2, 0, 0)
         h_media.addStretch(1)
         lbl_media = QLabel("Organize:", styleSheet=_shint)
         h_media.addWidget(lbl_media)
@@ -127,14 +133,14 @@ class MediaOrganizerPanel(QWidget):
         grp_mode.setFixedHeight(_box_height)
         grp_mode.setMaximumWidth(260)
         v_mode = QVBoxLayout(grp_mode)
-        v_mode.setContentsMargins(6, 4, 6, 4)
-        v_mode.setSpacing(2)
+        v_mode.setContentsMargins(6, 2, 6, 3)
+        v_mode.setSpacing(1)
         self._chk_dry = QCheckBox("Dry Run (Simulation)")
         self._chk_dry.setChecked(True)
         self._chk_dry.setStyleSheet("font-size:9px; font-weight:700; color:#aaa;")
         v_mode.addWidget(self._chk_dry)
         lbl_struct = QLabel("Folder structure:")
-        lbl_struct.setStyleSheet("font-size:8px; color:#888; margin-top:4px;")
+        lbl_struct.setStyleSheet("font-size:8px; color:#888; margin-top:1px; margin-bottom:0px;")
         v_mode.addWidget(lbl_struct)
         self._combo_structure = QComboBox()
         self._combo_structure.addItems([
@@ -143,20 +149,20 @@ class MediaOrganizerPanel(QWidget):
             "YYYY-MM-DD (flat day)",
             "YYYY/YYYY-MM/YYYY-MM-DD (nested day)",
         ])
-        self._combo_structure.setStyleSheet("font-size:9px; min-height:21px;")
+        self._combo_structure.setStyleSheet("font-size:9px; min-height:18px; max-height:18px;")
         v_mode.addWidget(self._combo_structure)
         h_mode = QHBoxLayout()
         self._combo_action = QComboBox()
         self._combo_action.addItems(["Move", "Copy", "Symlink"])
         self._combo_action.setToolTip("Move=relocate; Copy=duplicate; Symlink=create links")
-        self._combo_action.setStyleSheet("font-size:8px; min-height:19px;")
+        self._combo_action.setStyleSheet("font-size:8px; min-height:17px; max-height:17px;")
         self._combo_dup = QComboBox()
         self._combo_dup.addItems([
             "Rename", "Skip", "Keep newer",
             "Overwrite if same name", "Overwrite if same name+size",
         ])
         self._combo_dup.setToolTip("Rename=add _1, _2… on collision; Skip=skip if exists; Keep newer=skip if target newer; Overwrite name=replace any; Overwrite name+size=replace only when size matches, else rename")
-        self._combo_dup.setStyleSheet("font-size:8px; min-height:19px;")
+        self._combo_dup.setStyleSheet("font-size:8px; min-height:17px; max-height:17px;")
         h_mode.addWidget(QLabel("Action:", styleSheet="font-size:8px; color:#888;"))
         h_mode.addWidget(self._combo_action, 1)
         h_mode.addWidget(QLabel("Dup:", styleSheet="font-size:8px; color:#888;"))
@@ -218,7 +224,7 @@ class MediaOrganizerPanel(QWidget):
         # ── CONSOLE ───────────────────────────────────────────────────────────
         grp_log = QGroupBox("Console")
         v_log = QVBoxLayout(grp_log)
-        v_log.setContentsMargins(6, 4, 6, 4); v_log.setSpacing(0)
+        v_log.setContentsMargins(6, 2, 6, 4); v_log.setSpacing(0)
         self._log_edit = QTextEdit()
         self._log_edit.setObjectName("panelConsole")
         self._log_edit.setStyleSheet(PANEL_CONSOLE_TEXTEDIT_STYLE)

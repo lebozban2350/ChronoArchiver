@@ -159,8 +159,8 @@ class AV1EncoderPanel(QWidget):
 
         grp_dir = QGroupBox("Directories")
         v_dir = QVBoxLayout(grp_dir)
-        v_dir.setContentsMargins(6, 8, 6, 2)
-        v_dir.setSpacing(6)
+        v_dir.setContentsMargins(6, 4, 6, 2)
+        v_dir.setSpacing(4)
 
         self._edit_src = QLineEdit()
         self._edit_src.setPlaceholderText("SOURCE PATH (local or smb://)")
@@ -177,7 +177,7 @@ class AV1EncoderPanel(QWidget):
         grid_paths = QGridLayout()
         grid_paths.setContentsMargins(0, 0, 0, 0)
         grid_paths.setHorizontalSpacing(6)
-        grid_paths.setVerticalSpacing(6)
+        grid_paths.setVerticalSpacing(4)
         grid_paths.setColumnStretch(0, 1)
         grid_paths.setColumnStretch(1, 0)
         grid_paths.setColumnMinimumWidth(1, _browse_w)
@@ -222,7 +222,7 @@ class AV1EncoderPanel(QWidget):
         # 2. Configuration (bottom-left)
         grp_cfg = QGroupBox("Configuration")
         v_cfg = QVBoxLayout(grp_cfg)
-        v_cfg.setContentsMargins(6, 1, 6, 1)
+        v_cfg.setContentsMargins(6, 0, 6, 0)
         v_cfg.setSpacing(0)
 
         # Quality
@@ -292,10 +292,10 @@ class AV1EncoderPanel(QWidget):
         # 3. Options (right, same height as Directories + Configuration)
         grp_opts = QGroupBox("Options")
         v_opts = QVBoxLayout(grp_opts)
-        v_opts.setContentsMargins(6, 2, 6, 2)
+        v_opts.setContentsMargins(6, 1, 6, 1)
         v_opts.setSpacing(0)
 
-        _hint_s  = "font-size:8px; color:#444; margin-left:14px; margin-top:-1px;"
+        _hint_s  = "font-size:8px; color:#444; margin-left:14px; margin-top:-2px;"
         _check_s = "font-size:9px; font-weight:700; color:#aaa; spacing:2px;"
 
         def _mk_opt(cb, hint):
@@ -336,19 +336,14 @@ class AV1EncoderPanel(QWidget):
         self._chk_hw.stateChanged.connect(lambda v: self._settings.set("hw_accel_decode", bool(v)))
         v_opts.addWidget(_mk_opt(self._chk_hw, "Use GPU for demux / decode stage"))
 
-        self._chk_debug = QCheckBox("Debug Logging")
-        self._chk_debug.setChecked(self._settings.get("debug_mode"))
-        self._chk_debug.stateChanged.connect(lambda v: self._settings.set("debug_mode", bool(v)))
-        v_opts.addWidget(_mk_opt(self._chk_debug, "Write verbose ffmpeg output to log"))
-
         # Rejects
         w_rej = QWidget(); h_rej = QHBoxLayout(w_rej)
-        h_rej.setContentsMargins(0, 0, 0, 0); h_rej.setSpacing(4)
+        h_rej.setContentsMargins(0, 0, 0, 0); h_rej.setSpacing(2)
         self._chk_rej = QCheckBox("Skip Short Clips")
         self._chk_rej.setStyleSheet(_check_s)
         self._chk_rej.setChecked(self._settings.get("rejects_enabled"))
         self._chk_rej.stateChanged.connect(lambda v: self._settings.set("rejects_enabled", bool(v)))
-        h_rej.addWidget(self._chk_rej, 1)
+        h_rej.addWidget(self._chk_rej, 0)
         self._edit_rej = QLineEdit()
         self._edit_rej.setInputMask("99:99:99")
         self._edit_rej.setFixedWidth(50)
@@ -487,7 +482,7 @@ class AV1EncoderPanel(QWidget):
         # ── CONSOLE ───────────────────────────────────────────────────────────
         grp_log = QGroupBox("Console")
         v_log = QVBoxLayout(grp_log)
-        v_log.setContentsMargins(6, 4, 6, 4); v_log.setSpacing(0)
+        v_log.setContentsMargins(6, 2, 6, 4); v_log.setSpacing(0)
         self._log_edit = QTextEdit()
         self._log_edit.setObjectName("panelConsole")
         self._log_edit.setStyleSheet(PANEL_CONSOLE_TEXTEDIT_STYLE)

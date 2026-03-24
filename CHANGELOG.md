@@ -6,6 +6,9 @@
 
 ### Changed
 - Semver **3.8.1** (installers, PKGBUILD, PyPI metadata).
+- **UI — AI Media Scanner**: **Directories** strip gets more horizontal share vs **Engine Status** (stretch 9:3, narrower engine min width); path row sits slightly lower (top margin) toward the hint line. **Confidence:** label (full word), smaller spinbox, vertically centered with the label.
+- **UI — Mass AV1 Encoder**: **Skip short clips** time field sits closer to its checkbox; **Debug logging** option removed (use footer **DEBUG** for logs). **Directories**, **Configuration**, and **Options** use tighter vertical margins/spacing so the **Console** gains space.
+- **UI — Media Organizer**: **Paths** / **Execution Mode** boxes slightly shorter; **Folder structure** combo closer to its label; **Photos** / **Videos** nudged up; **Console** top margin trimmed.
 - **Qt application identity**: `setOrganizationName` / `setApplicationName` use **`APP_AUTHOR`** and **`APP_NAME`** from `app_paths`.
 - **Setup launcher / `chronoarchiver.pyw`**: **`ENV_INSTALL_ROOT`** / **`_ENV_INSTALL_ROOT`** constants aligned with `app_paths.ENV_INSTALL_ROOT`; FFmpeg bootstrap worker and macOS launcher **`export`** interpolate the same name so the env key cannot drift.
 - **Removed** dead **`get_models_dir`** from **`venv_manager`** (use **`app_paths.models_dir()`**).
