@@ -9,7 +9,7 @@ import re
 # Dracula-inspired professional palette
 FILENAME = "#f8f8f2"      # Bright white — file basename only (last path segment)
 PATH_FOLDER = "#94e2d5"   # Teal — directory components inside quoted paths
-PATH_SEP = "#7f849c"      # Gray — / and \\ between segments
+PATH_SEP = "#ff79c6"      # Bright pink — / and \\ between segments
 QUOTE = "#6272a4"        # Muted — quote chars
 ARROW = "#8be9fd"        # Cyan — ->
 DRY_RUN = "#ffb86c"      # Amber — [DRY RUN]

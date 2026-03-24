@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.3.30] - 2026-03-24
+### Changed
+- **Console (all panels)**: Path separators (/, \\) bright pink instead of gray.
+
 ## [3.3.29] - 2026-03-24
 ### Fixed
 - **Updater changelog popup**: Show changelog newest-first (top-down), matching CHANGELOG.md format.
