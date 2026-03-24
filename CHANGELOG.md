@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.3.7] - 2026-03-22
+### Fixed
+- **AUR updater**: Use `-Sy` instead of `-Syu` so only chronoarchiver is updated; avoids full system upgrade and unrelated package conflicts (e.g. vlc-plugin-lua).
+
 ## [3.3.6] - 2026-03-22
 ### Removed
 - **Media Organizer**: Export Log button (use Copy Console in footer instead).

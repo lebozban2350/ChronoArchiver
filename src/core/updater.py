@@ -194,9 +194,9 @@ class ApplicationUpdater:
     def get_install_method(self) -> str | None:
         """
         Returns: 'git' | 'aur' | None
-        - git: Running from git clone (Windows or Linux) — use git pull
-        - aur: Installed via AUR on Arch — use paru/yay/pacman
-        - None: Unknown install, cannot auto-update
+        - git: Running from git clone (Windows, Linux, macOS) — use git pull
+        - aur: Installed via AUR on Arch Linux — use paru/yay/pacman
+        - None: Unknown install (e.g. packaged app), cannot auto-update
         """
         return _get_install_method()
 
@@ -305,7 +305,7 @@ class ApplicationUpdater:
             term = _find_linux_terminal()
             if not helper and not term:
                 if on_error:
-                    on_error("No AUR helper (paru/yay) or terminal found. Run 'paru -Syu chronoarchiver' or 'yay -Syu chronoarchiver' manually.")
+                    on_error("No AUR helper (paru/yay) or terminal found. Run 'paru -Sy chronoarchiver' or 'yay -Sy chronoarchiver' manually.")
                 return
             self._spawn_aur_updater(helper, term, launch_cmd)
         else:
@@ -346,9 +346,11 @@ if os.name == "nt":
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        cwd=repo_root,
     )
     sys.exit(0)
 else:
+    os.chdir(repo_root)
     os.execv(launch_cmd[0], launch_cmd)
 '''
         fd, path = tempfile.mkstemp(suffix=".py")
@@ -386,9 +388,9 @@ else:
     def _spawn_aur_updater(self, helper: str | None, term: str | None, launch_cmd: list):
         """Spawn process that runs AUR update then restarts app."""
         if helper:
-            update_cmd = f"{helper} -Syu chronoarchiver"
+            update_cmd = f"{helper} -Sy chronoarchiver"
         else:
-            update_cmd = "pkexec pacman -Syu chronoarchiver"
+            update_cmd = "pkexec pacman -Sy chronoarchiver"
         launch_str = " ".join(repr(c) for c in launch_cmd)
         script_body = f"""#!/bin/bash
 sleep 2
