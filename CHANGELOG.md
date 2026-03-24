@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.5.2] - 2026-03-24
+### Fixed
+- **Windows uninstaller**: Add `[UninstallDelete]` to remove entire install dir, including runtime-created `static_ffmpeg` files (win32.zip, bin/win32/).
+
 ## [3.5.1] - 2026-03-24
 ### Fixed
 - **PyInstaller / Windows & macOS**: Frozen app failed on launch (`runpy` could not load `__main__` from bundled `app.py`). Bootstrap now resolves `src/ui/app.py` under `sys._MEIPASS` and loads the GUI with `importlib` so the installed `.exe` / `.app` starts correctly.

@@ -3,7 +3,7 @@
 ; Requires: dist/ChronoArchiver/ folder from PyInstaller
 
 #define MyAppName "ChronoArchiver"
-#define MyAppVersion "3.5.1"
+#define MyAppVersion "3.5.2"
 #define MyAppPublisher "UnDadFeated"
 #define MyAppURL "https://github.com/UnDadFeated/ChronoArchiver"
 #define MyAppExeName "ChronoArchiver.exe"
@@ -52,3 +52,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+; Remove entire install dir on uninstall (static_ffmpeg creates win32.zip + bin/win32 at runtime)
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}"
