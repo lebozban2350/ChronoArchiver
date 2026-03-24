@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.6] - 2026-03-23
+### Fixed
+- **Windows crash on launch**: QSS f-string parsed CSS braces as Python expressions (`NameError: name 'border' is not defined`). Switched to `.format()` with escaped braces.
+
+### Changed
+- **README**: Added Troubleshooting section (first-startup delay, debug log paths).
+
 ## [3.5.5] - 2026-03-23
 ### Added
 - **In-app installer updates (Windows & macOS)**: Frozen .exe/.app can now update without visiting the Releases page. Download progress popup (file, size, MB/s), then app quits, runs installer, restarts. FFmpeg-style UX.

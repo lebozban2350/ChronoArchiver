@@ -45,11 +45,12 @@ _FONT_SANS = "'Inter', 'Segoe UI', 'Lucida Grande', sans-serif" if platform.syst
 _FONT_MONO = "'JetBrains Mono', 'Consolas', 'Cascadia Code', monospace" if platform.system() == "Windows" else "'JetBrains Mono', 'DejaVu Sans Mono', monospace"
 
 # Global Stylesheet (Mass AV1 Encoder QSS)
-QSS = f"""
+# Use .format() to avoid f-string parsing CSS braces as Python expressions (NameError on Windows)
+QSS = """
 QMainWindow {{ background-color: #0c0c0c; }}
-QWidget {{ color: #e5e7eb; font-family: {_FONT_SANS}; }}
+QWidget {{ color: #e5e7eb; font-family: {0}; }}
 
-QGroupBox {
+QGroupBox {{
     border: 1px solid #1a1a1a;
     border-radius: 4px;
     margin-top: 10px;
@@ -57,20 +58,20 @@ QGroupBox {
     font-weight: 800;
     color: #4b5563;
     text-transform: uppercase;
-}
-QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 3px; }
+}}
+QGroupBox::title {{ subcontrol-origin: margin; left: 8px; padding: 0 3px; }}
 
-QLineEdit {
+QLineEdit {{
     background-color: #121212;
     border: 1px solid #1a1a1a;
     border-radius: 3px;
     padding: 4px;
     color: #fff;
     font-size: 11px;
-}
-QLineEdit:focus { border: 1px solid #3b82f6; }
+}}
+QLineEdit:focus {{ border: 1px solid #3b82f6; }}
 
-QPushButton {
+QPushButton {{
     background-color: #1a1a1a;
     border: 1px solid #262626;
     border-radius: 4px;
@@ -78,36 +79,36 @@ QPushButton {
     font-size: 9px;
     font-weight: 700;
     padding: 4px 8px;
-}
-QPushButton:hover { background-color: #262626; color: #fff; }
-QPushButton:pressed { background-color: #121212; }
+}}
+QPushButton:hover {{ background-color: #262626; color: #fff; }}
+QPushButton:pressed {{ background-color: #121212; }}
 
-QPushButton#btnStart {
+QPushButton#btnStart {{
     background-color: #10b981;
     color: #064e3b;
     border: none;
     font-size: 10px;
     font-weight: 900;
-}
-QPushButton#btnStart:hover { background-color: #34d399; }
-QPushButton#btnStart:disabled {
+}}
+QPushButton#btnStart:hover {{ background-color: #34d399; }}
+QPushButton#btnStart:disabled {{
     background-color: #1a1a1a;
     color: #6b7280;
     border: 1px solid #262626;
-}
+}}
 
-QPushButton#btnStop {
+QPushButton#btnStop {{
     background-color: #ef4444;
     color: #450a0a;
     border: none;
-}
-QPushButton#btnStop:disabled {
+}}
+QPushButton#btnStop:disabled {{
     background-color: #1a1a1a;
     color: #6b7280;
     border: 1px solid #262626;
-}
+}}
 
-QProgressBar {
+QProgressBar {{
     background-color: #121212;
     border: 1px solid #1a1a1a;
     border-radius: 2px;
@@ -115,29 +116,29 @@ QProgressBar {
     font-size: 8px;
     font-weight: 800;
     color: #fff;
-}
-QProgressBar::chunk { background-color: #3b82f6; width: 1px; }
-QProgressBar#masterBar::chunk { background-color: #10b981; }
+}}
+QProgressBar::chunk {{ background-color: #3b82f6; width: 1px; }}
+QProgressBar#masterBar::chunk {{ background-color: #10b981; }}
 
 QListWidget, QTextEdit {{
     background-color: #080808;
     border: 1px solid #141414;
-    font-family: {_FONT_MONO};
+    font-family: {1};
     font-size: 9px;
     color: #e5e7eb;
 }}
 
-QScrollBar:vertical {
+QScrollBar:vertical {{
     border: none;
     background: #0c0c0c;
     width: 4px;
     margin: 0px;
-}
-QScrollBar::handle:vertical { background: #1f2937; min-height: 20px; border-radius: 2px; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+}}
+QScrollBar::handle:vertical {{ background: #1f2937; min-height: 20px; border-radius: 2px; }}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
 
 /* Custom Nav Buttons */
-QPushButton#navBtn {
+QPushButton#navBtn {{
     text-align: left;
     padding-left: 12px;
     height: 28px;
@@ -146,14 +147,14 @@ QPushButton#navBtn {
     border-radius: 0px;
     background: transparent;
     color: #6b7280;
-}
-QPushButton#navBtn:hover { background: #111111; color: #fff; }
-QPushButton#navBtn[active="true"] {
+}}
+QPushButton#navBtn:hover {{ background: #111111; color: #fff; }}
+QPushButton#navBtn[active="true"] {{
     background: #1a1a1a;
     color: #3b82f6;
     border-left: 2px solid #3b82f6;
-}
-"""
+}}
+""".format(_FONT_SANS, _FONT_MONO)
 
 
 def _load_bundled_fonts():

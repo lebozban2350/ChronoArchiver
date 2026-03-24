@@ -7,7 +7,7 @@
 ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application. Built on PySide6 with an app-private Python environment; no system-wide package installation required.
 </div>
 
-[![Version](https://img.shields.io/badge/version-3.5.5-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-3.5.6-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
 
@@ -119,8 +119,8 @@ Download the installer from the [Releases](https://github.com/UnDadFeated/Chrono
 
 | Platform | File |
 |----------|------|
-| **Windows x64** | `ChronoArchiver-3.5.5-win64.exe` |
-| **macOS** | `ChronoArchiver-3.5.5-mac64.dmg` |
+| **Windows x64** | `ChronoArchiver-3.5.6-win64.exe` |
+| **macOS** | `ChronoArchiver-3.5.6-mac64.dmg` |
 
 The installer lets you choose the installation directory. On macOS, drag the app to Applications or your preferred location.
 
@@ -184,6 +184,21 @@ First launch creates an app-private virtual environment at `~/.local/share/Chron
 - `~/.local/state/ChronoArchiver` (logs)
 
 On Windows, use `%LOCALAPPDATA%\ChronoArchiver` and `%APPDATA%\ChronoArchiver`. On macOS, use `~/Library/Application Support/ChronoArchiver` (via `platformdirs`).
+
+---
+
+## Troubleshooting
+
+**First startup is slow (1–3 minutes)**  
+The Windows installer uses PyInstaller. On first run, the app unpacks itself to a temp directory before launching. This can take 1–3 minutes depending on disk speed. Subsequent launches are faster.
+
+**Debug log location**  
+Session logs: `chronoarchiver_YYYY-MM-DD_HH-MM-SS.log`  
+- **Windows:** `%LOCALAPPDATA%\UnDadFeated\ChronoArchiver\Logs\`  
+- **Linux:** `~/.local/state/ChronoArchiver/log/`  
+- **macOS:** `~/Library/Logs/ChronoArchiver/`  
+
+The in-app "Debug" button in the footer opens the log folder. If the app crashes before the GUI loads, no log file is created.
 
 ---
 
