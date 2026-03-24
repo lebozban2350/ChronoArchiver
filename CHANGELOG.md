@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.3.14] - 2026-03-23
+### Changed
+- **Media Organizer**: Execution Mode box shrunk horizontally (max 220px). Paths box stretches to fill; Source and Target inputs matched width with aligned Browse buttons. Photos/Videos moved below Target row, right aligned.
+
 ## [3.3.13] - 2026-03-23
 ### Fixed
 - **AUR updater**: Only close terminal when update succeeds; on failure show message and wait for Enter so user sees error. Add 0.5s delay before close.

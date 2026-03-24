@@ -77,13 +77,6 @@ class MediaOrganizerPanel(QWidget):
         self._btn_browse_src.setStyleSheet(_btn_ss)
         self._btn_browse_src.clicked.connect(self._browse)
         h_src.addWidget(self._btn_browse_src)
-        self._chk_photos = QCheckBox("Photos")
-        self._chk_photos.setChecked(True)
-        self._chk_videos = QCheckBox("Videos")
-        self._chk_videos.setChecked(True)
-        for cb in [self._chk_photos, self._chk_videos]:
-            cb.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
-            h_src.addWidget(cb)
         v_paths.addLayout(h_src)
 
         # Target row
@@ -99,12 +92,25 @@ class MediaOrganizerPanel(QWidget):
         self._btn_browse_target.clicked.connect(self._browse_target)
         h_tgt.addWidget(self._btn_browse_target)
         v_paths.addLayout(h_tgt)
-        v_paths.addWidget(QLabel("Date from EXIF/ffprobe. Blank target = in-place.", styleSheet=_shint))
-        h_strip.addWidget(grp_paths, 2)
 
-        # 2. Execution Mode
+        # Photos/Videos row — below target, right aligned
+        h_media = QHBoxLayout()
+        h_media.addStretch(1)
+        self._chk_photos = QCheckBox("Photos")
+        self._chk_photos.setChecked(True)
+        self._chk_videos = QCheckBox("Videos")
+        self._chk_videos.setChecked(True)
+        for cb in [self._chk_photos, self._chk_videos]:
+            cb.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
+            h_media.addWidget(cb)
+        v_paths.addLayout(h_media)
+        v_paths.addWidget(QLabel("Date from EXIF/ffprobe. Blank target = in-place.", styleSheet=_shint))
+        h_strip.addWidget(grp_paths, 1)
+
+        # 2. Execution Mode — shrunk horizontally
         grp_mode = QGroupBox("Execution Mode")
         grp_mode.setFixedHeight(_box_height)
+        grp_mode.setMaximumWidth(220)
         v_mode = QVBoxLayout(grp_mode)
         v_mode.setContentsMargins(6, 4, 6, 4)
         v_mode.setSpacing(2)
@@ -138,7 +144,7 @@ class MediaOrganizerPanel(QWidget):
         h_mode.addWidget(QLabel("Dup:", styleSheet="font-size:7px; color:#888;"))
         h_mode.addWidget(self._combo_dup, 1)
         v_mode.addLayout(h_mode)
-        h_strip.addWidget(grp_mode, 1)
+        h_strip.addWidget(grp_mode, 0)
 
         root.addLayout(h_strip)
 
