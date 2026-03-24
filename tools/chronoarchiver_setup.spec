@@ -98,6 +98,7 @@ elif is_mac:
     )
     app = BUNDLE(
         coll,
+        name="ChronoArchiver-Setup.app",
         icon=icon_path,
         bundle_identifier="com.undadfeated.chronoarchiver-setup",
         info_plist={
