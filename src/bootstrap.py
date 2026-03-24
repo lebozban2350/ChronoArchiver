@@ -76,9 +76,10 @@ def _show_setup_error(msg: str) -> None:
     print(msg, file=sys.stderr)
     try:
         import tkinter as tk
+        from tkinter import messagebox
         root = tk.Tk()
         root.withdraw()
-        tk.messagebox.showerror("ChronoArchiver — Setup Failed", msg)
+        messagebox.showerror("ChronoArchiver — Setup Failed", msg)
         root.destroy()
     except Exception:
         if platform.system() == "Windows":

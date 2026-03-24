@@ -25,7 +25,7 @@ def _read_version() -> str:
                 return open(vpath, "r", encoding="utf-8").read().strip()
     except Exception:
         pass
-    return os.environ.get("CHRONOARCHIVER_VERSION", "3.7.3")
+    return os.environ.get("CHRONOARCHIVER_VERSION", "3.7.4")
 
 
 VERSION = _read_version()
@@ -361,7 +361,7 @@ def _do_setup_gui():
     """Show progress window, download, extract, create shortcuts, launch."""
     try:
         import tkinter as tk
-        from tkinter import ttk
+        from tkinter import messagebox, ttk
     except ImportError:
         print("ChronoArchiver: tkinter required for setup UI.")
         return False
@@ -370,7 +370,7 @@ def _do_setup_gui():
     if not url:
         root = tk.Tk()
         root.withdraw()
-        tk.messagebox.showerror("ChronoArchiver", f"Could not find download for v{VERSION}. Check your connection.")
+        messagebox.showerror("ChronoArchiver", f"Could not find download for v{VERSION}. Check your connection.")
         root.destroy()
         return False
 
@@ -470,7 +470,7 @@ def _do_setup_gui():
     if not result[0]:
         root2 = tk.Tk()
         root2.withdraw()
-        tk.messagebox.showerror("ChronoArchiver", "Setup failed. Check your internet connection and that Python 3.11+ is installed.")
+        messagebox.showerror("ChronoArchiver", "Setup failed. Check your internet connection and that Python 3.11+ is installed.")
         root2.destroy()
         return False
     return True
