@@ -1,14 +1,17 @@
 # Changelog
 
-## [3.7.4] - 2026-03-24
+## [3.7.5] - 2026-03-24
 ### Fixed
 - **Windows setup init.tcl error**: PyInstaller spec collects tkinter Tcl/Tk data via `collect_all("tkinter")` so bundled setup exe finds init.tcl.
 - **numpy ModuleNotFoundError**: Added numpy to requirements.txt and VENV_PACKAGES_BASE; is_venv_runnable verifies numpy.
 - **Setup creates shortcut before deps installed**: Setup now installs all packages with per-package progress, verifies imports, and only creates shortcuts after success.
+- **Windows Python detection**: Setup now detects Python via `py -3.13/-3.12/-3.11` launcher in addition to `python/python3`, so installs succeed when Python is installed but not on PATH.
+- **Setup failure diagnostics**: Error popup now includes the actual failing stage/message instead of a generic failure.
 
 ### Changed
 - **Setup installs all deps during setup**: Pip install moved from deferred "first-time setup" to setup.exe. Installer shows determinate progress bar, %, download speed, and component checklist. No second setup window on first launch.
 - **Bootstrap progress**: First-time setup (fallback) uses determinate progress bar with package X of N.
+- **Installer UX**: Added dual progress bars (current component + overall) and a live component checklist (download, extract, env, deps, verify, shortcuts).
 
 ### Fixed
 - **Windows setup crash dialog**: `tk.messagebox` attribute error fixed by importing and using `from tkinter import messagebox` in setup launcher and bootstrap error popup paths.

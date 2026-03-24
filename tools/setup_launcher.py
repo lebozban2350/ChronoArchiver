@@ -25,7 +25,7 @@ def _read_version() -> str:
                 return open(vpath, "r", encoding="utf-8").read().strip()
     except Exception:
         pass
-    return os.environ.get("CHRONOARCHIVER_VERSION", "3.7.4")
+    return os.environ.get("CHRONOARCHIVER_VERSION", "3.7.5")
 
 
 VERSION = _read_version()
@@ -119,7 +119,24 @@ def _parse_requirements(req_path: Path) -> list[str]:
     return packages
 
 
-def _run_setup_bootstrap(app_root: Path, progress_cb) -> bool:
+def _find_system_python() -> list[str] | None:
+    """Return command prefix for a usable Python 3.11+ interpreter."""
+    candidates: list[list[str]] = []
+    if platform.system() == "Windows":
+        candidates.extend([["py", "-3.13"], ["py", "-3.12"], ["py", "-3.11"], ["python"], ["python3"]])
+    else:
+        candidates.extend([["python3"], ["python"]])
+    for cmd in candidates:
+        try:
+            r = subprocess.run(cmd + ["-c", "import sys; print(sys.version_info[:2])"], capture_output=True, timeout=8)
+            if r.returncode == 0:
+                return cmd
+        except Exception:
+            continue
+    return None
+
+
+def _run_setup_bootstrap(app_root: Path, progress_cb) -> tuple[bool, str]:
     """Create venv, install each package with progress, verify before returning."""
     import re
     venv = app_root / "venv"
@@ -138,30 +155,34 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> bool:
                 capture_output=True, timeout=10,
             )
             if r.returncode == 0:
-                return True
+                return True, ""
         except Exception:
             pass
 
-    py_sys = shutil.which("python3") or shutil.which("python")
-    if not py_sys:
-        progress_cb("Python not found", 0, 0, 0)
-        return False
+    py_cmd = _find_system_python()
+    if not py_cmd:
+        progress_cb("Python not found", 0, 0, 0, "Install Python 3.11+ from python.org")
+        return False, "Python 3.11+ not found on PATH (or via py launcher)."
 
     progress_cb("Creating virtual environment…", 0, 0, 0)
     try:
-        subprocess.run([py_sys, "-m", "venv", str(venv)], capture_output=True, timeout=90, check=True)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        subprocess.run(py_cmd + ["-m", "venv", str(venv)], capture_output=True, timeout=120, check=True)
+    except subprocess.CalledProcessError as e:
+        msg = (e.stderr or e.stdout or "venv failed").decode("utf-8", errors="ignore") if isinstance((e.stderr or e.stdout), bytes) else (e.stderr or e.stdout or "venv failed")
+        progress_cb("venv creation failed", 0, 0, 0, str(msg)[:120])
+        return False, f"venv creation failed: {str(msg)[:500]}"
+    except subprocess.TimeoutExpired:
         progress_cb("venv creation failed", 0, 0, 0)
-        return False
+        return False, "venv creation timed out."
 
     if not pip_exe.exists():
         progress_cb("pip not found in venv", 0, 0, 0)
-        return False
+        return False, "pip not found in created virtual environment."
 
     packages = _parse_requirements(app_root / "requirements.txt")
     if not packages:
         progress_cb("No packages in requirements.txt", 0, 0, 0)
-        return False
+        return False, "requirements.txt is empty or unreadable."
 
     n = len(packages)
     for i, pkg in enumerate(packages):
@@ -178,7 +199,6 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> bool:
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
             cwd=str(app_root),
         )
-        start = time.time()
         last_update = [0]
         for line in iter(proc.stdout.readline, "") if proc.stdout else []:
             line = (line or "").strip()
@@ -204,10 +224,10 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> bool:
             proc.kill()
             proc.wait()
             progress_cb(f"Timeout: {pkg}", 0, 0, 0)
-            return False
+            return False, f"pip install timed out for {pkg}."
         if proc.returncode != 0:
             progress_cb(f"Failed: {pkg}", 0, 0, 0)
-            return False
+            return False, f"pip install failed for {pkg}."
         progress_cb(pkg_display, base_pct + 100.0 / n, 0, 0, "OK")
 
     progress_cb("Verifying…", 98, 0, 0)
@@ -218,11 +238,11 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> bool:
         )
         if r.returncode != 0:
             progress_cb("Verification failed", 0, 0, 0)
-            return False
-    except Exception:
-        return False
+            return False, "Dependency verification failed after install."
+    except Exception as e:
+        return False, f"Verification exception: {e}"
     progress_cb("Done", 100, 0, 0)
-    return True
+    return True, ""
 
 
 def _create_windows_shortcuts(app_root: Path):
@@ -376,33 +396,72 @@ def _do_setup_gui():
 
     root = tk.Tk()
     root.title("ChronoArchiver — Setup")
-    root.geometry("520x380")
+    root.geometry("560x460")
     root.resizable(False, False)
     root.configure(bg="#0d0d0d")
     root.option_add("*Font", "TkDefaultFont 9")
 
-    lbl_title = tk.Label(root, text="Downloading ChronoArchiver…", fg="#e5e7eb", bg="#0d0d0d", font=("", 11, "bold"))
+    lbl_title = tk.Label(root, text="Installing ChronoArchiver…", fg="#e5e7eb", bg="#0d0d0d", font=("", 11, "bold"))
     lbl_title.pack(pady=(16, 6))
-    lbl_component = tk.Label(root, text="ChronoArchiver (Python source)", fg="#9ca3af", bg="#0d0d0d", wraplength=480)
+    lbl_component = tk.Label(root, text="Preparing…", fg="#9ca3af", bg="#0d0d0d", wraplength=520)
     lbl_component.pack(pady=2)
     lbl_detail = tk.Label(root, text="", fg="#6b7280", bg="#0d0d0d", font=("", 8), wraplength=480)
     lbl_detail.pack(pady=2)
     lbl_speed = tk.Label(root, text="", fg="#10b981", bg="#0d0d0d")
     lbl_speed.pack(pady=2)
-    prog = ttk.Progressbar(root, length=460, mode="determinate")
-    prog.pack(pady=8)
-    lbl_pct = tk.Label(root, text="0%", fg="#6b7280", bg="#0d0d0d")
-    lbl_pct.pack(pady=2)
+    tk.Label(root, text="Current component", fg="#9ca3af", bg="#0d0d0d", font=("", 8)).pack(pady=(8, 0))
+    prog_step = ttk.Progressbar(root, length=500, mode="determinate")
+    prog_step.pack(pady=4)
+    lbl_pct_step = tk.Label(root, text="0%", fg="#6b7280", bg="#0d0d0d")
+    lbl_pct_step.pack(pady=2)
+    tk.Label(root, text="Overall progress", fg="#9ca3af", bg="#0d0d0d", font=("", 8)).pack(pady=(8, 0))
+    prog_overall = ttk.Progressbar(root, length=500, mode="determinate")
+    prog_overall.pack(pady=4)
+    lbl_pct_overall = tk.Label(root, text="0%", fg="#6b7280", bg="#0d0d0d")
+    lbl_pct_overall.pack(pady=2)
+    checklist = [
+        tk.Label(root, text=f"  [ ] {name}", fg="#6b7280", bg="#0d0d0d", anchor="w")
+        for name in ("Download source", "Extract files", "Create environment", "Install dependencies", "Verify install", "Create shortcuts")
+    ]
+    for lbl in checklist:
+        lbl.pack(fill="x", padx=26)
 
     result = [False]
+    result_error = [""]
     done = [False]
+
+    stage = {"index": 0, "base": 0.0, "span": 100.0}
+    stage_plan = [
+        (0, 35.0),   # Download
+        (35.0, 5.0), # Extract
+        (40.0, 10.0),# Create environment
+        (50.0, 40.0),# Install dependencies
+        (90.0, 5.0), # Verify
+        (95.0, 5.0), # Shortcuts/finalize
+    ]
+
+    def _set_stage(idx: int, title: str):
+        stage["index"] = idx
+        stage["base"], stage["span"] = stage_plan[idx]
+        lbl_component.config(text=title)
+        for i, lbl in enumerate(checklist):
+            if i < idx:
+                lbl.config(text=lbl.cget("text").replace("[ ]", "[x]"), fg="#22c55e")
+            elif i == idx:
+                lbl.config(text=lbl.cget("text").replace("[x]", "[ ]"), fg="#e5e7eb")
+            else:
+                lbl.config(text=lbl.cget("text").replace("[x]", "[ ]"), fg="#6b7280")
 
     def progress_cb(component, pct, speed_mbps, size_mb, detail=""):
         def update():
             lbl_component.config(text=component)
             lbl_detail.config(text=detail[:100] if detail else "")
-            prog["value"] = min(100, max(0, pct))
-            lbl_pct.config(text=f"{pct:.1f}%")
+            step_pct = min(100, max(0, pct))
+            prog_step["value"] = step_pct
+            lbl_pct_step.config(text=f"{step_pct:.1f}%")
+            overall_pct = min(100.0, stage["base"] + stage["span"] * step_pct / 100.0)
+            prog_overall["value"] = overall_pct
+            lbl_pct_overall.config(text=f"{overall_pct:.1f}%")
             if speed_mbps >= 0.01:
                 lbl_speed.config(text=f"{speed_mbps:.2f} MB/s  ·  {size_mb:.1f} MB")
             else:
@@ -416,11 +475,14 @@ def _do_setup_gui():
             app_dir.mkdir(parents=True, exist_ok=True)
             fd, zip_path = tempfile.mkstemp(suffix=".zip")
             os.close(fd)
+            _set_stage(0, "Downloading ChronoArchiver source…")
             if not _download_with_progress(url, zip_path, progress_cb):
                 result[0] = False
+                result_error[0] = "Failed while downloading source package."
                 done[0] = True
                 return
-            progress_cb("Extracting…", 90, 0, 0)
+            _set_stage(1, "Extracting package…")
+            progress_cb("Extracting…", 0, 0, 0)
             if app_dir.exists():
                 shutil.rmtree(app_dir)
             app_dir.mkdir(parents=True)
@@ -440,20 +502,30 @@ def _do_setup_gui():
                 os.remove(zip_path)
             except OSError:
                 pass
-            if not _run_setup_bootstrap(app_dir, progress_cb):
+            _set_stage(2, "Creating virtual environment…")
+            progress_cb("Creating virtual environment…", 0, 0, 0)
+            _set_stage(3, "Installing dependencies…")
+            ok, err = _run_setup_bootstrap(app_dir, progress_cb)
+            if not ok:
                 result[0] = False
+                result_error[0] = err or "Dependency installation failed."
                 done[0] = True
                 return
-            progress_cb("Creating shortcuts…", 98, 0, 0)
+            _set_stage(4, "Verifying installation…")
+            progress_cb("Verifying…", 100, 0, 0)
+            _set_stage(5, "Creating shortcuts…")
+            progress_cb("Creating shortcuts…", 0, 0, 0)
             if platform.system() == "Windows":
                 _create_windows_shortcuts(app_dir)
             else:
                 _create_macos_app_and_uninstaller(app_dir)
             _app_dir().mkdir(parents=True, exist_ok=True)
             _version_file().write_text(VERSION)
+            progress_cb("Completed", 100, 0, 0, "Installation finished successfully.")
             result[0] = True
-        except Exception:
+        except Exception as e:
             result[0] = False
+            result_error[0] = str(e)
         done[0] = True
 
     def poll():
@@ -470,7 +542,10 @@ def _do_setup_gui():
     if not result[0]:
         root2 = tk.Tk()
         root2.withdraw()
-        messagebox.showerror("ChronoArchiver", "Setup failed. Check your internet connection and that Python 3.11+ is installed.")
+        msg = "Setup failed."
+        if result_error[0]:
+            msg += f"\n\n{result_error[0][:600]}"
+        messagebox.showerror("ChronoArchiver", msg)
         root2.destroy()
         return False
     return True
