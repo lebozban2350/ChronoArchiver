@@ -401,8 +401,8 @@ else:
 sleep 2
 if {update_cmd}; then
   nohup {launch_str} </dev/null >/dev/null 2>&1 &
-  echo "Update complete. Close this window or press Enter."
-  read -r
+  parent_pid=$PPID
+  nohup bash -c "sleep 0.5; kill $parent_pid 2>/dev/null" </dev/null &>/dev/null &
   exit 0
 else
   echo "Update failed. Press Enter to close."

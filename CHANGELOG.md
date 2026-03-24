@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.3.18] - 2026-03-23
+### Fixed
+- **AUR updater**: Auto-close terminal on success using a safer approach — kills only the script's parent shell ($PPID) via a detached background job, avoiding the previous grandparent kill that may have caused instability.
+
 ## [3.3.17] - 2026-03-23
 ### Changed
 - **Media Organizer**: "Organize:" label; Photos/Videos row right-aligned in Paths box.
