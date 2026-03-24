@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.7.11] - 2026-03-24
+### Changed
+- **Windows / macOS setup**: Optional `ChronoArchiver_installer.log` **appends** each run (session separator + header) instead of replacing the file, so troubleshooting history is preserved.
+- **Windows / macOS setup**: Welcome screen shows the **hourglass logo** (PNG, ~README-sized width, proportional) above the title; setup window uses bundled **icon.ico** / **icon.png** for the taskbar/dock when available.
+
 ## [3.7.10] - 2026-03-24
 ### Changed
 - **UI**: Application uses the Fusion style for consistent themed controls on all platforms.

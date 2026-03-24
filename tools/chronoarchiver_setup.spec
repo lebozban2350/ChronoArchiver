@@ -15,21 +15,29 @@ repo_root = os.path.normpath(os.path.join(_spec_dir, ".."))
 src_dir = os.path.join(repo_root, "src")
 
 # Embed version at build time
-_version = os.environ.get("CHRONOARCHIVER_VERSION", "3.7.10")
+_version = os.environ.get("CHRONOARCHIVER_VERSION", "3.7.11")
 _version_txt = os.path.join(_spec_dir, "_setup_version.txt")
 with open(_version_txt, "w") as f:
     f.write(_version)
 # Bundle as version.txt so setup_launcher finds it
 _datas_version = [(_version_txt, ".")]
 
+# Welcome / window icons (same assets as README hourglass PNG; ICO for Windows taskbar)
+_assets_dir = os.path.join(src_dir, "ui", "assets")
+_datas_icons = []
+for _name in ("icon.png", "icon.ico"):
+    _ap = os.path.join(_assets_dir, _name)
+    if os.path.isfile(_ap):
+        _datas_icons.append((_ap, "."))
+
 # Collect tkinter Tcl/Tk data files (fixes init.tcl error on Windows onefile)
 try:
     from PyInstaller.utils.hooks import collect_all
     _tk_datas, _tk_binaries, _tk_hidden = collect_all("tkinter")
-    _datas_all = _datas_version + _tk_datas
+    _datas_all = _datas_version + _datas_icons + _tk_datas
     _binaries_all = _tk_binaries
 except Exception:
-    _datas_all = _datas_version
+    _datas_all = _datas_version + _datas_icons
     _binaries_all = []
 
 a = Analysis(

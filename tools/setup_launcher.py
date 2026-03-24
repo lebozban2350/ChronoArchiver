@@ -6,7 +6,7 @@ Updates: merge-extract into the install dir (preserves venv), skip re-downloadin
 installed src/version.py already matches this setup's version, and run pip install -r on existing
 venvs so new requirements are applied without wiping site-packages. Merge skips only byte-identical
 files (MD5), not same-size-only — avoids stale src/version.py when patch digits change without size change.
-Welcome screen; optional ChronoArchiver_installer.log beside the setup exe.
+Welcome screen with logo; optional ChronoArchiver_installer.log beside the setup exe (appends sessions).
 """
 import hashlib
 import json
@@ -35,7 +35,7 @@ def _read_version() -> str:
                 return open(vpath, "r", encoding="utf-8").read().strip()
     except Exception:
         pass
-    return os.environ.get("CHRONOARCHIVER_VERSION", "3.7.10")
+    return os.environ.get("CHRONOARCHIVER_VERSION", "3.7.11")
 
 
 VERSION = _read_version()
@@ -43,6 +43,48 @@ GITHUB_RELEASES = "https://api.github.com/repos/UnDadFeated/ChronoArchiver/relea
 
 # Optional file log (ChronoArchiver_installer.log next to setup exe when enabled from welcome screen)
 _INSTALL_LOG_FILE: Path | None = None
+
+
+def _installer_asset_path(name: str) -> Path | None:
+    """
+    Bundled setup assets (icon.png / icon.ico) live next to the frozen exe (PyInstaller MEIPASS)
+    or under src/ui/assets when running from source.
+    """
+    if getattr(sys, "frozen", False):
+        base = getattr(sys, "_MEIPASS", None)
+        if base:
+            p = Path(base) / name
+            if p.is_file():
+                return p
+        return None
+    # tools/setup_launcher.py -> repo root -> src/ui/assets
+    here = Path(__file__).resolve()
+    p = here.parent.parent / "src" / "ui" / "assets" / name
+    return p if p.is_file() else None
+
+
+def _welcome_logo_photo(master) -> object | None:
+    """
+    Load PNG for welcome header at ~112px width (same proportion as README.md), not stretched.
+    Returns tk.PhotoImage or None; caller must keep a reference on the window to avoid GC.
+    """
+    path = _installer_asset_path("icon.png")
+    if not path:
+        return None
+    try:
+        import tkinter as tk
+    except ImportError:
+        return None
+    try:
+        img = tk.PhotoImage(master=master, file=str(path))
+    except tk.TclError:
+        return None
+    tw = 112
+    w = img.width()
+    if w > tw:
+        factor = max(1, w // tw)
+        img = img.subsample(factor, factor)
+    return img
 
 
 def _installer_log_dir() -> Path:
@@ -59,14 +101,21 @@ def _setup_install_logging(enabled: bool) -> None:
         return
     p = _installer_log_dir() / "ChronoArchiver_installer.log"
     try:
-        # ASCII in header avoids mojibake in some Windows viewers; BOM helps Notepad detect UTF-8.
+        # ASCII in header avoids mojibake in some Windows viewers; BOM on first create helps Notepad UTF-8.
         header = (
             f"ChronoArchiver installer log - v{VERSION}\n"
             f"Started {datetime.now().isoformat(timespec='seconds')}\n"
             f"frozen={getattr(sys, 'frozen', False)} executable={sys.executable!r}\n"
             f"platform={platform.system()} {platform.release()} python={sys.version.split()[0]}\n\n"
         )
-        p.write_text("\ufeff" + header, encoding="utf-8")
+        if p.is_file():
+            with open(p, "a", encoding="utf-8") as f:
+                f.write("\n\n")
+                f.write("=" * 72 + "\n")
+                f.write(f"--- session start v{VERSION} ---\n")
+                f.write(header)
+        else:
+            p.write_text("\ufeff" + header, encoding="utf-8")
         _INSTALL_LOG_FILE = p
     except OSError:
         _INSTALL_LOG_FILE = None
@@ -175,7 +224,7 @@ def _can_launch_without_setup(app_dir: Path | None = None) -> bool:
     """
     True only when the install tree already contains this setup's source (src/version.py).
     Do not use version.txt alone — it can get ahead of a failed/partial upgrade and would
-    skip downloading/extracting while leaving an older app (e.g. 3.7.7 UI with 3.7.10 stamp).
+    skip downloading/extracting while leaving an older app (e.g. 3.7.7 UI with 3.7.11 stamp).
     """
     root = app_dir if app_dir is not None else _app_dir()
     return _should_skip_source_zip(root)
@@ -721,6 +770,29 @@ def _run_app(app_root: Path):
             subprocess.Popen(cmd, cwd=str(app_root), start_new_session=True)
 
 
+def _apply_setup_window_icon(root) -> None:
+    """Taskbar / title bar icon when icon.ico or icon.png is bundled."""
+    try:
+        import tkinter as tk
+    except ImportError:
+        return
+    ico = _installer_asset_path("icon.ico")
+    if platform.system() == "Windows" and ico:
+        try:
+            root.iconbitmap(default=str(ico))
+            return
+        except tk.TclError:
+            pass
+    png = _installer_asset_path("icon.png")
+    if png:
+        try:
+            img = tk.PhotoImage(master=root, file=str(png))
+            root.iconphoto(True, img)
+            setattr(root, "_wm_iconphoto_ref", img)
+        except tk.TclError:
+            pass
+
+
 def _show_welcome_and_log_choice() -> tuple[bool, bool]:
     """Welcome screen. Returns (proceed_with_install, enable_install_log). Checkbox default off."""
     try:
@@ -730,17 +802,25 @@ def _show_welcome_and_log_choice() -> tuple[bool, bool]:
     out = {"proceed": False, "log": False}
     root = tk.Tk()
     root.title("ChronoArchiver — Welcome")
-    root.geometry("500x340")
+    root.geometry("500x400")
     root.resizable(False, False)
     root.configure(bg="#0d0d0d")
     root.option_add("*Font", "TkDefaultFont 9")
+    _apply_setup_window_icon(root)
+
+    logo = _welcome_logo_photo(root)
+    if logo is not None:
+        lbl_logo = tk.Label(root, image=logo, bg="#0d0d0d")
+        lbl_logo.pack(pady=(18, 4))
+        setattr(root, "_welcome_logo_ref", logo)
+
     tk.Label(
         root,
         text="Welcome to ChronoArchiver",
         fg="#e5e7eb",
         bg="#0d0d0d",
         font=("", 13, "bold"),
-    ).pack(pady=(22, 6))
+    ).pack(pady=(4, 6))
     blurb = (
         f"This installer sets up or updates ChronoArchiver v{VERSION}.\n\n"
         "Your data folder is kept; application files and the Python environment "
@@ -750,7 +830,7 @@ def _show_welcome_and_log_choice() -> tuple[bool, bool]:
     log_var = tk.BooleanVar(value=False)
     tk.Checkbutton(
         root,
-        text="Create detailed install log (ChronoArchiver_installer.log next to this installer)",
+        text="Append detailed install log (ChronoArchiver_installer.log next to this installer)",
         variable=log_var,
         fg="#e5e7eb",
         bg="#0d0d0d",
@@ -762,7 +842,7 @@ def _show_welcome_and_log_choice() -> tuple[bool, bool]:
     ).pack(pady=(14, 4), padx=22, fill=tk.X)
     tk.Label(
         root,
-        text="Leave off unless troubleshooting. Log is overwritten each run.",
+        text="Leave off unless troubleshooting. Each run adds a session; the file keeps full history.",
         fg="#6b7280",
         bg="#0d0d0d",
         font=("", 8),
@@ -814,6 +894,7 @@ def _do_setup_gui(download_url: str) -> bool:
     root.resizable(False, False)
     root.configure(bg="#0d0d0d")
     root.option_add("*Font", "TkDefaultFont 9")
+    _apply_setup_window_icon(root)
 
     lbl_title = tk.Label(root, text="Installing ChronoArchiver…", fg="#e5e7eb", bg="#0d0d0d", font=("", 11, "bold"))
     lbl_title.pack(pady=(16, 6))
