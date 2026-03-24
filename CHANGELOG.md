@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.3.25] - 2026-03-24
+### Changed
+- **Console (all panels)**: Token-level HTML coloring for improved readability. Filenames and paths (inside quotes) always bright white (#f8f8f2). Tags: [DRY RUN] amber, [MOVE]/[COPY]/[LINK] green, [SKIP]/[DUPLICATE] purple, [RENAME FIX] pink. Arrows (->) cyan, quotes muted. Replaced QListWidget with QTextEdit for rich formatting. Dracula-inspired palette; consistent across Organizer, Encoder, Scanner.
+
 ## [3.3.24] - 2026-03-24
 ### Fixed
 - **AUR updater**: App now restarts after update. Use `setsid` + `disown` for robust detach; increase kill delay to 2.5s so app can connect to display before terminal closes.

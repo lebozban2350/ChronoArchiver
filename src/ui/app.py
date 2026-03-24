@@ -113,7 +113,7 @@ QProgressBar {
 QProgressBar::chunk { background-color: #3b82f6; width: 1px; }
 QProgressBar#masterBar::chunk { background-color: #10b981; }
 
-QListWidget {
+QListWidget, QTextEdit {
     background-color: #080808;
     border: 1px solid #141414;
     font-family: 'JetBrains Mono', monospace;
@@ -485,7 +485,9 @@ class ChronoArchiverApp(QMainWindow):
 
     def _copy_console(self):
         panel = self.stack.currentWidget()
-        if hasattr(panel, "_log_list"):
+        if hasattr(panel, "_log_edit"):
+            text = panel._log_edit.toPlainText()
+        elif hasattr(panel, "_log_list"):
             lines = [panel._log_list.item(i).text() for i in range(panel._log_list.count())]
             text = "\n".join(lines)
         else:

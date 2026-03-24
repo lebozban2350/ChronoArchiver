@@ -22,17 +22,17 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QCheckBox, QListWidget, QListWidgetItem,
     QProgressBar, QFileDialog, QSpinBox, QFrame, QDialog, QComboBox, QMessageBox,
-    QInputDialog,
+    QInputDialog, QTextEdit,
 )
 from PySide6.QtCore import Qt, Signal, QObject, QTimer
-from PySide6.QtGui import QShowEvent, QPixmap, QColor
+from PySide6.QtGui import QShowEvent, QPixmap, QTextCursor
 
 import pathlib
 import platformdirs
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.scanner import ScannerEngine, OPENCV_AVAILABLE
-from ui.console_style import log_color_for_message
+from ui.console_style import message_to_html
 from core.model_manager import ModelManager
 from core.venv_manager import (
     get_pip_exe, ensure_venv,
@@ -429,9 +429,12 @@ class AIScannerPanel(QWidget):
         v_log = QVBoxLayout(grp_log)
         v_log.setContentsMargins(6, 4, 6, 4)
         v_log.setSpacing(0)
-        self._log_list = QListWidget()
-        self._log_list.setMaximumHeight(100)
-        v_log.addWidget(self._log_list)
+        self._log_edit = QTextEdit()
+        self._log_edit.setReadOnly(True)
+        self._log_edit.setAcceptRichText(True)
+        self._log_edit.setMaximumHeight(100)
+        self._log_edit.document().setMaximumBlockCount(1000)
+        v_log.addWidget(self._log_edit)
         root.addWidget(grp_log, 0)
 
         self._model_update_available = False
@@ -1161,14 +1164,13 @@ class AIScannerPanel(QWidget):
             debug(UTILITY_AI_MEDIA_SCANNER, f"Export CSV failed: {e}")
 
     def _add_log(self, msg):
-        sb = self._log_list.verticalScrollBar()
+        sb = self._log_edit.verticalScrollBar()
         at_bot = sb.value() >= sb.maximum() - 4
-        item = QListWidgetItem(msg)
-        item.setForeground(QColor(log_color_for_message(msg)))
-        self._log_list.addItem(item)
+        html_line = message_to_html(msg)
+        cursor = self._log_edit.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.insertHtml(html_line + "<br>")
         if at_bot:
-            self._log_list.scrollToBottom()
-        if self._log_list.count() > 1000:
-            self._log_list.takeItem(0)
+            sb.setValue(sb.maximum())
         if self._log_cb:
             self._log_cb(msg)

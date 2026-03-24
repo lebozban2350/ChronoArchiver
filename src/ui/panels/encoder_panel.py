@@ -17,15 +17,15 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QCheckBox,
     QProgressBar, QFileDialog, QComboBox, QSlider,
-    QListWidget, QListWidgetItem, QSizePolicy, QDialog,
+    QListWidget, QSizePolicy, QDialog, QTextEdit,
 )
 from PySide6.QtCore import Qt, Signal, QObject, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QTextCursor
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.av1_engine import AV1EncoderEngine, EncodingProgress
-from ui.console_style import log_color_for_message
+from ui.console_style import message_to_html
 from core.av1_settings import AV1Settings
 from core.debug_logger import debug, UTILITY_MASS_AV1_ENCODER
 
@@ -467,8 +467,11 @@ class AV1EncoderPanel(QWidget):
         grp_log = QGroupBox("Console")
         v_log = QVBoxLayout(grp_log)
         v_log.setContentsMargins(6, 4, 6, 4); v_log.setSpacing(0)
-        self._log_list = QListWidget()
-        v_log.addWidget(self._log_list)
+        self._log_edit = QTextEdit()
+        self._log_edit.setReadOnly(True)
+        self._log_edit.setAcceptRichText(True)
+        self._log_edit.document().setMaximumBlockCount(1000)
+        v_log.addWidget(self._log_edit)
         root.addWidget(grp_log, 1)  # Stretch: console takes all remaining vertical space
 
         # Telemetry timer
@@ -1134,14 +1137,13 @@ class AV1EncoderPanel(QWidget):
                 pass
 
     def _add_log(self, msg):
-        sb = self._log_list.verticalScrollBar()
+        sb = self._log_edit.verticalScrollBar()
         at_bot = sb.value() >= sb.maximum() - 4
-        item = QListWidgetItem(msg)
-        item.setForeground(QColor(log_color_for_message(msg)))
-        self._log_list.addItem(item)
+        html_line = message_to_html(msg)
+        cursor = self._log_edit.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.insertHtml(html_line + "<br>")
         if at_bot:
-            self._log_list.scrollToBottom()
-        if self._log_list.count() > 1000:
-            self._log_list.takeItem(0)
+            sb.setValue(sb.maximum())
         if self._log_cb:
             self._log_cb(msg)
