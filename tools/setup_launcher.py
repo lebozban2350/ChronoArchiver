@@ -26,6 +26,9 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+# Must match src/core/app_paths.ENV_INSTALL_ROOT (setup bundle does not import app).
+ENV_INSTALL_ROOT = "CHRONOARCHIVER_INSTALL_ROOT"
+
 # Version embedded at build time via version.txt in bundle
 def _read_version() -> str:
     try:
@@ -36,7 +39,7 @@ def _read_version() -> str:
                 return open(vpath, "r", encoding="utf-8").read().strip()
     except Exception:
         pass
-    return os.environ.get("CHRONOARCHIVER_VERSION", "3.8.0")
+    return os.environ.get("CHRONOARCHIVER_VERSION", "3.8.1")
 
 
 VERSION = _read_version()
@@ -634,10 +637,10 @@ def _bootstrap_ffmpeg(app_root: Path, py_exe: Path, progress_cb, console_q: queu
         return False, "venv Python not found"
     _install_log(f"ffmpeg bootstrap: app_root={app_root}")
     env = os.environ.copy()
-    env["CHRONOARCHIVER_INSTALL_ROOT"] = str(app_root)
+    env[ENV_INSTALL_ROOT] = str(app_root)
     env["PYTHONPATH"] = str(app_root / "src")
-    worker = """import os, sys
-root = os.environ["CHRONOARCHIVER_INSTALL_ROOT"]
+    worker = f"""import os, sys
+root = os.environ["{ENV_INSTALL_ROOT}"]
 sys.path.insert(0, os.path.join(root, "src"))
 os.chdir(root)
 from core.venv_manager import ensure_bundled_ffmpeg
@@ -890,7 +893,7 @@ def _create_macos_app_and_uninstaller(app_root: Path):
     launcher_script = macos / "ChronoArchiver"
     launcher_script.write_text(f'''#!/bin/bash
 cd "{app_root}"
-export CHRONOARCHIVER_INSTALL_ROOT="{app_root}"
+export {ENV_INSTALL_ROOT}="{app_root}"
 if [ -x "venv/bin/python" ]; then
     exec venv/bin/python chronoarchiver.pyw "$@"
 elif command -v python3 >/dev/null 2>&1; then

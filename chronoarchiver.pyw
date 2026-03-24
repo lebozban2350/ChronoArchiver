@@ -8,6 +8,10 @@ import sys
 import traceback
 from pathlib import Path
 
+# Same key as src/core/app_paths.ENV_INSTALL_ROOT (launcher cannot import src before chdir).
+_ENV_INSTALL_ROOT = "CHRONOARCHIVER_INSTALL_ROOT"
+
+
 def _show_error(title: str, msg: str) -> None:
     """Show error to user when running under pythonw (no console)."""
     print(f"{title}: {msg}", file=sys.stderr)
@@ -22,7 +26,7 @@ def _show_error(title: str, msg: str) -> None:
 
 try:
     _LAUNCHER_DIR = Path(__file__).resolve().parent
-    os.environ["CHRONOARCHIVER_INSTALL_ROOT"] = str(_LAUNCHER_DIR)
+    os.environ[_ENV_INSTALL_ROOT] = str(_LAUNCHER_DIR)
     os.chdir(str(_LAUNCHER_DIR))
     sys.path.insert(0, str(_LAUNCHER_DIR))
 

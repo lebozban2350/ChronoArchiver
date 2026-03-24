@@ -347,11 +347,6 @@ def get_settings_dir() -> Path:
     return app_paths.settings_dir()
 
 
-def get_models_dir() -> Path:
-    """AI Scanner ONNX models — see app_paths.models_dir."""
-    return app_paths.models_dir()
-
-
 def fetch_components_manifest() -> dict | None:
     """Remote JSON from main branch; None on failure (offline)."""
     try:

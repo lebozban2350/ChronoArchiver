@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.1] - 2026-03-25
+### Changed
+- Semver **3.8.1** (installers, PKGBUILD, PyPI metadata).
+- **Qt application identity**: `setOrganizationName` / `setApplicationName` use **`APP_AUTHOR`** and **`APP_NAME`** from `app_paths`.
+- **Setup launcher / `chronoarchiver.pyw`**: **`ENV_INSTALL_ROOT`** / **`_ENV_INSTALL_ROOT`** constants aligned with `app_paths.ENV_INSTALL_ROOT`; FFmpeg bootstrap worker and macOS launcher **`export`** interpolate the same name so the env key cannot drift.
+- **Removed** dead **`get_models_dir`** from **`venv_manager`** (use **`app_paths.models_dir()`**).
+
 ## [3.8.0] - 2026-03-24
 ### Added
 - **Windows setup**: Right-hand **Setup output** pane streams **pip** and **FFmpeg** subprocess lines live; when detailed install logging is enabled, the same lines are prefixed with `[setup-output]` in `ChronoArchiver_installer.log`.

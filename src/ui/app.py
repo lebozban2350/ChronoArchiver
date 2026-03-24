@@ -43,7 +43,13 @@ from core.subprocess_tee import (
     win_hide_kw,
 )
 from core.debug_logger import init_log, get_log_path, debug, UTILITY_APP
-from core.app_paths import install_root, uses_install_layout, settings_dir as _app_settings_dir
+from core.app_paths import (
+    APP_NAME,
+    APP_AUTHOR,
+    install_root,
+    uses_install_layout,
+    settings_dir as _app_settings_dir,
+)
 from core.logger import setup_logger
 
 # Font stack: Inter if bundled, else Windows-native for readability
@@ -996,12 +1002,12 @@ if __name__ == "__main__":
     from core.single_instance import ensure_single_instance, release_single_instance
     if not ensure_single_instance():
         app = QApplication(sys.argv)
-        QMessageBox.warning(None, "ChronoArchiver", "Another instance is already running.")
+        QMessageBox.warning(None, APP_NAME, "Another instance is already running.")
         sys.exit(1)
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    app.setOrganizationName("UnDadFeated")
-    app.setApplicationName("ChronoArchiver")
+    app.setOrganizationName(APP_AUTHOR)
+    app.setApplicationName(APP_NAME)
     if install_root() is not None:
         QSettings.setPath(
             QSettings.Format.IniFormat,
