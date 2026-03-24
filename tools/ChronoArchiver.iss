@@ -3,7 +3,7 @@
 ; Requires: dist/ChronoArchiver/ folder from PyInstaller
 
 #define MyAppName "ChronoArchiver"
-#define MyAppVersion "3.5.4"
+#define MyAppVersion "3.5.5"
 #define MyAppPublisher "UnDadFeated"
 #define MyAppURL "https://github.com/UnDadFeated/ChronoArchiver"
 #define MyAppExeName "ChronoArchiver.exe"
@@ -36,6 +36,9 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
+; Allow in-place upgrade when running /VERYSILENT (in-app updater)
+CloseApplications=yes
+CloseApplicationsFilter=*ChronoArchiver*
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

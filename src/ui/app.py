@@ -3,12 +3,13 @@ ChronoArchiver — App-private venv (all Python deps internalized).
 Uses a QStackedWidget to manage distinct application panels.
 """
 
-import sys
 import os
 import platform
 import queue
 import shutil
 import subprocess
+import sys
+import tempfile
 import threading
 import webbrowser
 
@@ -263,6 +264,118 @@ class PreReqDialog(QDialog):
         timer.timeout.connect(_poll)
         timer.start(80)
         threading.Thread(target=_worker, daemon=True).start()
+
+
+class UpdateDownloadDialog(QDialog):
+    """FFmpeg-style popup: download installer with file name, size, progress bar, MB/s."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Updating ChronoArchiver")
+        self.setModal(True)
+        self.setFixedSize(460, 220)
+        v = QVBoxLayout(self)
+        v.setSpacing(8)
+        v.setContentsMargins(12, 12, 12, 12)
+        self._lbl_intro = QLabel("Downloading update...")
+        self._lbl_intro.setStyleSheet("font-size: 10px; color: #9ca3af;")
+        self._lbl_intro.setWordWrap(True)
+        v.addWidget(self._lbl_intro)
+        self._lbl_file = QLabel("")
+        self._lbl_file.setStyleSheet("font-size: 10px; font-weight: 600; color: #e5e7eb;")
+        v.addWidget(self._lbl_file)
+        self._lbl_size = QLabel("")
+        self._lbl_size.setStyleSheet("font-size: 9px; color: #6b7280;")
+        v.addWidget(self._lbl_size)
+        self._lbl_speed = QLabel("")
+        self._lbl_speed.setStyleSheet("font-size: 9px; color: #10b981;")
+        v.addWidget(self._lbl_speed)
+        self._bar = QProgressBar()
+        self._bar.setRange(0, 100)
+        self._bar.setValue(0)
+        self._bar.setFixedHeight(14)
+        self._bar.setFormat("%p%")
+        v.addWidget(self._bar)
+        v.addStretch()
+        self.setStyleSheet("QDialog { background: #0d0d0d; }")
+        self._progress_queue = queue.Queue()
+        self._dest_path = None
+        self._download_ok = False
+
+    def run_download(self, updater, version: str, changelog_text: str) -> bool:
+        """
+        Fetch asset info, download with progress, then launch installer. Returns True if
+        download succeeded and installer was launched (app should quit). False if failed.
+        """
+        info = updater.get_installer_asset_info(version)
+        if not info:
+            QMessageBox.warning(self, "Update", "Could not find installer for this platform.")
+            return False
+        url, size_bytes, filename = info
+        size_mb = size_bytes / (1024 * 1024)
+        self._lbl_intro.setText(f"Downloading ChronoArchiver v{version}")
+        self._lbl_file.setText(f"File: {filename}")
+        self._lbl_size.setText(f"Size: {size_mb:.1f} MB total")
+        self._lbl_speed.setText("")
+        self._bar.setValue(0)
+
+        fd, dest = tempfile.mkstemp(suffix=os.path.splitext(filename)[1])
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        self._dest_path = dest
+
+        def _on_progress(downloaded, total, pct, mbps):
+            try:
+                self._progress_queue.put_nowait((downloaded, total, pct, mbps))
+            except queue.Full:
+                pass
+
+        def _poll():
+            try:
+                while True:
+                    msg = self._progress_queue.get_nowait()
+                    if msg[0] == "done":
+                        self._download_ok = bool(msg[1])
+                        self._poll_timer.stop()
+                        if self._download_ok:
+                            self.accept()
+                        else:
+                            QMessageBox.warning(self, "Update", "Download failed.")
+                            self.reject()
+                        return
+                    downloaded, total, pct, mbps = msg
+                    self._bar.setValue(min(100, int(pct)))
+                    self._bar.setFormat("%p%")
+                    self._lbl_speed.setText(f"{mbps:.2f} MB/s" if mbps and mbps > 0 else "")
+            except queue.Empty:
+                pass
+
+        def _worker():
+            ok = updater.download_installer_with_progress(
+                url, dest, size_bytes, _on_progress
+            )
+            try:
+                self._progress_queue.put_nowait(("done", ok, None, None))
+            except queue.Full:
+                pass
+
+        self._poll_timer = QTimer(self)
+        self._poll_timer.timeout.connect(_poll)
+        self._poll_timer.start(80)
+        threading.Thread(target=_worker, daemon=True).start()
+
+        result = self.exec()
+        self._poll_timer.stop()
+        if result != QDialog.DialogCode.Accepted or not self._download_ok:
+            try:
+                if self._dest_path and os.path.isfile(self._dest_path):
+                    os.unlink(self._dest_path)
+            except OSError:
+                pass
+            return False
+        return True
 
 
 class ChronoArchiverApp(QMainWindow):
@@ -684,8 +797,55 @@ class ChronoArchiverApp(QMainWindow):
             if r == QMessageBox.Yes:
                 webbrowser.open("https://github.com/UnDadFeated/ChronoArchiver/releases")
             return
-        method_desc = "git pull" if method == "git" else "AUR (paru/yay)"
+
         changelog_text = self.updater.fetch_changelog_since(__version__)
+
+        if method == "installer":
+            dlg = QDialog(self)
+            dlg.setWindowTitle(f"Update Available — v{latest}")
+            dlg.setMinimumSize(440, 320)
+            v = QVBoxLayout(dlg)
+            v.addWidget(QLabel(
+                "The app will download the installer, close, run it, then restart. "
+                "No need to visit the Releases page."
+            ))
+            te = QTextEdit()
+            te.setReadOnly(True)
+            te.setPlainText(changelog_text)
+            te.setStyleSheet("background:#121212; color:#e5e7eb; font-size:10px; font-family: monospace;")
+            te.setMinimumHeight(140)
+            te.setMaximumHeight(340)
+            v.addWidget(te)
+            btns = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok)
+            btns.setCenterButtons(True)
+            btns.button(QDialogButtonBox.Ok).setText("Download & Update")
+            btns.accepted.connect(dlg.accept)
+            btns.rejected.connect(dlg.reject)
+            v.addWidget(btns)
+            if dlg.exec() != QDialog.DialogCode.Accepted:
+                return
+
+            self._update_pulse_timer.stop()
+            self.btn_update.setText("DOWNLOADING...")
+            download_dlg = UpdateDownloadDialog(self)
+            if not download_dlg.run_download(self.updater, latest, changelog_text):
+                self.btn_update.setText(f"UPDATE v{latest} AVAILABLE")
+                self._update_pulse_timer.start()
+                return
+
+            self.btn_update.setText("UPDATING...")
+            installer_path = download_dlg._dest_path
+            debug(UTILITY_APP, f"Installer update: launching {installer_path} for v{latest}")
+
+            def on_error(msg):
+                QMessageBox.warning(self, "Update Failed", msg)
+
+            self.updater.perform_installer_update(latest, installer_path, on_error=on_error)
+            debug(UTILITY_APP, "Installer spawn done, quitting app")
+            QApplication.instance().quit()
+            return
+
+        method_desc = "git pull" if method == "git" else "AUR (paru/yay)"
         dlg = QDialog(self)
         dlg.setWindowTitle(f"Update Available — v{latest}")
         dlg.setMinimumSize(440, 320)

@@ -210,6 +210,14 @@ class AIScannerPanel(QWidget):
         h_strip.setSpacing(6)
         _strip_h = 100  # Same height for Directories, Options, Engine Status
 
+        _bar_h = 24
+        _browse_w, _browse_h = 56, _bar_h
+        _edit_ss = (
+            f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; "
+            "background:#121212; border:1px solid #1a1a1a;"
+        )
+        _btn_ss = "font-size:8px; font-weight:700; color:#aaa; border:2px solid #262626;"
+
         # 1. Directories
         grp_dir = QGroupBox("Directories")
         grp_dir.setFixedHeight(_strip_h)
@@ -221,13 +229,12 @@ class AIScannerPanel(QWidget):
         self._edit_path = QLineEdit()
         self._edit_path.setPlaceholderText("SELECT PHOTO LIBRARY...")
         self._edit_path.textChanged.connect(self._update_start_enabled)
-        self._edit_path.setStyleSheet(
-            "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
-            "background:#121212; border:1px solid #1a1a1a;")
+        self._edit_path.setStyleSheet(_edit_ss)
+        self._edit_path.setMinimumHeight(_bar_h)
         h_src.addWidget(self._edit_path, 1)
         self._btn_browse = QPushButton("Browse")
-        self._btn_browse.setFixedSize(48, 22)
-        self._btn_browse.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
+        self._btn_browse.setFixedSize(_browse_w, _browse_h)
+        self._btn_browse.setStyleSheet(_btn_ss)
         self._btn_browse.clicked.connect(self._browse)
         h_src.addWidget(self._btn_browse)
         v_dir.addLayout(h_src)
@@ -392,32 +399,33 @@ class AIScannerPanel(QWidget):
         h_btns.addWidget(QLabel("Target:", styleSheet="font-size:8px; color:#888;"))
         self._edit_target = QLineEdit()
         self._edit_target.setPlaceholderText("Select target folder...")
-        self._edit_target.setStyleSheet(
-            "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
-            "background:#121212; border:1px solid #1a1a1a;")
+        self._edit_target.setStyleSheet(_edit_ss)
+        self._edit_target.setMinimumHeight(_bar_h)
         self._edit_target.textChanged.connect(self._update_move_start)
         h_btns.addWidget(self._edit_target, 1)
         self._btn_browse_target = QPushButton("Browse")
-        self._btn_browse_target.setFixedSize(48, 22)
-        self._btn_browse_target.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
+        self._btn_browse_target.setFixedSize(_browse_w, _browse_h)
+        self._btn_browse_target.setStyleSheet(_btn_ss)
         self._btn_browse_target.clicked.connect(self._browse_target)
         h_btns.addWidget(self._btn_browse_target)
         self._combo_action = QComboBox()
         self._combo_action.addItems(["Move", "Copy"])
-        self._combo_action.setStyleSheet("font-size:8px; min-width:72px;")
+        self._combo_action.setStyleSheet("font-size:8px; min-width:72px; min-height:24px;")
         self._combo_action.setCurrentIndex(0)
         self._combo_action.currentTextChanged.connect(self._update_move_copy_label)
         h_btns.addWidget(self._combo_action)
         self._btn_start_move = QPushButton("START")
         self._btn_start_move.setObjectName("btnStartMove")
+        self._btn_start_move.setFixedHeight(_bar_h)
         self._btn_start_move.setStyleSheet(
-            "font-size:8px; font-weight:700; min-height:20px; "
-            "background:#1a1a1a; color:#6b7280; border:1px solid #262626;")
+            "font-size:8px; font-weight:700; "
+            "background:#1a1a1a; color:#6b7280; border:2px solid #262626;")
         self._btn_start_move.clicked.connect(self._apply_move_copy)
         self._btn_start_move.setEnabled(False)
         h_btns.addWidget(self._btn_start_move)
         self._btn_export = QPushButton("Export CSV")
-        self._btn_export.setStyleSheet("font-size:8px; font-weight:700;")
+        self._btn_export.setFixedHeight(_bar_h)
+        self._btn_export.setStyleSheet("font-size:8px; font-weight:700; border:2px solid #262626;")
         self._btn_export.clicked.connect(self._export_csv)
         h_btns.addWidget(self._btn_export)
         h_btns.addStretch()
@@ -603,25 +611,25 @@ class AIScannerPanel(QWidget):
         if not w:
             return
         if w == self._btn_start:
-            w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid transparent; font-size:10px; font-weight:900;")
+            w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:10px; font-weight:900;")
         elif w == self._btn_start_move:
             if self._btn_start_move.isEnabled():
-                w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid transparent; font-size:9px; font-weight:900; min-height:20px;")
+                w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:9px; font-weight:900; min-height:24px;")
             else:
-                w.setStyleSheet("font-size:8px; font-weight:700; min-height:20px; background:#1a1a1a; color:#6b7280; border:2px solid #262626;")
+                w.setStyleSheet("font-size:8px; font-weight:700; min-height:24px; background:#1a1a1a; color:#6b7280; border:2px solid #262626;")
         elif w == self._btn_browse:
-            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent; min-height:22px;")
+            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid #262626; min-height:24px;")
         elif w == self._btn_browse_target:
-            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent; min-height:20px;")
+            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid #262626; min-height:24px;")
         elif w == self._btn_setup:
-            w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; border:2px solid transparent;")
+            w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; border:2px solid #262626;")
         elif w == self._btn_uninstall_models:
-            w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; color:#6b7280; border:2px solid transparent;")
+            w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; color:#6b7280; border:2px solid #262626;")
         elif w == self._btn_install_cv:
             if self._opencv_just_installed:
-                w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid transparent; font-size:7px; font-weight:700; min-height:16px;")
+                w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:7px; font-weight:700; min-height:16px;")
             else:
-                w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; border:2px solid transparent;")
+                w.setStyleSheet("font-size:7px; font-weight:700; min-height:16px; border:2px solid #262626;")
         elif w == self._btn_update:
             w.setStyleSheet("font-size:7px; font-weight:700; color:#eab308; border:2px solid #eab308; min-height:16px;")
 
@@ -640,12 +648,12 @@ class AIScannerPanel(QWidget):
             if target == self._btn_start:
                 target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;")
             elif target == self._btn_start_move:
-                target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:9px; font-weight:900; min-height:20px;")
+                target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:9px; font-weight:900; min-height:24px;")
             elif target == self._btn_install_cv and self._opencv_just_installed:
                 target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #34d399; font-size:7px; font-weight:700; min-height:16px;")
             else:
                 if target == self._btn_browse or target == self._btn_browse_target:
-                    style = f"font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444; min-height:{22 if target == self._btn_browse else 20}px;"
+                    style = "font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444; min-height:24px;"
                 else:
                     style = "font-size:7px; font-weight:700; color:#ef4444; border:2px solid #ef4444; min-height:16px;"
                 target.setStyleSheet(style)
@@ -1094,12 +1102,12 @@ class AIScannerPanel(QWidget):
         self._btn_start_move.setEnabled(can)
         if can:
             self._btn_start_move.setStyleSheet(
-                "background-color:#10b981; color:#064e3b; border:2px solid transparent; "
-                "font-size:9px; font-weight:900; min-height:20px;")
+                "background-color:#10b981; color:#064e3b; border:2px solid #064e3b; "
+                "font-size:9px; font-weight:900; min-height:24px;")
         else:
             self._btn_start_move.setStyleSheet(
-                "font-size:8px; font-weight:700; min-height:20px; "
-                "background:#1a1a1a; color:#6b7280; border:1px solid #262626;")
+                "font-size:8px; font-weight:700; min-height:24px; "
+                "background:#1a1a1a; color:#6b7280; border:2px solid #262626;")
         self._guide_glow_phase = 0
         self._guide_pulse_timer.start()
 

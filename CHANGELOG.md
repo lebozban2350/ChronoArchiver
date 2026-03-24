@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.5.5] - 2026-03-23
+### Added
+- **In-app installer updates (Windows & macOS)**: Frozen .exe/.app can now update without visiting the Releases page. Download progress popup (file, size, MB/s), then app quits, runs installer, restarts. FFmpeg-style UX.
+
+### Changed
+- **UI alignment**: Input bars and Browse buttons unified across all three panels (24px height, 56×24px buttons). Organizer, Encoder, Scanner now consistent.
+- **Guide pulse**: Blinking red guide no longer warps layout; uses consistent border colors instead of transparent/red toggle.
+
+### Fixed
+- **Inno Setup**: `CloseApplications` for clean in-place upgrades when running installer over existing install.
+
 ## [3.5.4] - 2026-03-24
 ### Added
 - **Single-instance lock**: Only one ChronoArchiver instance can run; second launch shows a message and exits.

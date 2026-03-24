@@ -138,26 +138,31 @@ class AV1EncoderPanel(QWidget):
         grid_strip.setSpacing(6)
 
         # 1. Directories (top-left)
+        _bar_h = 24
+        _browse_w, _browse_h = 56, _bar_h
+        _dir_edit_ss = (
+            f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; "
+            "background:#121212; border:1px solid #1a1a1a;"
+        )
+        _dir_btn_ss = "font-size:8px; font-weight:700; color:#aaa; border:2px solid #262626;"
+
         grp_dir = QGroupBox("Directories")
         v_dir = QVBoxLayout(grp_dir)
         v_dir.setContentsMargins(6, 8, 6, 2)
         v_dir.setSpacing(1)
 
-        _dir_edit_ss = (
-            "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
-            "background:#121212; border:1px solid #1a1a1a;"
-        )
         self._edit_src = QLineEdit()
         self._edit_src.setPlaceholderText("SOURCE PATH (local or smb://)")
         self._edit_src.setStyleSheet(_dir_edit_ss)
+        self._edit_src.setMinimumHeight(_bar_h)
         self._edit_src.setText("")
 
         h_src = QHBoxLayout()
         h_src.setSpacing(6)
         h_src.addWidget(self._edit_src, 1)
         self._btn_browse_src = QPushButton("Browse")
-        self._btn_browse_src.setFixedSize(48, 22)
-        self._btn_browse_src.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
+        self._btn_browse_src.setFixedSize(_browse_w, _browse_h)
+        self._btn_browse_src.setStyleSheet(_dir_btn_ss)
         self._btn_browse_src.clicked.connect(self._browse_src)
         h_src.addWidget(self._btn_browse_src)
         v_dir.addLayout(h_src)
@@ -171,18 +176,16 @@ class AV1EncoderPanel(QWidget):
 
         self._edit_dst = QLineEdit()
         self._edit_dst.setPlaceholderText("TARGET PATH (local or smb://)")
-        self._edit_dst.setMinimumWidth(150)
-        self._edit_dst.setMaximumWidth(600)
-        self._edit_dst.setStyleSheet(
-            "color:#fff; font-size:12px; font-weight:500; "
-            "background:#121212; border:1px solid #1a1a1a;")
+        self._edit_dst.setStyleSheet(_dir_edit_ss)
+        self._edit_dst.setMinimumHeight(_bar_h)
         self._edit_dst.setText("")
 
         h_dst = QHBoxLayout()
+        h_dst.setSpacing(6)
         h_dst.addWidget(self._edit_dst, 1)
         self._btn_browse_dst = QPushButton("Browse")
-        self._btn_browse_dst.setFixedSize(52, 22)
-        self._btn_browse_dst.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
+        self._btn_browse_dst.setFixedSize(_browse_w, _browse_h)
+        self._btn_browse_dst.setStyleSheet(_dir_btn_ss)
         self._btn_browse_dst.clicked.connect(self._browse_dst)
         h_dst.addWidget(self._btn_browse_dst)
         self._edit_dst.textChanged.connect(self._update_start_enabled)
@@ -564,9 +567,9 @@ class AV1EncoderPanel(QWidget):
         if not w:
             return
         if w == self._btn_start:
-            w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid transparent; font-size:10px; font-weight:900;")
+            w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:10px; font-weight:900;")
         else:
-            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent; min-height:22px;")
+            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid #262626; min-height:24px;")
 
     def _update_start_enabled(self):
         if self._btn_start.text() == "ENCODING COMPLETE":
@@ -591,7 +594,7 @@ class AV1EncoderPanel(QWidget):
             if target == self._btn_start:
                 target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;")
             else:
-                target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444; min-height:22px;")
+                target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444; min-height:24px;")
         else:
             self._clear_guide_glow(target)
 

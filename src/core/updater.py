@@ -27,6 +27,7 @@ from version import __version__
 
 # Use tags API — releases/latest 404s when no GitHub Releases exist (only tags are pushed)
 TAGS_API_URL = "https://api.github.com/repos/UnDadFeated/ChronoArchiver/tags?per_page=30"
+RELEASES_BY_TAG_URL = "https://api.github.com/repos/UnDadFeated/ChronoArchiver/releases/tags/v{version}"
 CHANGELOG_RAW_URL = "https://raw.githubusercontent.com/UnDadFeated/ChronoArchiver/main/CHANGELOG.md"
 
 
@@ -62,8 +63,22 @@ def _find_repo_root(start: str) -> str | None:
     return None
 
 
+def _is_frozen() -> bool:
+    """True when running as PyInstaller bundle (.exe or .app)."""
+    return getattr(sys, "frozen", False)
+
+
+def _is_installer_install() -> bool:
+    """True when running from Windows .exe or macOS .app (installer distribution)."""
+    if not _is_frozen():
+        return False
+    return platform.system() in ("Windows", "Darwin")
+
+
 def _get_install_method() -> str | None:
-    """Returns 'git' | 'aur' | None for use by restart/update logic."""
+    """Returns 'installer' | 'git' | 'aur' | None for use by restart/update logic."""
+    if _is_installer_install():
+        return "installer"
     if _is_aur_install():
         return "aur"
     if _is_git_install():
@@ -284,6 +299,146 @@ class ApplicationUpdater:
 
     def get_changelog(self):
         return self._changelog
+
+    def get_installer_asset_info(self, version: str) -> tuple[str, int, str] | None:
+        """
+        Fetch release by tag and return (download_url, size_bytes, filename) for the
+        platform-specific installer, or None if not found.
+        """
+        version_clean = (version or "").replace("v", "").strip()
+        if not version_clean:
+            return None
+        suffix = "-win64.exe" if platform.system() == "Windows" else "-mac64.dmg"
+        expected_name = f"ChronoArchiver-{version_clean}{suffix}"
+        try:
+            url = RELEASES_BY_TAG_URL.format(version=version_clean)
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "ChronoArchiver-Updater",
+                    "Accept": "application/vnd.github+json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
+                data = json.loads(resp.read().decode("utf-8"))
+            assets = data.get("assets") or []
+            for a in assets:
+                name = a.get("name", "")
+                if name == expected_name:
+                    return (
+                        a.get("browser_download_url", ""),
+                        int(a.get("size", 0) or 0),
+                        name,
+                    )
+        except Exception:
+            pass
+        return None
+
+    def download_installer_with_progress(
+        self,
+        url: str,
+        dest_path: str,
+        total_bytes: int,
+        progress_callback,
+    ) -> bool:
+        """
+        Stream-download installer to dest_path. Calls progress_callback(downloaded, total, pct_0_to_100, mb_per_sec).
+        Returns True on success, False on failure.
+        """
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "ChronoArchiver-Updater"})
+            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
+                total = total_bytes or int(resp.headers.get("Content-Length", 0) or 0)
+                downloaded = 0
+                start = time.time()
+                chunk_size = 256 * 1024
+                with open(dest_path, "wb") as f:
+                    while True:
+                        chunk = resp.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        elapsed = time.time() - start
+                        mbps = (downloaded / (1024 * 1024)) / elapsed if elapsed > 0 else 0
+                        pct = (100.0 * downloaded / total) if total > 0 else 0
+                        if progress_callback:
+                            progress_callback(downloaded, total, min(100.0, pct), mbps)
+            return True
+        except Exception:
+            return False
+
+    def perform_installer_update(
+        self,
+        version: str,
+        installer_path: str,
+        on_error=None,
+    ):
+        """
+        Spawn a helper that waits for this process to exit, runs the installer, then the
+        installer launches the updated app. Call QApplication.quit() after this returns.
+        """
+        launch_cmd = _find_app_launch_cmd("installer")
+        if platform.system() == "Windows":
+            exe_quoted = '"%s"' % str(launch_cmd[0]).replace('"', "")
+            script = f'''@echo off
+ping -n 3 127.0.0.1 > nul
+"{installer_path}" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+start "" {exe_quoted}
+'''
+            ext = ".bat"
+        else:
+            # macOS: mount DMG, copy .app, unmount
+            dmg_esc = str(installer_path).replace("\\", "\\\\").replace('"', '\\"')
+            script = f'''#!/bin/sh
+sleep 2
+DMG="{dmg_esc}"
+TMP_MOUNT=$(mktemp -d)
+hdiutil attach "$DMG" -mountpoint "$TMP_MOUNT" -nobrowse -quiet
+APP_SRC="$TMP_MOUNT/ChronoArchiver.app"
+APP_DEST="/Applications/ChronoArchiver.app"
+if [ -d "$APP_SRC" ]; then
+  rm -rf "$APP_DEST.new"
+  cp -R "$APP_SRC" "$APP_DEST.new"
+  hdiutil detach "$TMP_MOUNT" -quiet
+  rm -rf "$APP_DEST"
+  mv "$APP_DEST.new" "$APP_DEST"
+  open "$APP_DEST"
+fi
+rm -rf "$TMP_MOUNT"
+'''
+            ext = ".sh"
+        fd, path = tempfile.mkstemp(suffix=ext)
+        try:
+            os.write(fd, script.encode("utf-8"))
+        finally:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        if platform.system() != "Windows":
+            os.chmod(path, 0o755)  # nosec B103
+        try:
+            if platform.system() == "Windows":
+                subprocess.Popen(
+                    ["cmd", "/c", path],
+                    creationflags=subprocess.CREATE_NEW_PROCESS | subprocess.DETACHED_PROCESS,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    cwd=os.path.dirname(path),
+                )
+            else:
+                subprocess.Popen(
+                    [path],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+        except Exception as e:
+            if on_error:
+                on_error(f"Failed to run installer: {e}")
 
     def fetch_changelog_since(self, current_version: str) -> str:
         """Fetch CHANGELOG.md and return all sections from (current, latest], newest first. Falls back on single latest on failure."""
