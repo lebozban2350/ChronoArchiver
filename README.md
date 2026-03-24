@@ -7,7 +7,7 @@
 ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application. Built on PySide6 with an app-private Python environment; no system-wide package installation required.
 </div>
 
-[![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-3.7.2-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
 
@@ -119,10 +119,10 @@ Download the setup from the [Releases](https://github.com/UnDadFeated/ChronoArch
 
 | Platform | File |
 |----------|------|
-| **Windows x64** | `ChronoArchiver-Setup-3.7.0-win64.exe` |
-| **macOS** | `ChronoArchiver-Setup-3.7.0-mac64.zip` |
+| **Windows x64** | `ChronoArchiver-Setup-3.7.2-win64.exe` |
+| **macOS** | `ChronoArchiver-Setup-3.7.2-mac64.zip` |
 
-The setup (~6MB) downloads Python source on first run. Requires Python 3.11+ installed. The app runs as `.pyw` via `pythonw` for fast startup. Install location: `%LOCALAPPDATA%\ChronoArchiver\app` (Windows) or `~/Library/Application Support/ChronoArchiver/app` (macOS). Uninstall via Start Menu (Windows) or `Uninstall ChronoArchiver.command` (macOS).
+The setup (~6MB) downloads Python source on first run. Requires Python 3.11+ installed. Creates venv during install; desktop shortcut runs `pythonw` (no command prompt). Install location: `%LOCALAPPDATA%\ChronoArchiver` (Windows) or `~/Library/Application Support/ChronoArchiver` (macOS). Uninstall: Start Menu → ChronoArchiver → Uninstall ChronoArchiver (Windows) or `Uninstall ChronoArchiver.command` (macOS).
 
 ### From Source
 

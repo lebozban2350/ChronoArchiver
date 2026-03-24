@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.7.2] - 2026-03-24
+### Fixed
+- **Windows .pyw silent launch**: Launcher now calls `bootstrap.main()` (was never invoked). Bootstrap uses setup UI on Windows/macOS instead of headless-only (DISPLAY check). Errors shown via MessageBox when running under pythonw (no console).
+
+### Changed
+- **Install path simplified**: Windows `%LOCALAPPDATA%\ChronoArchiver\app` → `%LOCALAPPDATA%\ChronoArchiver`. macOS `~/Library/Application Support/ChronoArchiver/app` → `~/Library/Application Support/ChronoArchiver`. No nested `app` or `ChronoArchiver` subfolders.
+
+## [3.7.1] - 2026-03-24
+### Changed
+- **Windows**: Desktop shortcut (no command prompt); launcher.vbs runs pythonw from app venv; Uninstall ChronoArchiver.vbs with confirmation dialog.
+- **Setup**: Creates venv during install so shortcut uses app-internal pythonw; fallback to system pythonw if venv creation fails.
+- **macOS**: Launcher prefers venv/bin/python; fallback to python3/python.
+
 ## [3.7.0] - 2026-03-24
 ### Changed
 - **Python-based install**: Windows and macOS setup no longer install compiled binaries. App runs as `.pyw` via `pythonw`, eliminating 3–4 minute startup delays caused by PyInstaller extraction on Windows.

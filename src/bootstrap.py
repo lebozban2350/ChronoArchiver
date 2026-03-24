@@ -3,6 +3,7 @@ bootstrap.py — First-run venv setup (stdlib + optional tkinter).
 Run before main app when venv does not exist.
 """
 import os
+import platform
 import sys
 from pathlib import Path
 
@@ -67,6 +68,24 @@ def _run_headless():
     return ensure_venv(progress_callback=progress, skip_opencv=True)
 
 
+def _show_setup_error(msg: str) -> None:
+    """Show setup failure; use GUI when possible (pythonw has no console)."""
+    print(msg, file=sys.stderr)
+    try:
+        import tkinter as tk
+        root = tk.Tk()
+        root.withdraw()
+        tk.messagebox.showerror("ChronoArchiver — Setup Failed", msg)
+        root.destroy()
+    except Exception:
+        if platform.system() == "Windows":
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(0, msg, "ChronoArchiver — Setup Failed", 0x10)
+            except Exception:
+                pass
+
+
 def _find_app_py() -> Path:
     """Locate app.py for repo (src/ui/) or installed (app/src/ui/) layout."""
     for candidate in (
@@ -97,10 +116,13 @@ def main():
             print(f"Failed to launch: {e}")
             sys.exit(1)
 
-    print("ChronoArchiver — First-time setup (creating environment)...")
-    ok = _run_with_ui() if os.environ.get("DISPLAY") else _run_headless()
+    # Use UI on Windows/macOS; headless only when no display (e.g. SSH)
+    use_ui = bool(os.environ.get("DISPLAY")) or platform.system() in ("Windows", "Darwin")
+    if use_ui:
+        print("ChronoArchiver — First-time setup (creating environment)...")
+    ok = _run_with_ui() if use_ui else _run_headless()
     if not ok:
-        print("Setup failed. See messages above.")
+        _show_setup_error("Setup failed. Check that Python 3.11+ is installed and you have internet access.")
         sys.exit(1)
     print("Setup complete. Launching...")
     add_venv_to_path()  # LD_LIBRARY_PATH for OpenCV CUDA (libcufft, libcudnn) before execv
