@@ -13,6 +13,7 @@ import json
 import os
 import platform
 import re
+import traceback
 from datetime import datetime
 import shutil
 import subprocess
@@ -78,6 +79,37 @@ def _install_log(msg: str) -> None:
         line = f"{datetime.now().isoformat(timespec='seconds')} {msg}\n"
         with open(_INSTALL_LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line)
+    except OSError:
+        pass
+
+
+def _install_log_chunk(title: str, text: str, max_chars: int = 12000) -> None:
+    """Append a multi-line block (e.g. pip output); each line prefixed for grep-friendly logs."""
+    if _INSTALL_LOG_FILE is None:
+        return
+    body = (text or "")[-max_chars:] if len(text or "") > max_chars else (text or "")
+    _install_log(f"--- {title} ({len(body)} chars) ---")
+    for ln in body.splitlines():
+        _install_log(f"  | {ln}")
+    _install_log(f"--- end {title} ---")
+
+
+def _install_log_footer(ok: bool, detail: str = "") -> None:
+    """Final SUCCESS/FAILURE banner for tail-scanning log files."""
+    if _INSTALL_LOG_FILE is None:
+        return
+    ts = datetime.now().isoformat(timespec="seconds")
+    status = "SUCCESS" if ok else "FAILURE"
+    line = f"INSTALLER RESULT: {status}"
+    if detail:
+        line += f" ({detail})"
+    try:
+        with open(_INSTALL_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write("\n")
+            f.write("=" * 72 + "\n")
+            f.write(line + "\n")
+            f.write(f"Logged at {ts}\n")
+            f.write("=" * 72 + "\n")
     except OSError:
         pass
 
@@ -169,6 +201,8 @@ def _download_url() -> str:
 
 def _download_with_progress(url: str, dest_path: str, progress_cb) -> bool:
     """Stream download with progress. progress_cb(component, pct, speed_mbps, size_mb)."""
+    _install_log(f"download: GET {url}")
+    _install_log(f"download: dest_path={dest_path!r}")
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ChronoArchiver-Setup"})
         with urllib.request.urlopen(req, timeout=120) as resp:
@@ -188,8 +222,11 @@ def _download_with_progress(url: str, dest_path: str, progress_cb) -> bool:
                     pct = (100.0 * downloaded / total) if total > 0 else 0
                     size_mb = downloaded / (1024 * 1024)
                     progress_cb("ChronoArchiver", min(100.0, pct), speed, size_mb)
+        _install_log("download: completed OK")
         return True
-    except Exception:
+    except Exception as e:
+        _install_log(f"download: EXCEPTION {type(e).__name__}: {e!r}")
+        _install_log_chunk("download traceback", traceback.format_exc(), 6000)
         return False
 
 
@@ -288,10 +325,12 @@ def _pip_sync_requirements(app_root: Path, pip_exe: Path, progress_cb) -> tuple[
         bufsize=1,
         cwd=str(app_root),
     )
+    pip_capture: list[str] = []
     last_update = [0.0]
     prev_bytes = [0.0]
     prev_time = [time.time()]
     for line in iter(proc.stdout.readline, "") if proc.stdout else []:
+        pip_capture.append((line or "").rstrip("\n"))
         line = (line or "").strip()
         if not line:
             continue
@@ -318,8 +357,12 @@ def _pip_sync_requirements(app_root: Path, pip_exe: Path, progress_cb) -> tuple[
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()
+        _install_log("pip install -r: timed out")
+        _install_log_chunk("pip install -r output (full)", "\n".join(pip_capture), 12000)
         return False, "pip install -r timed out."
     if proc.returncode != 0:
+        _install_log(f"pip install -r: exit code {proc.returncode}")
+        _install_log_chunk("pip install -r output (tail)", "\n".join(pip_capture), 12000)
         return False, "pip install -r failed (see log)."
     progress_cb("requirements.txt", 100, 0, 0, "OK")
     return True, ""
@@ -377,6 +420,7 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> tuple[bool, str]:
             return True, ""
         if ok:
             err = "Dependency verification failed after pip sync."
+            _install_log("bootstrap: pip sync OK but _venv_import_ok failed after sync")
         progress_cb("Replacing virtual environment…", 0, 0, 0, (err or "")[:100])
         try:
             shutil.rmtree(venv)
@@ -400,6 +444,8 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> tuple[bool, str]:
     except subprocess.CalledProcessError as e:
         msg = (e.stderr or e.stdout or "venv failed").decode("utf-8", errors="ignore") if isinstance((e.stderr or e.stdout), bytes) else (e.stderr or e.stdout or "venv failed")
         progress_cb("venv creation failed", 0, 0, 0, str(msg)[:120])
+        _install_log(f"venv creation: exit {e.returncode} cmd={py_cmd + ['-m', 'venv', str(venv)]!r}")
+        _install_log_chunk("venv creation stderr/stdout", str(msg), 8000)
         return False, f"venv creation failed: {str(msg)[:500]}"
     except subprocess.TimeoutExpired:
         progress_cb("venv creation failed", 0, 0, 0)
@@ -429,10 +475,12 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> tuple[bool, str]:
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
             cwd=str(app_root),
         )
+        pkg_lines: list[str] = []
         last_update = [0.0]
         prev_bytes = [0.0]
         prev_time = [time.time()]
         for line in iter(proc.stdout.readline, "") if proc.stdout else []:
+            pkg_lines.append((line or "").rstrip("\n"))
             line = (line or "").strip()
             if not line:
                 continue
@@ -463,9 +511,12 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> tuple[bool, str]:
             proc.kill()
             proc.wait()
             progress_cb(f"Timeout: {pkg}", 0, 0, 0)
+            _install_log_chunk(f"pip install timeout package={pkg}", "\n".join(pkg_lines), 8000)
             return False, f"pip install timed out for {pkg}."
         if proc.returncode != 0:
             progress_cb(f"Failed: {pkg}", 0, 0, 0)
+            _install_log(f"pip install package={pkg!r} exit code {proc.returncode}")
+            _install_log_chunk(f"pip install output package={pkg}", "\n".join(pkg_lines), 12000)
             return False, f"pip install failed for {pkg}."
         progress_cb(pkg_display, base_pct + 100.0 / n, 0, 0, "OK")
 
@@ -473,12 +524,18 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> tuple[bool, str]:
     try:
         r = subprocess.run(
             [str(py_exe), "-c", "import PySide6; import numpy; import PIL; import requests"],
-            capture_output=True, timeout=15,
+            capture_output=True,
+            timeout=15,
         )
         if r.returncode != 0:
             progress_cb("Verification failed", 0, 0, 0)
+            err_out = (r.stderr or b"").decode("utf-8", errors="replace") + (r.stdout or b"").decode(
+                "utf-8", errors="replace"
+            )
+            _install_log_chunk("bootstrap verify imports stderr+stdout", err_out, 4000)
             return False, "Dependency verification failed after install."
     except Exception as e:
+        _install_log(f"bootstrap verify: EXCEPTION {type(e).__name__}: {e!r}")
         return False, f"Verification exception: {e}"
     progress_cb("Done", 100, 0, 0)
     return True, ""
@@ -741,13 +798,15 @@ def _do_setup_gui(download_url: str) -> bool:
 
     url = download_url
     if not url:
+        _install_log("setup GUI: empty download_url (internal check)")
+        _install_log_footer(False, "missing_download_url")
         root = tk.Tk()
         root.withdraw()
         messagebox.showerror("ChronoArchiver", f"Could not find download for v{VERSION}. Check your connection.")
         root.destroy()
         return False
 
-    _install_log(f"setup GUI: download URL length={len(url)}")
+    _install_log(f"setup GUI: download URL={url}")
 
     root = tk.Tk()
     root.title("ChronoArchiver — Setup")
@@ -846,6 +905,7 @@ def _do_setup_gui(download_url: str) -> bool:
                     _set_stage(0, "Downloading ChronoArchiver source…")
                     if not _download_with_progress(url, zip_path, progress_cb):
                         _install_log("task: ERROR download failed")
+                        _install_log_footer(False, "download")
                         result[0] = False
                         result_error[0] = "Failed while downloading source package."
                         done[0] = True
@@ -868,6 +928,7 @@ def _do_setup_gui(download_url: str) -> bool:
             ok, err = _run_setup_bootstrap(app_dir, progress_cb)
             if not ok:
                 _install_log(f"task: bootstrap FAILED {err!r}")
+                _install_log_footer(False, "bootstrap")
                 result[0] = False
                 result_error[0] = err or "Dependency installation failed."
                 done[0] = True
@@ -886,9 +947,12 @@ def _do_setup_gui(download_url: str) -> bool:
             _install_log(f"task: wrote version.txt -> {VERSION!r}")
             _install_log(f"task: final src __version__ = {_read_source_version(app_dir)!r}")
             progress_cb("Completed", 100, 0, 0, "Installation finished successfully.")
+            _install_log_footer(True, "setup_complete")
             result[0] = True
         except Exception as e:
             _install_log(f"task: EXCEPTION {type(e).__name__}: {e!r}")
+            _install_log_chunk("task exception traceback", traceback.format_exc(), 8000)
+            _install_log_footer(False, "exception")
             result[0] = False
             result_error[0] = str(e)
         done[0] = True
@@ -931,12 +995,14 @@ def main():
 
     if _can_launch_without_setup(app_dir):
         _install_log("main: quick-launch (source already matches VERSION); skipping setup GUI")
+        _install_log_footer(True, "quick_launch")
         _run_app(app_dir)
         return
 
     url = _download_url()
     if not url:
         _install_log("main: ERROR could not resolve source zip URL from GitHub")
+        _install_log_footer(False, "no_artifact_url")
         try:
             import tkinter as tk
             from tkinter import messagebox

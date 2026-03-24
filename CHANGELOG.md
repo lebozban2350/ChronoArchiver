@@ -12,6 +12,7 @@
 - **Setup quick-launch**: Running the setup exe no longer skips install/update when `version.txt` matches the bundle but `src/version.py` is still older (e.g. stuck on 3.7.7). Quick-launch now requires the same checks as “skip source zip” (`src/version.py`, launcher, `requirements.txt`).
 - **Setup merge extract**: Skips overwriting a file only when **MD5 matches** the zip entry, not merely the same file size (so e.g. `3.7.7` → `3.7.9` in `src/version.py` always refreshes). Clears `src/**/__pycache__` after extract to avoid stale bytecode.
 - **Setup UX**: Welcome screen before install; optional **detailed install log** (`ChronoArchiver_installer.log`, off by default) written next to the setup executable for debugging.
+- **Setup install log**: Full GitHub asset URL; download traceback on failure; full `pip install -r` / per-package pip tails on failure; venv create stderr; import-verify output; **`INSTALLER RESULT: SUCCESS|FAILURE`** footer with reason for quick tail checks.
 
 ### Added
 - **GitHub Actions**: Manual **Run workflow** on `release-installers.yml` to rebuild Windows/macOS setup artifacts for a chosen version (e.g. `3.7.9`) and upload them to the matching release tag.
