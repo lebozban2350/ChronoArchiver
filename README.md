@@ -7,7 +7,7 @@
 ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application. Built on PySide6 with an app-private Python environment; no system-wide package installation required.
 </div>
 
-[![Version](https://img.shields.io/badge/version-3.7.6-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-3.7.7-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
 
@@ -119,8 +119,8 @@ Download the setup from the [Releases](https://github.com/UnDadFeated/ChronoArch
 
 | Platform | File |
 |----------|------|
-| **Windows x64** | `ChronoArchiver-Setup-3.7.6-win64.exe` |
-| **macOS** | `ChronoArchiver-Setup-3.7.6-mac64.zip` |
+| **Windows x64** | `ChronoArchiver-Setup-3.7.7-win64.exe` |
+| **macOS** | `ChronoArchiver-Setup-3.7.7-mac64.zip` |
 
 The setup (~6MB) downloads Python source on first run. Requires Python 3.11+ installed. Creates venv during install; desktop shortcut runs `pythonw` (no command prompt). Install location: `%LOCALAPPDATA%\ChronoArchiver` (Windows) or `~/Library/Application Support/ChronoArchiver` (macOS). Uninstall: Windows Settings → Installed apps → ChronoArchiver (or Start Menu → ChronoArchiver → Uninstall ChronoArchiver), macOS: `Uninstall ChronoArchiver.app` / `Uninstall ChronoArchiver.command`.
 
@@ -177,7 +177,7 @@ First launch creates an app-private virtual environment at `~/.local/share/Chron
 
 **AUR:** `pacman -R chronoarchiver` removes the application and all user data (models, config, logs).
 
-**Windows/macOS setup:** Use the Start Menu "Uninstall ChronoArchiver" (Windows) or run `Uninstall ChronoArchiver.command` (macOS).
+**Windows/macOS setup:** **Windows** — Settings → Apps → Installed apps → **ChronoArchiver** (also Start Menu → ChronoArchiver → **Uninstall ChronoArchiver**). **macOS** — in the install folder, open **Uninstall ChronoArchiver.app** or run **Uninstall ChronoArchiver.command**.
 
 **Source install:** Delete the following directories to remove all traces:
 
@@ -196,9 +196,9 @@ The setup installs the app as a Python program. Install Python 3.11+ from [pytho
 
 **Debug log location**  
 Session logs: `chronoarchiver_YYYY-MM-DD_HH-MM-SS.log`  
-- **Windows/macOS installer build:** `%LOCALAPPDATA%\ChronoArchiver\Logs\` (Windows) / `~/Library/Application Support/ChronoArchiver/Logs` (macOS)
-- **Linux:** `~/.local/state/ChronoArchiver/log/`  
-- **macOS:** `~/Library/Logs/ChronoArchiver/`  
+- **Windows/macOS setup install** (desktop shortcut / `.app`): under the app folder, `Logs\` (Windows) or `Logs/` (macOS), e.g. `%LOCALAPPDATA%\ChronoArchiver\Logs\`
+- **Linux / source / AUR** (no install-root env): `~/.local/state/ChronoArchiver/log/`
+- **macOS** when not using the setup install layout: often `~/Library/Logs/ChronoArchiver/` (via `platformdirs`)  
 
 The in-app "Debug" button in the footer opens the log folder. If the app crashes before the GUI loads, no log file is created.
 

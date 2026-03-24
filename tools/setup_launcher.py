@@ -5,6 +5,7 @@ Installs as .pyw/pythonw (no native compile). Uses stdlib: tkinter, urllib, zipf
 import json
 import os
 import platform
+from datetime import datetime
 import shutil
 import subprocess
 import sys
@@ -25,7 +26,7 @@ def _read_version() -> str:
                 return open(vpath, "r", encoding="utf-8").read().strip()
     except Exception:
         pass
-    return os.environ.get("CHRONOARCHIVER_VERSION", "3.7.6")
+    return os.environ.get("CHRONOARCHIVER_VERSION", "3.7.7")
 
 
 VERSION = _read_version()
@@ -338,6 +339,11 @@ pause
         subprocess.run(["reg", "add", reg, "/v", "UninstallString", "/t", "REG_SZ", "/d", uninstall_cmd_path, "/f"], capture_output=True, timeout=8)
         subprocess.run(["reg", "add", reg, "/v", "NoModify", "/t", "REG_DWORD", "/d", "1", "/f"], capture_output=True, timeout=8)
         subprocess.run(["reg", "add", reg, "/v", "NoRepair", "/t", "REG_DWORD", "/d", "1", "/f"], capture_output=True, timeout=8)
+        subprocess.run(
+            ["reg", "add", reg, "/v", "InstallDate", "/t", "REG_SZ", "/d", datetime.now().strftime("%Y%m%d"), "/f"],
+            capture_output=True,
+            timeout=8,
+        )
     except Exception:
         pass
 

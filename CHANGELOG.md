@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.7.7] - 2026-03-24
+### Changed
+- **README**: Uninstall instructions updated for Windows Installed Apps and macOS `Uninstall ChronoArchiver.app`; troubleshooting log paths clarified for setup vs source installs.
+- **Windows Installed Apps**: Registry uninstall entry now includes `InstallDate` (`YYYYMMDD`) for clearer listing in Settings.
+
 ## [3.7.6] - 2026-03-24
 ### Fixed
 - **Windows setup init.tcl error**: PyInstaller spec collects tkinter Tcl/Tk data via `collect_all("tkinter")` so bundled setup exe finds init.tcl.
