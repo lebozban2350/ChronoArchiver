@@ -114,7 +114,7 @@ class MediaOrganizerPanel(QWidget):
         # 2. Execution Mode — shrunk horizontally
         grp_mode = QGroupBox("Execution Mode")
         grp_mode.setFixedHeight(_box_height)
-        grp_mode.setMaximumWidth(220)
+        grp_mode.setMaximumWidth(260)
         v_mode = QVBoxLayout(grp_mode)
         v_mode.setContentsMargins(6, 4, 6, 4)
         v_mode.setSpacing(2)
@@ -140,8 +140,11 @@ class MediaOrganizerPanel(QWidget):
         self._combo_action.setToolTip("Move=relocate; Copy=duplicate; Symlink=create links")
         self._combo_action.setStyleSheet("font-size:7px; min-height:18px;")
         self._combo_dup = QComboBox()
-        self._combo_dup.addItems(["Rename", "Skip", "Keep newer", "Overwrite if same"])
-        self._combo_dup.setToolTip("Rename=add timestamp; Skip=skip if exists; Keep newer=skip if target newer; Overwrite=skip if identical")
+        self._combo_dup.addItems([
+            "Rename", "Skip", "Keep newer",
+            "Overwrite if same name", "Overwrite if same name+size",
+        ])
+        self._combo_dup.setToolTip("Rename=add _1, _2… on collision; Skip=skip if exists; Keep newer=skip if target newer; Overwrite name=replace any; Overwrite name+size=replace only when size matches, else rename")
         self._combo_dup.setStyleSheet("font-size:7px; min-height:18px;")
         h_mode.addWidget(QLabel("Action:", styleSheet="font-size:7px; color:#888;"))
         h_mode.addWidget(self._combo_action, 1)
@@ -310,7 +313,7 @@ class MediaOrganizerPanel(QWidget):
         folder_structure = structure_keys[self._combo_structure.currentIndex()]
         action_keys = ("move", "copy", "symlink")
         action = action_keys[self._combo_action.currentIndex()]
-        dup_keys = ("rename", "skip", "keep_newer", "overwrite")
+        dup_keys = ("rename", "skip", "keep_newer", "overwrite", "overwrite_same")
         duplicate_policy = dup_keys[self._combo_dup.currentIndex()]
         debug(UTILITY_MEDIA_ORGANIZER, f"Organization start: path={path}, action={action}, structure={folder_structure}, target={target or 'in-place'}")
         self._is_running = True

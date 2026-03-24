@@ -158,7 +158,7 @@ class OrganizerEngine:
                  action: str = "move",
                  exclude_dirs: Optional[set] = None, duplicate_policy: str = "rename",
                  progress_callback=None, stats_callback=None):
-        """action: move|copy|symlink. duplicate_policy: skip|keep_newer|overwrite|rename"""
+        """action: move|copy|symlink. duplicate_policy: skip|keep_newer|overwrite|overwrite_same|rename"""
         debug(UTILITY_MEDIA_ORGANIZER, f"organize start: source={source_dir}, dry_run={dry_run}, structure={folder_structure}, action={action}, target={target_dir or 'in-place'}")
         source_dir = (source_dir or "").strip()
         if not source_dir:
@@ -246,6 +246,7 @@ class OrganizerEngine:
         bytes_done = 0
         duplicates_found = 0
         skipped = 0
+        assigned_targets = set()
 
         for full_path, size, file in queue_list:
             if self.cancel_flag:
@@ -329,9 +330,13 @@ class OrganizerEngine:
 
             # Deduplication / Collision
             if os.path.exists(target_path):
-                same_size = os.path.getsize(full_path) == os.path.getsize(target_path)
+                try:
+                    target_size = os.path.getsize(target_path)
+                except OSError:
+                    target_size = -1
+                same_size = size == target_size
                 same_hash = same_size and self._quick_hash(full_path) == self._quick_hash(target_path)
-                if same_hash and duplicate_policy in ("skip", "overwrite"):
+                if same_hash and duplicate_policy in ("skip", "overwrite", "overwrite_same"):
                     self.logger(f"[DUPLICATE] {file} exists in {rel_base}. Skipping.")
                     duplicates_found += 1
                     continue
@@ -347,11 +352,23 @@ class OrganizerEngine:
                             continue
                     except OSError:
                         pass
-                p_new = pathlib.Path(new_filename)
-                base, extension = p_new.stem, p_new.suffix
-                new_name_collision = f"{base}_{int(datetime.now().timestamp())}{extension}"
-                target_path = os.path.join(target_subdir, new_name_collision)
-                new_filename = new_name_collision
+                if duplicate_policy != "overwrite" and (duplicate_policy != "overwrite_same" or not same_size):
+                    p_new = pathlib.Path(new_filename)
+                    base, extension = p_new.stem, p_new.suffix
+                    for n in range(1, 9999):
+                        candidate = f"{base}_{n}{extension}"
+                        candidate_path = os.path.join(target_subdir, candidate)
+                        norm_cand = os.path.normcase(candidate_path)
+                        if norm_cand not in assigned_targets and not os.path.exists(candidate_path):
+                            target_path = candidate_path
+                            new_filename = candidate
+                            assigned_targets.add(norm_cand)
+                            break
+                    else:
+                        new_name_collision = f"{base}_9999{extension}"
+                        target_path = os.path.join(target_subdir, new_name_collision)
+                        new_filename = new_name_collision
+                        assigned_targets.add(os.path.normcase(target_path))
 
             rel_target_path = os.path.join(rel_base, new_filename)
             action_verb = {"move": "MOVE", "copy": "COPY", "symlink": "LINK"}.get(action, "MOVE")
