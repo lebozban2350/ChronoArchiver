@@ -25,6 +25,11 @@ if _src_dir not in sys.path:
     sys.path.insert(0, _src_dir)
 from version import __version__
 
+try:
+    from .app_paths import install_root, uses_install_layout
+except ImportError:
+    from core.app_paths import install_root, uses_install_layout
+
 # Use tags API — releases/latest 404s when no GitHub Releases exist (only tags are pushed)
 TAGS_API_URL = "https://api.github.com/repos/UnDadFeated/ChronoArchiver/tags?per_page=30"
 RELEASES_BY_TAG_URL = "https://api.github.com/repos/UnDadFeated/ChronoArchiver/releases/tags/v{version}"
@@ -70,7 +75,7 @@ def _is_frozen() -> bool:
 
 def _is_installer_install() -> bool:
     """True when running from setup-installed Python app (Windows/macOS)."""
-    if os.environ.get("CHRONOARCHIVER_INSTALL_ROOT") and platform.system() in ("Windows", "Darwin"):
+    if uses_install_layout() and platform.system() in ("Windows", "Darwin"):
         return True
     return bool(_is_frozen() and platform.system() in ("Windows", "Darwin"))
 
@@ -92,9 +97,9 @@ def _find_app_launch_cmd(install_method: str) -> list:
         return ["/usr/bin/chronoarchiver"]
     if getattr(sys, "frozen", False):
         return [sys.executable]
-    install_root = os.environ.get("CHRONOARCHIVER_INSTALL_ROOT")
-    if install_method == "installer" and install_root:
-        root = os.path.abspath(install_root)
+    root_path = install_root()
+    if install_method == "installer" and root_path is not None:
+        root = str(root_path.resolve())
         launcher = os.path.join(root, "chronoarchiver.pyw")
         if platform.system() == "Windows":
             venv_py = os.path.join(root, "venv", "Scripts", "pythonw.exe")
@@ -123,9 +128,9 @@ def restart_app() -> bool:
     """
     method = _get_install_method() or "git"  # fallback for dev
     launch_cmd = _find_app_launch_cmd(method)
-    install_root = os.environ.get("CHRONOARCHIVER_INSTALL_ROOT")
-    if install_root:
-        src_dir = os.path.abspath(install_root)
+    root_path = install_root()
+    if root_path is not None:
+        src_dir = str(root_path.resolve())
     else:
         app_py = os.path.join(_script_dir, "..", "ui", "app.py")
         app_py = os.path.abspath(app_py)

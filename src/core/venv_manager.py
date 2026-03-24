@@ -16,11 +16,6 @@ from pathlib import Path
 from urllib.parse import urlparse, unquote
 
 try:
-    import platformdirs
-except ImportError:
-    platformdirs = None
-
-try:
     import requests
 except ImportError:
     requests = None
@@ -37,8 +32,7 @@ try:
 except ImportError:
     from core.subprocess_tee import tee_line, win_hide_kw
 
-APP_NAME = "ChronoArchiver"
-APP_AUTHOR = "UnDadFeated"
+from . import app_paths
 
 
 def _is_frozen() -> bool:
@@ -134,17 +128,8 @@ def get_venv_packages() -> list:
     return VENV_PACKAGES_BASE + [get_opencv_package()]
 
 
-def _data_dir() -> Path:
-    install_root = os.environ.get("CHRONOARCHIVER_INSTALL_ROOT")
-    if install_root:
-        return Path(install_root)
-    if platformdirs:
-        return Path(platformdirs.user_data_dir(APP_NAME, APP_AUTHOR))
-    return Path.home() / ".local" / "share" / APP_NAME
-
-
 def get_venv_path() -> Path:
-    return _data_dir() / "venv"
+    return app_paths.data_dir() / "venv"
 
 
 def get_python_exe() -> Path:
@@ -358,13 +343,13 @@ COMPONENTS_MANIFEST_URL = (
 
 
 def get_settings_dir() -> Path:
-    """Install root Settings/ (installer + dev with CHRONOARCHIVER_INSTALL_ROOT)."""
-    p = _data_dir() / "Settings"
-    try:
-        p.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        pass
-    return p
+    """Shared Settings/ — see app_paths.settings_dir."""
+    return app_paths.settings_dir()
+
+
+def get_models_dir() -> Path:
+    """AI Scanner ONNX models — see app_paths.models_dir."""
+    return app_paths.models_dir()
 
 
 def fetch_components_manifest() -> dict | None:
@@ -527,7 +512,7 @@ def ensure_venv(progress_callback=None, skip_opencv: bool = False) -> bool:
     """
     if _is_frozen():
         return True
-    data = _data_dir()
+    data = app_paths.data_dir()
     venv = get_venv_path()
     data.mkdir(parents=True, exist_ok=True)
 

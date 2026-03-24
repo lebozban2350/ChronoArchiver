@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QStackedWidget, QFrame, QMessageBox, QProgressBar,
     QDialog, QTextEdit, QDialogButtonBox,
 )
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal, QSettings
 from PySide6.QtGui import QIcon, QFontDatabase
 
 from version import __version__
@@ -43,6 +43,7 @@ from core.subprocess_tee import (
     win_hide_kw,
 )
 from core.debug_logger import init_log, get_log_path, debug, UTILITY_APP
+from core.app_paths import install_root, uses_install_layout, settings_dir as _app_settings_dir
 from core.logger import setup_logger
 
 # Font stack: Inter if bundled, else Windows-native for readability
@@ -414,7 +415,7 @@ class ChronoArchiverApp(QMainWindow):
         super().__init__()
         init_log()
         self.setWindowTitle(f"ChronoArchiver v{__version__}")
-        self.setMinimumSize(940, 680)
+        self.setFixedSize(940, 680)
         self.setStyleSheet(QSS)
         _icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
         if os.path.isfile(_icon_path):
@@ -867,7 +868,7 @@ class ChronoArchiverApp(QMainWindow):
         """After GitHub is reachable, refresh bundled FFmpeg if docs/components_manifest.json revision increased."""
         if self._component_sync_started:
             return
-        if not os.environ.get("CHRONOARCHIVER_INSTALL_ROOT"):
+        if not uses_install_layout():
             return
         if platform.system() not in ("Windows", "Darwin"):
             return
@@ -999,7 +1000,15 @@ if __name__ == "__main__":
         sys.exit(1)
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    app.setOrganizationName("UnDadFeated")
     app.setApplicationName("ChronoArchiver")
+    if install_root() is not None:
+        QSettings.setPath(
+            QSettings.Format.IniFormat,
+            QSettings.Scope.UserScope,
+            str(_app_settings_dir()),
+        )
+        QSettings.setDefaultFormat(QSettings.Format.IniFormat)
     app.aboutToQuit.connect(release_single_instance)
     _load_bundled_fonts()
     _icon = os.path.join(os.path.dirname(__file__), "assets", "icon.png")

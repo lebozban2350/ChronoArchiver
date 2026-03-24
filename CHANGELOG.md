@@ -11,6 +11,10 @@
 - **Windows setup — Setup output pane**: Each line is prefixed with **`[HH:MM:SS]`**; the view **autoscrolls** while you are at the bottom and stops jumping if you scroll up to read history.
 - **Mass AV1 Encoder — Directories**: Source/target paths use a **grid** so both **Browse** buttons share one column (aligned with each other and vertically centered to the line edits). **Guide pulse** styles use the same fixed **min/max width and height** as idle so the highlight does not reflow the row.
 - **AI Media Scanner — command strip**: **Directories**, **Options**, and **Engine Status** use a **shorter fixed height**, **tighter bottom margins**, and **no bottom stretch** in Options. **Engine Status** actions (**Install/Uninstall OpenCV**, **Setup Models**, **Update!**, **Uninstall Models**) are **smaller** (narrower/shorter, 7px label font) with **fixed QSS boxes** so **guide pulse** does not shift layout; **Browse** uses the same fixed-box pattern.
+- **`core/app_paths`**: Single module for **install-root vs platformdirs** paths (`data_dir`, `settings_dir`, `logs_dir`, `runtime_dir`, `models_dir`, `encoder_config_dir`, …). **`venv_manager`**, **`debug_logger`**, **`av1_settings`**, **`single_instance`**, **`updater`**, and **`app.py`** use it so the main shell and panels stay consistent without duplicating `CHRONOARCHIVER_INSTALL_ROOT` / `platformdirs` logic.
+
+### Fixed
+- **Windows setup install**: Avoid spurious **`%LOCALAPPDATA%\\ChronoArchiver\\ChronoArchiver`** folder from Qt defaults / legacy config probes; **Qt** **`QSettings`** and **encoder** paths go through **`app_paths`** / **`setOrganizationName`**. **AI models** and **single-instance lock** under install use **`<install>\\Settings\\…`**.
 
 ## [3.7.11] - 2026-03-24
 ### Added

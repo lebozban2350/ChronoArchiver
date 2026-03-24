@@ -6,10 +6,12 @@ Both debug() and standard logging write to this file. Keeps last 3.
 
 import os
 import glob
-import platformdirs
 from datetime import datetime
 
-APP_NAME = "ChronoArchiver"
+try:
+    from .app_paths import logs_dir
+except ImportError:
+    from core.app_paths import logs_dir
 LOG_PREFIX = "chronoarchiver"
 LOG_SUFFIX = ".log"
 MAX_LOG_FILES = 3
@@ -30,12 +32,7 @@ def _ensure_init():
     global _log_dir, _log_path, _file
     if _log_path is not None:
         return
-    install_root = os.environ.get("CHRONOARCHIVER_INSTALL_ROOT", "").strip()
-    if install_root:
-        _log_dir = os.path.join(install_root, "Logs")
-    else:
-        _log_dir = platformdirs.user_log_dir(APP_NAME, "UnDadFeated")
-    os.makedirs(_log_dir, exist_ok=True)
+    _log_dir = str(logs_dir())
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     _log_path = os.path.join(_log_dir, f"{LOG_PREFIX}_{ts}{LOG_SUFFIX}")
     _file = open(_log_path, "a", encoding="utf-8")

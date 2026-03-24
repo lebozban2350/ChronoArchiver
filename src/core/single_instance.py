@@ -5,13 +5,15 @@ Uses filelock; second launch exits with message.
 from pathlib import Path
 
 try:
-    import platformdirs
-    _lock_dir = Path(platformdirs.user_runtime_dir("ChronoArchiver", "UnDadFeated"))
-except Exception:
-    _lock_dir = Path.home() / ".local" / "state" / "ChronoArchiver"
+    from .app_paths import runtime_dir
+except ImportError:
+    from core.app_paths import runtime_dir
 
-_LOCK_FILE = _lock_dir / "chronoarchiver.lock"
 _lock = None
+
+
+def _lock_file_path() -> Path:
+    return runtime_dir() / "chronoarchiver.lock"
 
 
 def ensure_single_instance() -> bool:
@@ -20,10 +22,9 @@ def ensure_single_instance() -> bool:
     Returns False if another instance is running; caller should exit.
     """
     global _lock
-    _lock_dir.mkdir(parents=True, exist_ok=True)
     try:
-        from filelock import FileLock, Timeout
-        _lock = FileLock(str(_LOCK_FILE))
+        from filelock import FileLock
+        _lock = FileLock(str(_lock_file_path()))
         _lock.acquire(timeout=0)
         return True
     except Exception:

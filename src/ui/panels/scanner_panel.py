@@ -29,12 +29,12 @@ from PySide6.QtCore import Qt, Signal, QObject, QTimer
 from PySide6.QtGui import QShowEvent, QPixmap, QTextCursor
 
 import pathlib
-import platformdirs
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.scanner import ScannerEngine, OPENCV_AVAILABLE
 from ui.console_style import message_to_html, PANEL_CONSOLE_TEXTEDIT_STYLE
 from core.model_manager import ModelManager
+from core.app_paths import models_dir
 from core.venv_manager import (
     get_pip_exe, ensure_venv,
     get_opencv_variant, get_opencv_variant_label,
@@ -208,9 +208,7 @@ class AIScannerPanel(QWidget):
         self._sig.finished.connect(self._on_finished)
         self._sig.version_check_done.connect(self._on_version_check)
 
-        _model_dir = pathlib.Path(platformdirs.user_data_dir("ChronoArchiver", "UnDadFeated")) / "models"
-        _model_dir.mkdir(parents=True, exist_ok=True)
-        self._model_mgr = ModelManager(str(_model_dir))
+        self._model_mgr = ModelManager(str(models_dir()))
 
         self._engine = None  # Initialized in _run_job
         self._is_running = False
