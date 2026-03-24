@@ -1160,10 +1160,14 @@ def _do_setup_gui(download_url: str) -> bool:
 
     def poll_console():
         try:
+            y0, y1 = console_text.yview()
+            stick_bottom = y1 >= 0.999 or (y1 - y0) >= 0.999
             for _ in range(120):
                 ln = console_q.get_nowait()
-                console_text.insert(tk.END, ln + "\n")
-            console_text.see(tk.END)
+                ts = datetime.now().strftime("%H:%M:%S")
+                console_text.insert(tk.END, f"[{ts}] {ln}\n")
+            if stick_bottom:
+                console_text.see(tk.END)
         except queue.Empty:
             pass
         try:

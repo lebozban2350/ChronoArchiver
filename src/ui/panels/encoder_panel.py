@@ -30,6 +30,15 @@ from core.av1_settings import AV1Settings
 from core.debug_logger import debug, UTILITY_MASS_AV1_ENCODER
 
 
+def _enc_browse_btn_qss(bar_h: int, btn_w: int, border: str, fg: str) -> str:
+    """Fixed box for source/target Browse; idle and guide-pulse only swap colors (no layout warp)."""
+    return (
+        f"font-size:9px; font-weight:700; color:{fg}; border:2px solid {border}; "
+        f"min-width:{btn_w}px; max-width:{btn_w}px; "
+        f"min-height:{bar_h}px; max-height:{bar_h}px; padding:0px;"
+    )
+
+
 class _Signals(QObject):
     progress  = Signal(int, object)   # job_id, EncodingProgress
     details   = Signal(int, str, str) # job_id, vid, aud
@@ -137,14 +146,16 @@ class AV1EncoderPanel(QWidget):
         grid_strip = QGridLayout()
         grid_strip.setSpacing(6)
 
-        # 1. Directories (top-left)
+        # 1. Directories (top-left) — grid aligns both Browse buttons in one column with line edits
         _bar_h = 28
         _browse_w, _browse_h = 60, _bar_h
+        self._path_bar_h = _bar_h
+        self._browse_btn_w = _browse_w
         _dir_edit_ss = (
             f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; max-height:{_bar_h}px; "
             "padding:2px 6px; background:#121212; border:1px solid #1a1a1a;"
         )
-        _dir_btn_ss = "font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626;"
+        _dir_btn_ss = _enc_browse_btn_qss(_bar_h, _browse_w, "#262626", "#aaa")
 
         grp_dir = QGroupBox("Directories")
         v_dir = QVBoxLayout(grp_dir)
@@ -157,43 +168,53 @@ class AV1EncoderPanel(QWidget):
         self._edit_src.setFixedHeight(_bar_h)
         self._edit_src.setText("")
 
-        h_src = QHBoxLayout()
-        h_src.setSpacing(6)
-        h_src.addWidget(self._edit_src, 1)
-        self._btn_browse_src = QPushButton("Browse")
-        self._btn_browse_src.setFixedSize(_browse_w, _browse_h)
-        self._btn_browse_src.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self._btn_browse_src.setStyleSheet(_dir_btn_ss)
-        self._btn_browse_src.clicked.connect(self._browse_src)
-        h_src.addWidget(self._btn_browse_src)
-        v_dir.addLayout(h_src)
-        self._scan_debounce = QTimer(self)
-        self._scan_debounce.setSingleShot(True)
-        self._scan_debounce.timeout.connect(self._auto_scan)
-        self._edit_src.textChanged.connect(self._on_src_changed)
-        self._edit_src.textChanged.connect(self._update_start_enabled)
-        v_dir.addWidget(QLabel("Source — local path or smb:// network share",
-                               styleSheet=_shint))
-
         self._edit_dst = QLineEdit()
         self._edit_dst.setPlaceholderText("TARGET PATH (local or smb://)")
         self._edit_dst.setStyleSheet(_dir_edit_ss)
         self._edit_dst.setFixedHeight(_bar_h)
         self._edit_dst.setText("")
 
-        h_dst = QHBoxLayout()
-        h_dst.setSpacing(6)
-        h_dst.addWidget(self._edit_dst, 1)
+        grid_paths = QGridLayout()
+        grid_paths.setContentsMargins(0, 0, 0, 0)
+        grid_paths.setHorizontalSpacing(6)
+        grid_paths.setVerticalSpacing(6)
+        grid_paths.setColumnStretch(0, 1)
+        grid_paths.setColumnStretch(1, 0)
+        grid_paths.setColumnMinimumWidth(1, _browse_w)
+        _browse_align = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+
+        self._btn_browse_src = QPushButton("Browse")
+        self._btn_browse_src.setFixedSize(_browse_w, _browse_h)
+        self._btn_browse_src.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self._btn_browse_src.setStyleSheet(_dir_btn_ss)
+        self._btn_browse_src.clicked.connect(self._browse_src)
+
         self._btn_browse_dst = QPushButton("Browse")
         self._btn_browse_dst.setFixedSize(_browse_w, _browse_h)
         self._btn_browse_dst.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self._btn_browse_dst.setStyleSheet(_dir_btn_ss)
         self._btn_browse_dst.clicked.connect(self._browse_dst)
-        h_dst.addWidget(self._btn_browse_dst)
+
+        grid_paths.addWidget(self._edit_src, 0, 0)
+        grid_paths.addWidget(self._btn_browse_src, 0, 1, alignment=_browse_align)
+        grid_paths.addWidget(
+            QLabel("Source — local path or smb:// network share", styleSheet=_shint),
+            1, 0, 1, 2,
+        )
+        grid_paths.addWidget(self._edit_dst, 2, 0)
+        grid_paths.addWidget(self._btn_browse_dst, 2, 1, alignment=_browse_align)
+        grid_paths.addWidget(
+            QLabel("Target — AV1 encoded output destination", styleSheet=_shint),
+            3, 0, 1, 2,
+        )
+        v_dir.addLayout(grid_paths)
+
+        self._scan_debounce = QTimer(self)
+        self._scan_debounce.setSingleShot(True)
+        self._scan_debounce.timeout.connect(self._auto_scan)
+        self._edit_src.textChanged.connect(self._on_src_changed)
+        self._edit_src.textChanged.connect(self._update_start_enabled)
         self._edit_dst.textChanged.connect(self._update_start_enabled)
-        v_dir.addLayout(h_dst)
-        v_dir.addWidget(QLabel("Target — AV1 encoded output destination",
-                               styleSheet=_shint))
 
         grp_dir.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         grid_strip.addWidget(grp_dir, 0, 0)
@@ -565,7 +586,9 @@ class AV1EncoderPanel(QWidget):
         if w == self._btn_start:
             w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:10px; font-weight:900;")
         else:
-            w.setStyleSheet("font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626; min-height:28px;")
+            w.setStyleSheet(
+                _enc_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
+            )
 
     def _update_start_enabled(self):
         if self._btn_start.text() == "ENCODING COMPLETE":
@@ -590,7 +613,9 @@ class AV1EncoderPanel(QWidget):
             if target == self._btn_start:
                 target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;")
             else:
-                target.setStyleSheet("font-size:9px; font-weight:700; color:#ef4444; border:2px solid #ef4444; min-height:28px;")
+                target.setStyleSheet(
+                    _enc_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444")
+                )
         else:
             self._clear_guide_glow(target)
 

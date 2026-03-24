@@ -46,6 +46,24 @@ from core.updater import restart_app
 from core.subprocess_tee import set_subprocess_channel
 
 
+def _scan_browse_btn_qss(bar_h: int, btn_w: int, border: str, fg: str) -> str:
+    """Browse buttons: idle and guide pulse only swap colors (fixed box, no layout warp)."""
+    return (
+        f"font-size:9px; font-weight:700; color:{fg}; border:2px solid {border}; "
+        f"min-width:{btn_w}px; max-width:{btn_w}px; "
+        f"min-height:{bar_h}px; max-height:{bar_h}px; padding:0px;"
+    )
+
+
+def _scan_eng_btn_qss(w: int, h: int, fg: str, bd: str, bg: str = "transparent") -> str:
+    """Engine row buttons: fixed size; idle vs pulse only changes colors."""
+    return (
+        f"font-size:7px; font-weight:700; color:{fg}; background-color:{bg}; "
+        f"border:2px solid {bd}; "
+        f"min-width:{w}px; max-width:{w}px; min-height:{h}px; max-height:{h}px; padding:0px;"
+    )
+
+
 class _Signals(QObject):
     log_msg  = Signal(str)
     progress = Signal(float)
@@ -210,21 +228,26 @@ class AIScannerPanel(QWidget):
         # ── COMMAND STRIP ─────────────────────────────────────────────────────
         h_strip = QHBoxLayout()
         h_strip.setSpacing(6)
-        _strip_h = 108  # Same height for Directories, Options, Engine Status
+        _strip_h = 84  # Directories / Options / Engine Status — tighter bottom (was 108)
 
         _bar_h = 28
         _browse_w, _browse_h = 60, _bar_h
+        self._path_bar_h = _bar_h
+        self._browse_btn_w = _browse_w
+        self._eng_btn_w = 82
+        self._eng_btn_h = 22
+        _ew, _eh = self._eng_btn_w, self._eng_btn_h
         _edit_ss = (
             f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; max-height:{_bar_h}px; "
             "padding:2px 6px; background:#121212; border:1px solid #1a1a1a;"
         )
-        _btn_ss = "font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626;"
+        _btn_ss = _scan_browse_btn_qss(_bar_h, _browse_w, "#262626", "#aaa")
 
         # 1. Directories
         grp_dir = QGroupBox("Directories")
         grp_dir.setFixedHeight(_strip_h)
         v_dir = QVBoxLayout(grp_dir)
-        v_dir.setContentsMargins(6, 2, 6, 2)
+        v_dir.setContentsMargins(6, 2, 6, 0)
         v_dir.setSpacing(0)
         h_src = QHBoxLayout()
         h_src.setSpacing(6)
@@ -249,8 +272,8 @@ class AIScannerPanel(QWidget):
         grp_opts = QGroupBox("Options")
         grp_opts.setFixedHeight(_strip_h)
         v_opts = QVBoxLayout(grp_opts)
-        v_opts.setContentsMargins(6, 2, 6, 2)
-        v_opts.setSpacing(4)
+        v_opts.setContentsMargins(6, 2, 6, 0)
+        v_opts.setSpacing(2)
         self._chk_recursive = QCheckBox("Recursive")
         self._chk_recursive.setChecked(True)
         self._chk_recursive.setStyleSheet("font-size:9px; font-weight:700; color:#aaa;")
@@ -274,15 +297,14 @@ class AIScannerPanel(QWidget):
         v_opts.addWidget(self._chk_recursive)
         v_opts.addWidget(self._chk_animals)
         v_opts.addLayout(h_conf)
-        v_opts.addStretch()
         h_strip.addWidget(grp_opts, 2)
 
         # 3. Engine Status (fixed min width to prevent stretch when Install text changes)
         grp_mod = QGroupBox("Engine Status")
         grp_mod.setFixedHeight(_strip_h)
-        grp_mod.setMinimumWidth(260)
+        grp_mod.setMinimumWidth(248)
         v_mod = QVBoxLayout(grp_mod)
-        v_mod.setContentsMargins(6, 2, 6, 2)
+        v_mod.setContentsMargins(6, 2, 6, 0)
         v_mod.setSpacing(2)
         h_cv = QHBoxLayout()
         self._lbl_opencv = QLabel("CHECKING…")
@@ -290,14 +312,13 @@ class AIScannerPanel(QWidget):
         self._lbl_opencv.setMinimumWidth(110)  # Reserve space to prevent layout shift
         h_cv.addWidget(QLabel("OpenCV:", styleSheet="font-size:7px; color:#888;"))
         h_cv.addWidget(self._lbl_opencv, 1)
-        _btn_w = 100  # Equal width for all Engine Status buttons
         self._btn_install_cv = QPushButton("Install OpenCV")
-        self._btn_install_cv.setFixedWidth(_btn_w)
-        self._btn_install_cv.setStyleSheet("font-size:8px; font-weight:700; min-height:28px; border:2px solid transparent;")
+        self._btn_install_cv.setFixedSize(_ew, _eh)
+        self._btn_install_cv.setStyleSheet(_scan_eng_btn_qss(_ew, _eh, "#aaa", "#262626"))
         self._btn_install_cv.clicked.connect(self._on_install_opencv)
         self._btn_uninstall_cv = QPushButton("Uninstall OpenCV")
-        self._btn_uninstall_cv.setFixedWidth(_btn_w)
-        self._btn_uninstall_cv.setStyleSheet("font-size:8px; font-weight:700; min-height:28px; color:#6b7280; border:2px solid transparent;")
+        self._btn_uninstall_cv.setFixedSize(_ew, _eh)
+        self._btn_uninstall_cv.setStyleSheet(_scan_eng_btn_qss(_ew, _eh, "#6b7280", "#262626"))
         self._btn_uninstall_cv.clicked.connect(self._on_uninstall_opencv)
         h_cv.addWidget(self._btn_install_cv)
         h_cv.addWidget(self._btn_uninstall_cv)
@@ -309,17 +330,17 @@ class AIScannerPanel(QWidget):
         h_mod.addWidget(QLabel("Models:", styleSheet="font-size:7px; color:#888;"))
         h_mod.addWidget(self._lbl_model, 1)
         self._btn_update = QPushButton("Update!")
-        self._btn_update.setFixedWidth(_btn_w)
-        self._btn_update.setStyleSheet("font-size:8px; font-weight:700; color:#eab308; border:2px solid #eab308; min-height:28px;")
+        self._btn_update.setFixedSize(_ew, _eh)
+        self._btn_update.setStyleSheet(_scan_eng_btn_qss(_ew, _eh, "#eab308", "#eab308"))
         self._btn_update.clicked.connect(self._setup_models_only)
         self._btn_update.hide()
         self._btn_setup = QPushButton("Setup Models")
-        self._btn_setup.setFixedWidth(_btn_w)
-        self._btn_setup.setStyleSheet("font-size:8px; font-weight:700; min-height:28px; border:2px solid transparent;")
+        self._btn_setup.setFixedSize(_ew, _eh)
+        self._btn_setup.setStyleSheet(_scan_eng_btn_qss(_ew, _eh, "#aaa", "#262626"))
         self._btn_setup.clicked.connect(self._on_setup_models)
         self._btn_uninstall_models = QPushButton("Uninstall Models")
-        self._btn_uninstall_models.setFixedWidth(_btn_w)
-        self._btn_uninstall_models.setStyleSheet("font-size:8px; font-weight:700; min-height:28px; color:#6b7280; border:2px solid transparent;")
+        self._btn_uninstall_models.setFixedSize(_ew, _eh)
+        self._btn_uninstall_models.setStyleSheet(_scan_eng_btn_qss(_ew, _eh, "#6b7280", "#262626"))
         self._btn_uninstall_models.clicked.connect(self._remove_models_only)
         self._btn_uninstall_models.setToolTip("Remove AI model files only")
         h_mod.addWidget(self._btn_update)
@@ -482,7 +503,7 @@ class AIScannerPanel(QWidget):
                 self._lbl_opencv.setText("RESTART REQUIRED")
                 self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
                 self._btn_install_cv.setText("RESTART")
-                self._btn_install_cv.setFixedWidth(100)
+                self._btn_install_cv.setFixedSize(self._eng_btn_w, self._eng_btn_h)
                 self._btn_install_cv.setToolTip("Restart ChronoArchiver to use the new OpenCV installation")
                 self._btn_install_cv.show()
                 self._btn_uninstall_cv.hide()
@@ -490,7 +511,7 @@ class AIScannerPanel(QWidget):
                 self._lbl_opencv.setText("NOT INSTALLED")
                 self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
                 self._btn_install_cv.setText("Install OpenCV")
-                self._btn_install_cv.setFixedWidth(100)
+                self._btn_install_cv.setFixedSize(self._eng_btn_w, self._eng_btn_h)
                 self._btn_install_cv.setToolTip(get_opencv_variant_label())
                 self._btn_install_cv.show()
                 self._btn_uninstall_cv.hide()
@@ -621,28 +642,39 @@ class AIScannerPanel(QWidget):
     def _clear_guide_glow(self, w):
         if not w:
             return
+        ew, eh = self._eng_btn_w, self._eng_btn_h
         if w == self._btn_start:
             w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:10px; font-weight:900;")
         elif w == self._btn_start_move:
             if self._btn_start_move.isEnabled():
-                w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:9px; font-weight:900; min-height:28px;")
+                w.setStyleSheet(
+                    "font-size:9px; font-weight:900; min-height:28px; max-height:28px; "
+                    "background-color:#10b981; color:#064e3b; border:2px solid #064e3b; padding:0px;"
+                )
             else:
-                w.setStyleSheet("font-size:9px; font-weight:700; min-height:28px; background:#1a1a1a; color:#6b7280; border:2px solid #262626;")
+                w.setStyleSheet(
+                    "font-size:9px; font-weight:700; min-height:28px; max-height:28px; "
+                    "background:#1a1a1a; color:#6b7280; border:2px solid #262626; padding:0px;"
+                )
         elif w == self._btn_browse:
-            w.setStyleSheet("font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626; min-height:28px;")
+            w.setStyleSheet(
+                _scan_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
+            )
         elif w == self._btn_browse_target:
-            w.setStyleSheet("font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626; min-height:28px;")
+            w.setStyleSheet(
+                _scan_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
+            )
         elif w == self._btn_setup:
-            w.setStyleSheet("font-size:8px; font-weight:700; min-height:28px; border:2px solid #262626;")
+            w.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#aaa", "#262626"))
         elif w == self._btn_uninstall_models:
-            w.setStyleSheet("font-size:8px; font-weight:700; min-height:28px; color:#6b7280; border:2px solid #262626;")
+            w.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#6b7280", "#262626"))
         elif w == self._btn_install_cv:
             if self._opencv_just_installed:
-                w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:8px; font-weight:700; min-height:28px;")
+                w.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#064e3b", "#064e3b", "#10b981"))
             else:
-                w.setStyleSheet("font-size:8px; font-weight:700; min-height:28px; border:2px solid #262626;")
+                w.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#aaa", "#262626"))
         elif w == self._btn_update:
-            w.setStyleSheet("font-size:8px; font-weight:700; color:#eab308; border:2px solid #eab308; min-height:28px;")
+            w.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#eab308", "#eab308"))
 
     def _pulse_guide(self):
         target = self._get_guide_target()
@@ -655,19 +687,25 @@ class AIScannerPanel(QWidget):
             self._guide_target = None
             return
         self._guide_glow_phase = 1 - self._guide_glow_phase
+        ew, eh = self._eng_btn_w, self._eng_btn_h
         if self._guide_glow_phase:
             if target == self._btn_start:
                 target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;")
             elif target == self._btn_start_move:
-                target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:9px; font-weight:900; min-height:28px;")
+                target.setStyleSheet(
+                    "font-size:9px; font-weight:900; min-height:28px; max-height:28px; "
+                    "background-color:#10b981; color:#064e3b; border:2px solid #ef4444; padding:0px;"
+                )
             elif target == self._btn_install_cv and self._opencv_just_installed:
-                target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #34d399; font-size:8px; font-weight:700; min-height:28px;")
+                target.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#064e3b", "#34d399", "#10b981"))
+            elif target == self._btn_browse or target == self._btn_browse_target:
+                target.setStyleSheet(
+                    _scan_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444")
+                )
+            elif target in (self._btn_setup, self._btn_install_cv):
+                target.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#ef4444", "#ef4444", "transparent"))
             else:
-                if target == self._btn_browse or target == self._btn_browse_target:
-                    style = "font-size:9px; font-weight:700; color:#ef4444; border:2px solid #ef4444; min-height:28px;"
-                else:
-                    style = "font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444; min-height:28px;"
-                target.setStyleSheet(style)
+                target.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#ef4444", "#ef4444", "transparent"))
         else:
             self._clear_guide_glow(target)
 

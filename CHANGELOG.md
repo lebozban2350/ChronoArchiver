@@ -8,6 +8,9 @@
 
 ### Changed
 - Semver **3.8.0** (installers, PKGBUILD, PyPI metadata).
+- **Windows setup — Setup output pane**: Each line is prefixed with **`[HH:MM:SS]`**; the view **autoscrolls** while you are at the bottom and stops jumping if you scroll up to read history.
+- **Mass AV1 Encoder — Directories**: Source/target paths use a **grid** so both **Browse** buttons share one column (aligned with each other and vertically centered to the line edits). **Guide pulse** styles use the same fixed **min/max width and height** as idle so the highlight does not reflow the row.
+- **AI Media Scanner — command strip**: **Directories**, **Options**, and **Engine Status** use a **shorter fixed height**, **tighter bottom margins**, and **no bottom stretch** in Options. **Engine Status** actions (**Install/Uninstall OpenCV**, **Setup Models**, **Update!**, **Uninstall Models**) are **smaller** (narrower/shorter, 7px label font) with **fixed QSS boxes** so **guide pulse** does not shift layout; **Browse** uses the same fixed-box pattern.
 
 ## [3.7.11] - 2026-03-24
 ### Added
