@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.3.27] - 2026-03-24
+### Changed
+- **Console (all panels)**: Inside quoted paths, path separators (`/`, `\\`) and folder segments use distinct colors; file basename and extension stay bright white. Shared `console_style._quoted_path_content_to_html`.
+
 ## [3.3.26] - 2026-03-24
 ### Fixed
 - **AUR updater**: App now restarts after update. Use `/usr/bin/chronoarchiver` absolute path; sleep 3s before script exit so app can connect to display before terminal closes (removed parent-kill logic).
