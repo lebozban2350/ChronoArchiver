@@ -466,6 +466,9 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> tuple[bool, str]:
         progress_cb("Syncing dependencies…", 0, 0, 0, "pip install -r requirements.txt")
         ok, err = _pip_sync_requirements(app_root, pip_exe, progress_cb)
         if ok and _venv_import_ok(py_exe):
+            fin_ok, fin_err = _finalize_bootstrap_with_ffmpeg(app_root, py_exe, progress_cb)
+            if not fin_ok:
+                return False, fin_err
             progress_cb("Done", 100, 0, 0)
             return True, ""
         if ok:
@@ -587,6 +590,9 @@ def _run_setup_bootstrap(app_root: Path, progress_cb) -> tuple[bool, str]:
     except Exception as e:
         _install_log(f"bootstrap verify: EXCEPTION {type(e).__name__}: {e!r}")
         return False, f"Verification exception: {e}"
+    fin_ok, fin_err = _finalize_bootstrap_with_ffmpeg(app_root, py_exe, progress_cb)
+    if not fin_ok:
+        return False, fin_err
     progress_cb("Done", 100, 0, 0)
     return True, ""
 
@@ -665,6 +671,18 @@ raise SystemExit(0 if ensure_bundled_ffmpeg(cb) else 1)
                 os.unlink(path)
             except OSError:
                 pass
+
+
+def _finalize_bootstrap_with_ffmpeg(app_root: Path, py_exe: Path, progress_cb) -> tuple[bool, str]:
+    """Run after pip/verify so FFmpeg always installs (not only when setup GUI task() includes a separate step)."""
+    _install_log("bootstrap: FFmpeg (static-ffmpeg) starting")
+    progress_cb("FFmpeg", 0, 0, 0, "")
+    ok_ff, err_ff = _bootstrap_ffmpeg(app_root, py_exe, progress_cb)
+    if not ok_ff:
+        _install_log(f"bootstrap: FFmpeg FAILED {err_ff!r}")
+        return False, err_ff or "FFmpeg download failed."
+    _install_log("bootstrap: FFmpeg OK")
+    return True, ""
 
 
 def _reg_sz_quoted_path(p: str) -> str:
@@ -1066,7 +1084,6 @@ def _do_setup_gui(download_url: str) -> bool:
             "Extract files",
             "Create environment",
             "Install dependencies",
-            "FFmpeg tools",
             "Verify install",
             "Create shortcuts",
         )
@@ -1083,9 +1100,8 @@ def _do_setup_gui(download_url: str) -> bool:
         (0, 35.0),    # Download
         (35.0, 5.0),  # Extract
         (40.0, 10.0), # Create environment
-        (50.0, 27.0), # Install dependencies
-        (77.0, 8.0),  # FFmpeg
-        (85.0, 10.0), # Verify
+        (50.0, 40.0), # Install dependencies (includes FFmpeg inside bootstrap)
+        (90.0, 5.0),  # Verify
         (95.0, 5.0),  # Shortcuts/finalize
     ]
 
@@ -1169,22 +1185,9 @@ def _do_setup_gui(download_url: str) -> bool:
                 done[0] = True
                 return
             _install_log("task: bootstrap OK")
-            win = platform.system() == "Windows"
-            py_exe_setup = app_dir / "venv" / "Scripts" / "python.exe" if win else app_dir / "venv" / "bin" / "python"
-            _set_stage(4, "FFmpeg tools…")
-            progress_cb("FFmpeg", 0, 0, 0, "")
-            ok_ff, err_ff = _bootstrap_ffmpeg(app_dir, py_exe_setup, progress_cb)
-            if not ok_ff:
-                _install_log(f"task: FFmpeg FAILED {err_ff!r}")
-                _install_log_footer(False, "ffmpeg")
-                result[0] = False
-                result_error[0] = err_ff or "FFmpeg download failed."
-                done[0] = True
-                return
-            _install_log("task: FFmpeg OK")
-            _set_stage(5, "Verifying installation…")
+            _set_stage(4, "Verifying installation…")
             progress_cb("Verifying…", 100, 0, 0)
-            _set_stage(6, "Creating shortcuts…")
+            _set_stage(5, "Creating shortcuts…")
             progress_cb("Creating shortcuts…", 0, 0, 0)
             if platform.system() == "Windows":
                 _create_windows_shortcuts(app_dir)

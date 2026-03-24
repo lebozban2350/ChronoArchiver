@@ -11,6 +11,7 @@
 - **Windows / macOS setup**: Welcome screen shows the **hourglass logo** (PNG, ~half the README inline width, proportional) above the title; setup window uses bundled **icon.ico** / **icon.png** for the taskbar/dock when available.
 
 ### Fixed
+- **Setup — FFmpeg skipped on fresh install**: FFmpeg fetch now runs **inside** `_run_setup_bootstrap` (after pip and import verification) for both the full install and the “sync existing venv” path, so the PyInstaller setup exe always installs FFmpeg even if its bundled `task()` UI step is stale. Log lines: `bootstrap: FFmpeg (static-ffmpeg) starting` / `bootstrap: FFmpeg OK` or `FFmpeg FAILED`.
 - **Windows — Installed Apps uninstall**: Uninstaller script **`Uninstall_ChronoArchiver.cmd`**; **`UninstallString`** via **`winreg`**; **`%SystemRoot%\System32\cmd.exe`** in the command line. On **every** setup run (including **quick-launch** when source already matches), the installer **deletes then recreates** `HKCU\…\Uninstall\ChronoArchiver` so Settings → Apps is not left with a stale entry after reinstall. Uninstaller **terminates** `pythonw.exe` / `python.exe` processes whose **command line** includes the install path before deleting folders. Uninstall removes install dir, **UnDadFeated** models path, shortcuts, Start Menu folder, then registry. **GitHub Actions**: existing **release** for that tag is **deleted** before upload to avoid stale assets.
 
 ## [3.7.10] - 2026-03-24
