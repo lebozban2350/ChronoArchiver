@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QDialog, QTextEdit, QDialogButtonBox,
 )
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QIcon
 
 from version import __version__
 from ui.panels.organizer_panel import MediaOrganizerPanel
@@ -156,6 +157,9 @@ class ChronoArchiverApp(QMainWindow):
         self.setWindowTitle(f"ChronoArchiver v{__version__}")
         self.setMinimumSize(940, 680)
         self.setStyleSheet(QSS)
+        _icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
+        if os.path.isfile(_icon_path):
+            self.setWindowIcon(QIcon(_icon_path))
 
         self.logger = setup_logger()
         self.updater = ApplicationUpdater()
@@ -644,6 +648,9 @@ class ChronoArchiverApp(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName("ChronoArchiver")
+    _icon = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
+    if os.path.isfile(_icon):
+        app.setWindowIcon(QIcon(_icon))
     window = ChronoArchiverApp()
     window.show()
     sys.exit(app.exec())

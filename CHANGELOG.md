@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.3.28] - 2026-03-24
+### Changed
+- **Main window**: Use green hourglass app icon in window title bar instead of default placeholder.
+
 ## [3.3.27] - 2026-03-24
 ### Changed
 - **Console (all panels)**: Inside quoted paths, path separators (`/`, `\\`) and folder segments use distinct colors; file basename and extension stay bright white. Shared `console_style._quoted_path_content_to_html`.
