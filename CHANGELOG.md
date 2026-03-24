@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.3.9] - 2026-03-22
+### Fixed
+- **Footer metrics**: Moved CPU/GPU/RAM to left (no extra gap). Use monospace font so 1/10/100% changes do not cause bounce.
+
+## [3.3.8] - 2026-03-22
+### Changed
+- **Media Organizer**: Merged Directories and Options into a single Paths box. Source/Target rows with Photos/Videos checkboxes inline. Consistent Browse button size (52×22). Reduced vertical padding and removed stretch waste.
+
 ## [3.3.7] - 2026-03-22
 ### Fixed
 - **AUR updater**: Use `-Sy` instead of `-Syu` so only chronoarchiver is updated; avoids full system upgrade and unrelated package conflicts (e.g. vlc-plugin-lua).

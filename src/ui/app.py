@@ -219,12 +219,20 @@ class ChronoArchiverApp(QMainWindow):
         self.layout.addWidget(self.stack)
 
         # ── STATUS BAR ──
-        # Layout: [Left: app activity] [Center: pre-req / boot] [Right: buttons + metrics]
+        # Layout: [Left: metrics, activity] [Center: pre-req] [Right: buttons]
         self.status_bar = QFrame()
         self.status_bar.setFixedHeight(22)
         self.status_bar.setStyleSheet("background: #080808; border-top: 1px solid #141414;")
         self.status_layout = QHBoxLayout(self.status_bar)
         self.status_layout.setContentsMargins(10, 0, 10, 0)
+
+        self.lbl_metrics = QLabel("CPU   0% · GPU   0% · RAM   0%")
+        self.lbl_metrics.setStyleSheet(
+            "font-size: 8px; color: #6b7280; font-weight: 600; "
+            "font-family: 'JetBrains Mono', 'DejaVu Sans Mono', monospace; "
+            "min-width: 155px;")
+        self.status_layout.addWidget(self.lbl_metrics)
+        self.status_layout.addSpacing(12)
 
         self.lbl_status = QLabel("CHECKING…")
         self.lbl_status.setStyleSheet("font-size: 8px; color: #4b5563; text-transform: uppercase; min-width: 100px;")
@@ -268,10 +276,6 @@ class ChronoArchiverApp(QMainWindow):
         self.btn_debug.clicked.connect(self._open_debug_folder)
         self.status_layout.addWidget(self.btn_debug)
 
-        self.lbl_metrics = QLabel("  CPU  0%  ·  GPU  0%  ·  RAM  0%")
-        self.lbl_metrics.setStyleSheet("font-size: 8px; color: #6b7280; font-weight: 600; min-width: 180px;")
-        self.status_layout.addWidget(self.lbl_metrics)
-        
         self.layout.addWidget(self.status_bar)
 
         # Init
@@ -517,13 +521,13 @@ class ChronoArchiverApp(QMainWindow):
                 self._metrics_gpu_counter = 0
             cpu_s = f"{min(999, int(round(cpu_val))):3d}%"
             ram_s = f"{min(999, int(round(ram_val))):3d}%"
-            self.lbl_metrics.setText(f"  CPU {cpu_s}  ·  GPU {self._metrics_gpu_cache}  ·  RAM {ram_s}")
+            self.lbl_metrics.setText(f"CPU {cpu_s} · GPU {self._metrics_gpu_cache} · RAM {ram_s}")
         except Exception:
             pass
 
     def _on_encoder_metrics(self, cpu, gpu, ram):
         """Encoder panel can override with its own (includes encoding Time)."""
-        self.lbl_metrics.setText(f"  CPU {cpu}  ·  GPU {gpu}  ·  RAM {ram}")
+        self.lbl_metrics.setText(f"CPU {cpu} · GPU {gpu} · RAM {ram}")
 
     def _open_donate(self):
         try:
@@ -570,11 +574,15 @@ class ChronoArchiverApp(QMainWindow):
         latest = self.updater.get_latest_version()
         method = self.updater.get_install_method()
         if not method:
-            QMessageBox.warning(
+            r = QMessageBox.question(
                 self,
-                "Update",
-                "Cannot determine install method. Download the latest release from GitHub.",
+                "Update Available",
+                f"v{latest} is available. Cannot auto-update (unknown install). Open GitHub to download?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
             )
+            if r == QMessageBox.Yes:
+                webbrowser.open("https://github.com/UnDadFeated/ChronoArchiver/releases")
             return
         method_desc = "git pull" if method == "git" else "AUR (paru/yay)"
         r = QMessageBox.question(

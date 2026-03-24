@@ -54,69 +54,59 @@ class MediaOrganizerPanel(QWidget):
         # ── COMMAND STRIP ─────────────────────────────────────────────────────
         h_strip = QHBoxLayout()
         h_strip.setSpacing(6)
-        _box_height = 118  # Equal height for all three boxes
+        _box_height = 118
 
-        # 1. Directories (extends to fill space)
-        grp_dir = QGroupBox("Directories")
-        grp_dir.setMinimumHeight(_box_height)
-        v_dir = QVBoxLayout(grp_dir)
-        v_dir.setContentsMargins(6, 2, 6, 2)
-        v_dir.setSpacing(1)
+        # 1. Paths (Source, Target, Photos/Videos — merged)
+        grp_paths = QGroupBox("Paths")
+        grp_paths.setFixedHeight(_box_height)
+        v_paths = QVBoxLayout(grp_paths)
+        v_paths.setContentsMargins(6, 4, 6, 4)
+        v_paths.setSpacing(4)
+        _btn_ss = "font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;"
+        _edit_ss = "color:#fff; font-size:11px; font-weight:500; min-height:22px; background:#121212; border:1px solid #1a1a1a;"
+
+        # Source row
+        h_src = QHBoxLayout()
+        h_src.setSpacing(6)
         self._edit_path = QLineEdit()
         self._edit_path.setPlaceholderText("SOURCE — folder containing media...")
-        self._edit_path.setStyleSheet(
-            "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
-            "background:#121212; border:1px solid #1a1a1a;")
-        h_src = QHBoxLayout()
-        h_src.setSpacing(4)
+        self._edit_path.setStyleSheet(_edit_ss)
         h_src.addWidget(self._edit_path, 1)
         self._btn_browse_src = QPushButton("Browse")
-        self._btn_browse_src.setFixedSize(48, 22)
-        self._btn_browse_src.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
+        self._btn_browse_src.setFixedSize(52, 22)
+        self._btn_browse_src.setStyleSheet(_btn_ss)
         self._btn_browse_src.clicked.connect(self._browse)
         h_src.addWidget(self._btn_browse_src)
-        v_dir.addLayout(h_src)
-        v_dir.addWidget(QLabel("Source (EXIF/metadata/ffprobe)", styleSheet=_shint))
-        self._edit_target = QLineEdit()
-        self._edit_target.setPlaceholderText("TARGET (optional)")
-        self._edit_target.setStyleSheet(
-            "color:#fff; font-size:11px; font-weight:500; min-height:22px; "
-            "background:#121212; border:1px solid #1a1a1a;")
-        h_tgt = QHBoxLayout()
-        h_tgt.setSpacing(4)
-        h_tgt.addWidget(self._edit_target, 1)
-        self._btn_browse_target = QPushButton("Browse")
-        self._btn_browse_target.setFixedSize(48, 22)
-        self._btn_browse_target.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
-        self._btn_browse_target.clicked.connect(self._browse_target)
-        h_tgt.addWidget(self._btn_browse_target)
-        v_dir.addLayout(h_tgt)
-        v_dir.addWidget(QLabel("Blank = in-place", styleSheet=_shint))
-        h_strip.addWidget(grp_dir, 18)
-
-        # 2. Options
-        grp_opts = QGroupBox("Options")
-        grp_opts.setFixedHeight(_box_height)
-        v_opts = QVBoxLayout(grp_opts)
-        v_opts.setContentsMargins(6, 2, 6, 2)
-        v_opts.setSpacing(1)
-        v_opts_chk = QVBoxLayout()
         self._chk_photos = QCheckBox("Photos")
         self._chk_photos.setChecked(True)
         self._chk_videos = QCheckBox("Videos")
         self._chk_videos.setChecked(True)
         for cb in [self._chk_photos, self._chk_videos]:
             cb.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
-            v_opts_chk.addWidget(cb)
-        v_opts.addLayout(v_opts_chk)
-        v_opts.addStretch()
-        h_strip.addWidget(grp_opts, 1)
+            h_src.addWidget(cb)
+        v_paths.addLayout(h_src)
 
-        # 3. Execution Mode
+        # Target row
+        h_tgt = QHBoxLayout()
+        h_tgt.setSpacing(6)
+        self._edit_target = QLineEdit()
+        self._edit_target.setPlaceholderText("TARGET (optional, blank = in-place)")
+        self._edit_target.setStyleSheet(_edit_ss)
+        h_tgt.addWidget(self._edit_target, 1)
+        self._btn_browse_target = QPushButton("Browse")
+        self._btn_browse_target.setFixedSize(52, 22)
+        self._btn_browse_target.setStyleSheet(_btn_ss)
+        self._btn_browse_target.clicked.connect(self._browse_target)
+        h_tgt.addWidget(self._btn_browse_target)
+        v_paths.addLayout(h_tgt)
+        v_paths.addWidget(QLabel("Date from EXIF/ffprobe. Blank target = in-place.", styleSheet=_shint))
+        h_strip.addWidget(grp_paths, 2)
+
+        # 2. Execution Mode
         grp_mode = QGroupBox("Execution Mode")
         grp_mode.setFixedHeight(_box_height)
         v_mode = QVBoxLayout(grp_mode)
-        v_mode.setContentsMargins(6, 2, 6, 2)
+        v_mode.setContentsMargins(6, 4, 6, 4)
         v_mode.setSpacing(2)
         self._chk_dry = QCheckBox("Dry Run (Simulation)")
         self._chk_dry.setChecked(True)
@@ -148,8 +138,7 @@ class MediaOrganizerPanel(QWidget):
         h_mode.addWidget(QLabel("Dup:", styleSheet="font-size:7px; color:#888;"))
         h_mode.addWidget(self._combo_dup, 1)
         v_mode.addLayout(h_mode)
-        v_mode.addStretch()
-        h_strip.addWidget(grp_mode, 4)
+        h_strip.addWidget(grp_mode, 1)
 
         root.addLayout(h_strip)
 
@@ -252,8 +241,8 @@ class MediaOrganizerPanel(QWidget):
             return
         if w == self._btn_start:
             w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid transparent; font-size:10px; font-weight:900;")
-        elif w == self._btn_browse_src or w == self._btn_browse_target:
-            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent; min-height:22px;")
+        elif w in (self._btn_browse_src, self._btn_browse_target):
+            w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
         elif w in (self._chk_photos, self._chk_videos):
             w.setStyleSheet("font-size:8px; font-weight:700; color:#aaa; border:2px solid transparent;")
 
@@ -271,8 +260,8 @@ class MediaOrganizerPanel(QWidget):
         if self._guide_glow_phase:
             if target == self._btn_start:
                 target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;")
-            elif target == self._btn_browse_src or target == self._btn_browse_target:
-                target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444; min-height:22px;")
+            elif target in (self._btn_browse_src, self._btn_browse_target):
+                target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
             else:
                 target.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
         else:
