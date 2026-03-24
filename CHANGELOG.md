@@ -9,6 +9,7 @@
 
 ### Fixed
 - **Windows in-app update**: Replaced invalid `subprocess.CREATE_NEW_PROCESS` with `CREATE_NEW_PROCESS_GROUP` when spawning the post-exit installer helper (Python has no `CREATE_NEW_PROCESS`). Same correction for git-update and setup launcher app spawn. If installer spawn fails, the app no longer quits immediately after the error dialog.
+- **Setup quick-launch**: Running the setup exe no longer skips install/update when `version.txt` matches the bundle but `src/version.py` is still older (e.g. stuck on 3.7.7). Quick-launch now requires the same checks as “skip source zip” (`src/version.py`, launcher, `requirements.txt`).
 
 ### Added
 - **GitHub Actions**: Manual **Run workflow** on `release-installers.yml` to rebuild Windows/macOS setup artifacts for a chosen version (e.g. `3.7.9`) and upload them to the matching release tag.

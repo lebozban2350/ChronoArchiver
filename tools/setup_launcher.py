@@ -50,20 +50,14 @@ def _version_file() -> Path:
     return _app_dir() / "version.txt"
 
 
-def _is_installed() -> bool:
-    """True if app is already installed and matches our version."""
-    vf = _version_file()
-    if not vf.exists():
-        return False
-    try:
-        return vf.read_text().strip() == VERSION
-    except Exception:
-        return False
-
-
-def _launcher_exists() -> bool:
-    """True if chronoarchiver.pyw exists."""
-    return (_app_dir() / "chronoarchiver.pyw").is_file()
+def _can_launch_without_setup(app_dir: Path | None = None) -> bool:
+    """
+    True only when the install tree already contains this setup's source (src/version.py).
+    Do not use version.txt alone — it can get ahead of a failed/partial upgrade and would
+    skip downloading/extracting while leaving an older app (e.g. 3.7.7 UI with 3.7.9 stamp).
+    """
+    root = app_dir if app_dir is not None else _app_dir()
+    return _should_skip_source_zip(root)
 
 
 def _download_url() -> str:
@@ -739,11 +733,12 @@ def _do_setup_gui():
 
 
 def main():
-    if _is_installed() and _launcher_exists():
-        _run_app(_app_dir())
+    app_dir = _app_dir()
+    if _can_launch_without_setup(app_dir):
+        _run_app(app_dir)
         return
     if _do_setup_gui():
-        _run_app(_app_dir())
+        _run_app(app_dir)
 
 
 if __name__ == "__main__":
