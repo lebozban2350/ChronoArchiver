@@ -7,7 +7,7 @@
 ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application. Built on PySide6 with an app-private Python environment; no system-wide package installation required.
 </div>
 
-[![Version](https://img.shields.io/badge/version-3.3.5-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
 
@@ -83,12 +83,13 @@ Batch AV1 transcoding with preserved folder structure and metadata.
 
 **Encoding backends:**
 
-- **NVIDIA NVENC** (`av1_nvenc`) when a compatible GPU is present
+- **NVIDIA NVENC** (`av1_nvenc`) when a compatible GPU is present (RTX 40-series or later for AV1)
+- **AMD VAAPI** (Linux) and **AMF** (Windows) when supported
 - **SVT-AV1** (`libsvtav1`) as software fallback
 
 **Interface:**
 
-- 4-slot job grid with per-job progress
+- 4-slot job grid with per-job progress and I/O throughput (MB/s)
 - Real-time CPU, GPU, and RAM monitoring
 - Pause and resume for active jobs
 - Master progress bar across the queue
@@ -170,6 +171,8 @@ First launch creates an app-private virtual environment at `~/.local/share/Chron
 - `~/.local/share/ChronoArchiver` (venv, models)
 - `~/.config/ChronoArchiver` (settings)
 - `~/.local/state/ChronoArchiver` (logs)
+
+On Windows, use `%LOCALAPPDATA%\ChronoArchiver` and `%APPDATA%\ChronoArchiver`. On macOS, use `~/Library/Application Support/ChronoArchiver` (via `platformdirs`).
 
 ---
 

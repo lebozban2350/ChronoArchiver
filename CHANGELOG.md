@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.5.0] - 2026-03-24
+### Changed
+- **Milestone release**: Cross-platform audit (Windows, Linux, Arch, macOS). README refreshed: encoding backends (NVENC, VAAPI, AMF, SVT-AV1), I/O throughput, uninstall paths for all platforms. All modules verified; no breaking changes.
+
 ## [3.3.31] - 2026-03-24
 ### Fixed
 - **Mass AV1 Encoder Work Progress**: I/O throughput now updates in telemetry poll so it stays current even when ffmpeg progress callbacks are sparse.
