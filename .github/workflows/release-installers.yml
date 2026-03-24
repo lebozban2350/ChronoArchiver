@@ -109,7 +109,7 @@ jobs:
 
       - name: Create setup launcher zip
         run: |
-          cd dist && zip -r "ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-mac64.zip" ChronoArchiver-Setup.app && cd ..
+          cd dist && ditto -c -k --sequesterRsrc --keepParent ChronoArchiver-Setup.app "ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-mac64.zip" && cd ..
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
