@@ -394,7 +394,8 @@ else:
         launch_str = " ".join(repr(c) for c in launch_cmd)
         script_body = f"""#!/bin/bash
 sleep 2
-{update_cmd} && exec {launch_str}
+{update_cmd} && nohup {launch_str} </dev/null >/dev/null 2>&1 &
+exit 0
 """
         fd, script_path = tempfile.mkstemp(suffix=".sh")
         try:

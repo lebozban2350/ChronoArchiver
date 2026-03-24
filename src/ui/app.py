@@ -195,6 +195,10 @@ class ChronoArchiverApp(QMainWindow):
         self.btn_update.setStyleSheet("font-size: 8px; color: #4b5563; border:none; background:transparent;")
         self.btn_update.clicked.connect(self._run_updater)
         self.nav_layout.addWidget(self.btn_update)
+        self._update_pulse_timer = QTimer(self)
+        self._update_pulse_timer.setInterval(550)
+        self._update_pulse_timer.timeout.connect(self._pulse_update_button)
+        self._update_pulse_phase = 0
 
         self.btn_donate = QPushButton("☕ Buy me a coffee")
         self.btn_donate.setStyleSheet("font-size: 8px; color: #6b7280; border:none; background:transparent;")
@@ -541,6 +545,7 @@ class ChronoArchiverApp(QMainWindow):
         if self.updater.is_update_available():
             self._confirm_and_perform_update()
             return
+        self._update_pulse_timer.stop()
         self.btn_update.setText("CHECKING...")
         self._update_result_queue = queue.Queue()
         self.updater.check_for_updates(self._update_result_queue)
@@ -562,13 +567,29 @@ class ChronoArchiverApp(QMainWindow):
         self._update_poll_timer = None
         if self.updater.is_update_available():
             self.btn_update.setText(f"UPDATE v{latest} AVAILABLE")
-            self.btn_update.setStyleSheet("font-size: 8px; color: #10b981; font-weight:bold;")
+            self._update_pulse_phase = 0
+            self._update_pulse_timer.start()
+            self._pulse_update_button()
         elif latest is None:
+            self._update_pulse_timer.stop()
             self.btn_update.setText("UPDATE CHECK UNAVAILABLE")
-            self.btn_update.setStyleSheet("font-size: 8px; color: #4b5563;")
+            self.btn_update.setStyleSheet("font-size: 8px; color: #4b5563; border:none; background:transparent;")
         else:
+            self._update_pulse_timer.stop()
             self.btn_update.setText("CHRONOARCHIVER IS UP TO DATE")
-            self.btn_update.setStyleSheet("font-size: 8px; color: #4b5563;")
+            self.btn_update.setStyleSheet("font-size: 8px; color: #4b5563; border:none; background:transparent;")
+
+    def _pulse_update_button(self):
+        """Flash green text when update available (like guide pulse)."""
+        if not self.updater.is_update_available():
+            self._update_pulse_timer.stop()
+            return
+        self._update_pulse_phase = 1 - self._update_pulse_phase
+        base = "font-size: 8px; font-weight: bold; border:none; background:transparent;"
+        if self._update_pulse_phase:
+            self.btn_update.setStyleSheet(f"{base} color: #10b981;")
+        else:
+            self.btn_update.setStyleSheet(f"{base} color: #4b5563;")
 
     def _confirm_and_perform_update(self):
         latest = self.updater.get_latest_version()
@@ -598,6 +619,7 @@ class ChronoArchiverApp(QMainWindow):
         def on_error(msg):
             QMessageBox.warning(self, "Update Failed", msg)
 
+        self._update_pulse_timer.stop()
         self.btn_update.setText("UPDATING...")
         self.updater.perform_update_and_restart(on_error=on_error)
         QApplication.instance().quit()

@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.3.10] - 2026-03-23
+### Fixed
+- **AUR updater**: Launch app in background with nohup and exit script so the terminal closes after update; no longer leaves console open.
+- **Update button**: Flash green text when update available (like guide pulse).
+
 ## [3.3.9] - 2026-03-22
 ### Fixed
 - **Footer metrics**: Moved CPU/GPU/RAM to left (no extra gap). Use monospace font so 1/10/100% changes do not cause bounce.
