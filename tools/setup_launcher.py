@@ -872,19 +872,32 @@ $Shortcut.Save()
 setlocal
 set "TARGET={install_dir}"
 set "UNKEY={uninstall_key}"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; $r=[System.Windows.Forms.MessageBox]::Show('Remove ChronoArchiver and all data from this PC?','ChronoArchiver Uninstall','YesNo','Question'); if ($r -ne [System.Windows.Forms.DialogResult]::Yes) {{ exit 1 }}"
-if errorlevel 1 exit /b 0
-REM Close running app (match pythonw/python whose command line references this install dir)
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$root='{install_ps}'; Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {{ ($_.Name -eq 'pythonw.exe' -or $_.Name -eq 'python.exe') -and $_.CommandLine -and ($_.CommandLine -like ('*'+$root+'*')) }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}"
-timeout /t 2 /nobreak >nul
-if exist "%TARGET%" rmdir /S /Q "%TARGET%"
-REM Models / platformdirs user_data (outside install dir; same app id as src)
-{_extraud_line}
-if exist "%EXTRAUD%" rmdir /S /Q "%EXTRAUD%"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path -LiteralPath '{desk_ps}') {{ Remove-Item -LiteralPath '{desk_ps}' -Force }}"
-start "" /MIN powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Sleep -Seconds 2; if (Test-Path -LiteralPath '{sm_ps}') {{ Remove-Item -LiteralPath '{sm_ps}' -Recurse -Force }}"
-reg delete "%UNKEY%" /f >nul 2>&1
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('ChronoArchiver has been uninstalled.','ChronoArchiver','OK','Information')" 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; " ^
+  + "$target=$env:TARGET; $unkey=$env:UNKEY; $desk='{desk_ps}'; $sm='{sm_ps}'; $extraud=Join-Path $env:LOCALAPPDATA 'UnDadFeated\\ChronoArchiver'; " ^
+  + "$form=New-Object System.Windows.Forms.Form; $form.Text='ChronoArchiver — Uninstall'; $form.StartPosition='CenterScreen'; $form.Width=980; $form.Height=560; $form.BackColor=[System.Drawing.Color]::FromArgb(13,13,13); " ^
+  + "$font=New-Object System.Drawing.Font('Consolas',8); " ^
+  + "$lbl=New-Object System.Windows.Forms.Label; $lbl.Text='Uninstalling ChronoArchiver…'; $lbl.ForeColor=[System.Drawing.Color]::FromArgb(229,231,235); $lbl.Left=16; $lbl.Top=14; $lbl.Width=920; $lbl.Height=20; $form.Controls.Add($lbl); " ^
+  + "$pb=New-Object System.Windows.Forms.ProgressBar; $pb.Left=16; $pb.Top=44; $pb.Width=932; $pb.Height=18; $pb.Minimum=0; $pb.Maximum=100; $pb.Value=0; $form.Controls.Add($pb); " ^
+  + "$tb=New-Object System.Windows.Forms.RichTextBox; $tb.Left=16; $tb.Top=74; $tb.Width=932; $tb.Height=400; $tb.Font=$font; $tb.ReadOnly=$true; $tb.BackColor=[System.Drawing.Color]::FromArgb(17,17,17); $tb.ForeColor=[System.Drawing.Color]::FromArgb(209,213,219); $tb.BorderStyle='FixedSingle'; $form.Controls.Add($tb); " ^
+  + "$btn=New-Object System.Windows.Forms.Button; $btn.Text='Close'; $btn.Enabled=$false; $btn.Left=858; $btn.Top=486; $btn.Width=90; $btn.Height=28; $btn.Add_Click({{$form.Close()}}); $form.Controls.Add($btn); " ^
+  + "$append = {{ param($s) $ts=(Get-Date).ToString('HH:mm:ss'); $tb.AppendText(('['+$ts+'] '+$s+\"`r`n\")); $tb.SelectionStart=$tb.TextLength; $tb.ScrollToCaret(); }}; " ^
+  + "$setp = {{ param($v) if($v -lt 0){{{{$v=0}}}}; if($v -gt 100){{{{$v=100}}}}; $pb.Value=[int]$v; }}; " ^
+  + "$r=[System.Windows.Forms.MessageBox]::Show('Remove ChronoArchiver and all data from this PC?','ChronoArchiver Uninstall','YesNo','Question'); if($r -ne [System.Windows.Forms.DialogResult]::Yes){{ exit 0 }}; " ^
+  + "$job = [System.ComponentModel.BackgroundWorker]::new(); $job.WorkerReportsProgress=$true; " ^
+  + "$job.add_ProgressChanged({{ param($s,$e) & $append $e.UserState; & $setp $e.ProgressPercentage; }}); " ^
+  + "$job.add_RunWorkerCompleted({{ param($s,$e) & $append 'Done. You can close this window.'; & $setp 100; $lbl.Text='Uninstall complete.'; $btn.Enabled=$true; }}); " ^
+  + "$job.add_DoWork({{ param($s,$e) " ^
+  + "  $s.ReportProgress(5,'Closing running app…'); " ^
+  + "  $root='{install_ps}'; Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {{ ($_.Name -eq 'pythonw.exe' -or $_.Name -eq 'python.exe') -and $_.CommandLine -and ($_.CommandLine -like ('*'+$root+'*')) }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}; " ^
+  + "  Start-Sleep -Seconds 2; " ^
+  + "  $s.ReportProgress(25,'Removing install directory…'); if(Test-Path -LiteralPath $target){{{{ Remove-Item -LiteralPath $target -Recurse -Force }}}}; " ^
+  + "  $s.ReportProgress(55,'Removing app data…'); if(Test-Path -LiteralPath $extraud){{{{ Remove-Item -LiteralPath $extraud -Recurse -Force }}}}; " ^
+  + "  $s.ReportProgress(75,'Removing shortcuts…'); if(Test-Path -LiteralPath $desk){{{{ Remove-Item -LiteralPath $desk -Force }}}}; Start-Sleep -Milliseconds 500; if(Test-Path -LiteralPath $sm){{{{ Remove-Item -LiteralPath $sm -Recurse -Force }}}}; " ^
+  + "  $s.ReportProgress(90,'Removing uninstall registration…'); cmd.exe /c ('reg delete \"'+$unkey+'\" /f') | Out-Null; " ^
+  + "  $s.ReportProgress(98,'Finalizing…'); " ^
+  + "}}); " ^
+  + "$form.add_Shown({{ $job.RunWorkerAsync() }}); " ^
+  + "[void]$form.ShowDialog();"
 exit /b 0
 ''',
         encoding="utf-8",
