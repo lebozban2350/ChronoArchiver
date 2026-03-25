@@ -9,7 +9,7 @@ ChronoArchiver consolidates date-based file organization, AI-driven image analys
 
 [![Version](https://img.shields.io/badge/version-3.8.2-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#technical-overview--features)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
 
 ---
 
@@ -81,6 +81,8 @@ Until then, build locally with [`flatpak/README.md`](flatpak/README.md). Updates
 ---
 
 ## Technical overview & features
+
+<a id="system-requirements"></a>
 
 | | |
 |--|--|
