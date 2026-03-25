@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [3.8.4] - 2026-03-25
+### Changed
+- Semver **3.8.4** (installers, PKGBUILD, PyPI metadata).
+- **Footer**: Prerequisite order is **PYSIDE6** → **FFMPEG** → **OPENCV** → **AI MODELS** → **READY**; startup status line follows the same sequence.
+- **Header — Support development**: Only the **♥** blinks red (brighter/darker); heart uses **11px** vs **9px** for the rest of the label.
+
 ## [3.8.3] - 2026-03-25
 ### Removed
 - **Flatpak**: Removed **`flatpak/`** packaging and **`venv_manager`** `/.flatpak-info` handling; README no longer references Flathub.

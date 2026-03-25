@@ -204,6 +204,46 @@ def _load_bundled_fonts():
             QFontDatabase.addApplicationFont(path)
 
 
+class DonateNavWidget(QWidget):
+    """Header donate link: only the heart blinks red and is slightly larger than the label text."""
+    clicked = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        h = QHBoxLayout(self)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(0)
+        self._heart = QLabel("\u2665")
+        self._heart.setStyleSheet(
+            "font-size: 11px; color: #ef4444; background: transparent; border: none; padding: 0;")
+        self._heart.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self._lbl = QLabel(" Support development of our products")
+        self._lbl.setStyleSheet(
+            "font-size: 9px; color: #6b7280; background: transparent; border: none;")
+        self._lbl.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        h.addWidget(self._heart, 0, Qt.AlignVCenter)
+        h.addWidget(self._lbl, 0, Qt.AlignVCenter)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip("Support development via PayPal ($5 USD)")
+        self._pulse = 0
+        self._pulse_timer = QTimer(self)
+        self._pulse_timer.setInterval(550)
+        self._pulse_timer.timeout.connect(self._pulse_heart)
+        self._pulse_timer.start()
+        self._pulse_heart()
+
+    def _pulse_heart(self):
+        self._pulse ^= 1
+        c = "#ef4444" if self._pulse else "#b91c1c"
+        self._heart.setStyleSheet(
+            f"font-size: 11px; color: {c}; background: transparent; border: none; padding: 0;")
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
+
+
 class PreReqDialog(QDialog):
     """Popup to download prerequisites (FFmpeg). User clicks Download to start."""
     download_complete = Signal()
@@ -472,12 +512,9 @@ class ChronoArchiverApp(QMainWindow):
         self._update_pulse_timer.timeout.connect(self._pulse_update_button)
         self._update_pulse_phase = 0
 
-        self.btn_donate = QPushButton("\u2665  Support development of our products")
-        self.btn_donate.setStyleSheet("font-size: 9px; color: #6b7280; border:none; background:transparent;")
-        self.btn_donate.setCursor(Qt.PointingHandCursor)
-        self.btn_donate.setToolTip("Support development via PayPal ($5 USD)")
-        self.btn_donate.clicked.connect(self._open_donate)
-        self.nav_layout.addWidget(self.btn_donate)
+        self._donate_nav = DonateNavWidget()
+        self._donate_nav.clicked.connect(self._open_donate)
+        self.nav_layout.addWidget(self._donate_nav)
 
         self.layout.addWidget(self.nav_bar)
 
@@ -614,20 +651,16 @@ class ChronoArchiverApp(QMainWindow):
         self.logger.info(msg)
 
     def _check_prereqs(self):
-        """Run pre-req checks, show updates on left footer, then Pre-check complete for 3s, then Idle."""
-        def step2():
+        """Run pre-req checks (order matches footer): PySide6, FFmpeg, OpenCV, AI models, then footer + idle."""
+        def step_opencv():
             self.lbl_status.setText("CHECKING OPENCV…")
-            QTimer.singleShot(400, step3)
+            QTimer.singleShot(400, step_models)
 
-        def step3():
+        def step_models():
             self.lbl_status.setText("CHECKING AI MODELS…")
-            QTimer.singleShot(400, step4)
+            QTimer.singleShot(400, step_finalize)
 
-        def step4():
-            self.lbl_status.setText("CHECKING PYSIDE6…")
-            QTimer.singleShot(400, step5)
-
-        def step5():
+        def step_finalize():
             self._refresh_footer()
             self.lbl_status.setText("PRE-CHECK COMPLETE")
             self._precheck_done = True
@@ -640,25 +673,28 @@ class ChronoArchiverApp(QMainWindow):
                 self.lbl_status.setText("IDLE")
             self._activity_timer.stop()
 
-        def step1():
+        def step_ffmpeg():
             self.lbl_status.setText("CHECKING FFMPEG…")
             QTimer.singleShot(200, _do_ffmpeg_check)
+
+        def step_after_pyside():
+            step_ffmpeg()
 
         def _finish_ffmpeg(ok: bool):
             if ok and check_ffmpeg_in_venv():
                 add_ffmpeg_to_path()
                 debug(UTILITY_APP, "Pre-reqs: FFmpeg=ok (venv)" if not _is_frozen() else "Pre-reqs: FFmpeg=ok (bundled)")
-                step2()
+                step_opencv()
                 return
             if get_pip_exe().exists() or _is_frozen():
-                step2()
+                step_opencv()
                 self._prereq_dlg = PreReqDialog(self)
                 self._prereq_dlg.download_complete.connect(lambda: (add_ffmpeg_to_path(), self._refresh_footer()))
                 self._prereq_dlg.show()
                 return
             ffmpeg_ok = bool(shutil.which("ffmpeg"))
             debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'} (no venv)")
-            step2()
+            step_opencv()
 
         def _do_ffmpeg_check():
             pip = get_pip_exe()
@@ -666,7 +702,7 @@ class ChronoArchiverApp(QMainWindow):
             if not (pip.exists() or frozen):
                 ffmpeg_ok = bool(shutil.which("ffmpeg"))
                 debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'} (no venv)")
-                step2()
+                step_opencv()
                 return
             ff_q = queue.Queue()
 
@@ -706,21 +742,27 @@ class ChronoArchiverApp(QMainWindow):
             _ff_timer.start(80)
             threading.Thread(target=_worker, daemon=True).start()
 
-        step1()
+        def step_pyside():
+            self.lbl_status.setText("CHECKING PYSIDE6…")
+            QTimer.singleShot(250, step_after_pyside)
+
+        step_pyside()
 
     def _refresh_footer(self):
-        """Update footer pre-req status (OpenCV, AI Models). Uses queue + poll for cross-thread delivery."""
+        """Update footer pre-req status: PySide6, FFmpeg, OpenCV, AI models, READY."""
         ok_sym = '<span style="color:#10b981">✓</span>'
         fail_sym = '<span style="color:#ef4444">✗</span>'
         skip_sym = '<span style="color:#eab308">—</span>'
-        ffmpeg_ok = bool(shutil.which("ffmpeg"))
 
         def _apply(opencv_ok: bool):
-            parts = [f"FFMPEG {ok_sym if ffmpeg_ok else fail_sym}"]
-            parts.append(f"OPENCV {ok_sym if opencv_ok else skip_sym}")
+            ffmpeg_ok = bool(check_ffmpeg_in_venv() or shutil.which("ffmpeg"))
             models_ready = self.panel_scn._model_mgr.is_up_to_date()
-            parts.append(f"AI MODELS {ok_sym if models_ready else skip_sym}")
-            parts.append(f"PYSIDE6 {ok_sym}")
+            parts = [
+                f"PYSIDE6 {ok_sym}",
+                f"FFMPEG {ok_sym if ffmpeg_ok else fail_sym}",
+                f"OPENCV {ok_sym if opencv_ok else skip_sym}",
+                f"AI MODELS {ok_sym if models_ready else skip_sym}",
+            ]
             debug(UTILITY_APP, f"Pre-reqs: FFmpeg={'ok' if ffmpeg_ok else 'missing'}, OpenCV={'ok' if opencv_ok else 'missing'}, AI Models={'ok' if models_ready else 'missing'}, PySide6=ok")
             status = "  ·  ".join(parts)
             if ffmpeg_ok:
