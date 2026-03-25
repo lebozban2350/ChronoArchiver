@@ -867,32 +867,34 @@ class ChronoArchiverApp(QMainWindow):
                 self._metrics_gpu_counter = 0
             cpu_s = f"{min(999, int(round(cpu_val))):3d}%"
             ram_s = f"{min(999, int(round(ram_val))):3d}%"
-            orange = "#f59e0b"
-            magenta_dot = "#ff79c6"
-            dot = f'<span style="color:{magenta_dot}; font-weight:700;">·</span>'
+            magenta = "#ff79c6"
+            orange_dot = "#f59e0b"
+            white = "#f8f8f2"
+            dot = f'<span style="color:{orange_dot}; font-weight:700;">·</span>'
             self.lbl_metrics.setText(
-                f'<span style="color:{orange}; font-weight:700;">CPU</span> '
-                f'<span style="color:{orange}; font-weight:700;">{cpu_s}</span> {dot} '
-                f'<span style="color:{orange}; font-weight:700;">GPU</span> '
-                f'<span style="color:{orange}; font-weight:700;">{self._metrics_gpu_cache}</span> {dot} '
-                f'<span style="color:{orange}; font-weight:700;">RAM</span> '
-                f'<span style="color:{orange}; font-weight:700;">{ram_s}</span>'
+                f'<span style="color:{magenta}; font-weight:700;">CPU</span> '
+                f'<span style="color:{white}; font-weight:700;">{cpu_s}</span> {dot} '
+                f'<span style="color:{magenta}; font-weight:700;">GPU</span> '
+                f'<span style="color:{white}; font-weight:700;">{self._metrics_gpu_cache}</span> {dot} '
+                f'<span style="color:{magenta}; font-weight:700;">RAM</span> '
+                f'<span style="color:{white}; font-weight:700;">{ram_s}</span>'
             )
         except Exception:
             pass
 
     def _on_encoder_metrics(self, cpu, gpu, ram):
         """Encoder panel can override with its own (includes encoding Time)."""
-        orange = "#f59e0b"
-        magenta_dot = "#ff79c6"
-        dot = f'<span style="color:{magenta_dot}; font-weight:700;">·</span>'
+        magenta = "#ff79c6"
+        orange_dot = "#f59e0b"
+        white = "#f8f8f2"
+        dot = f'<span style="color:{orange_dot}; font-weight:700;">·</span>'
         self.lbl_metrics.setText(
-            f'<span style="color:{orange}; font-weight:700;">CPU</span> '
-            f'<span style="color:{orange}; font-weight:700;">{cpu}</span> {dot} '
-            f'<span style="color:{orange}; font-weight:700;">GPU</span> '
-            f'<span style="color:{orange}; font-weight:700;">{gpu}</span> {dot} '
-            f'<span style="color:{orange}; font-weight:700;">RAM</span> '
-            f'<span style="color:{orange}; font-weight:700;">{ram}</span>'
+            f'<span style="color:{magenta}; font-weight:700;">CPU</span> '
+            f'<span style="color:{white}; font-weight:700;">{cpu}</span> {dot} '
+            f'<span style="color:{magenta}; font-weight:700;">GPU</span> '
+            f'<span style="color:{white}; font-weight:700;">{gpu}</span> {dot} '
+            f'<span style="color:{magenta}; font-weight:700;">RAM</span> '
+            f'<span style="color:{white}; font-weight:700;">{ram}</span>'
         )
 
     def _open_donate(self):

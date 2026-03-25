@@ -344,6 +344,7 @@ class AV1EncoderPanel(QWidget):
         self._chk_rej.setChecked(self._settings.get("rejects_enabled"))
         self._chk_rej.stateChanged.connect(lambda v: self._settings.set("rejects_enabled", bool(v)))
         h_rej.addWidget(self._chk_rej, 0)
+        h_rej.addSpacing(5)  # Nudge time entry slightly right
         self._edit_rej = QLineEdit()
         self._edit_rej.setInputMask("99:99:99")
         self._edit_rej.setFixedWidth(50)
