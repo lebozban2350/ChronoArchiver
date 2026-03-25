@@ -243,18 +243,38 @@ class ScannerEngine:
 
     def _get_dnn_backend_target(self):
         """Return (backend_id, target_id) for DNN, preferring GPU. Logs choice."""
+        # CUDA: only pick CUDA when devices are actually available in the current OpenCV build.
         try:
-            if hasattr(cv2.dnn, 'DNN_BACKEND_CUDA') and hasattr(cv2.dnn, 'DNN_TARGET_CUDA'):
-                debug(UTILITY_AI_MEDIA_SCANNER, "DNN backend: CUDA")
-                return cv2.dnn.DNN_BACKEND_CUDA, cv2.dnn.DNN_TARGET_CUDA
+            if hasattr(cv2.dnn, "DNN_BACKEND_CUDA") and hasattr(cv2.dnn, "DNN_TARGET_CUDA"):
+                cuda_ok = False
+                try:
+                    if hasattr(cv2, "cuda") and hasattr(cv2.cuda, "getCudaEnabledDeviceCount"):
+                        cuda_ok = (cv2.cuda.getCudaEnabledDeviceCount() or 0) > 0
+                except Exception:
+                    cuda_ok = False
+                if cuda_ok:
+                    debug(UTILITY_AI_MEDIA_SCANNER, "DNN backend: CUDA (devices available)")
+                    return cv2.dnn.DNN_BACKEND_CUDA, cv2.dnn.DNN_TARGET_CUDA
+                debug(UTILITY_AI_MEDIA_SCANNER, "DNN backend: CUDA skipped (no CUDA devices/runtime)")
         except Exception:
             pass
+
+        # OpenCL: use only when OpenCL is available in this OpenCV build.
         try:
-            if hasattr(cv2.dnn, 'DNN_TARGET_OPENCL'):
-                debug(UTILITY_AI_MEDIA_SCANNER, "DNN backend: OpenCL")
-                return cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_OPENCL
+            if hasattr(cv2.dnn, "DNN_TARGET_OPENCL"):
+                ocl_ok = False
+                try:
+                    if hasattr(cv2, "ocl") and hasattr(cv2.ocl, "haveOpenCL"):
+                        ocl_ok = bool(cv2.ocl.haveOpenCL())
+                except Exception:
+                    ocl_ok = False
+                if ocl_ok:
+                    debug(UTILITY_AI_MEDIA_SCANNER, "DNN backend: OpenCL (available)")
+                    return cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_OPENCL
+                debug(UTILITY_AI_MEDIA_SCANNER, "DNN backend: OpenCL skipped (not available)")
         except Exception:
             pass
+
         debug(UTILITY_AI_MEDIA_SCANNER, "DNN backend: CPU")
         return cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_CPU
 

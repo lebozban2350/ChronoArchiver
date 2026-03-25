@@ -53,41 +53,83 @@ VENV_PACKAGES_BASE = [
 
 
 def detect_gpu() -> str:
-    """Return 'nvidia', 'amd', 'intel', or ''."""
+    """
+    Return 'nvidia', 'amd', 'intel', or ''.
+    Prefer discrete GPU when both iGPU + dGPU exist (hybrid laptops / APU + NVIDIA).
+    """
+    found = {"nvidia": False, "amd": False, "intel": False}
+
+    # 1) NVIDIA direct check (most reliable when available)
     try:
-        r = subprocess.run(
-            ["nvidia-smi"], capture_output=True, timeout=3,
-            **win_hide_kw(),
-        )
-        if r.returncode == 0:
-            return "nvidia"
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-    try:
-        with open("/sys/class/drm/card0/device/vendor", "r") as f:
-            vendor = f.read().strip()
-        if "0x1002" in vendor or "amd" in vendor.lower():
-            return "amd"
-        if "0x8086" in vendor:
-            return "intel"
+        smi = shutil.which("nvidia-smi")
+        if smi:
+            r = subprocess.run(
+                [smi, "-L"], capture_output=True, text=True, timeout=3,
+                **win_hide_kw(),
+            )
+            if r.returncode == 0 and re.search(r"\bNVIDIA\b", (r.stdout or "") + (r.stderr or ""), re.I):
+                found["nvidia"] = True
     except Exception:
         pass
+
+    # 2) sysfs scan: /sys/class/drm/card*/device/vendor
     try:
-        r = subprocess.run(
-            ["lspci"], capture_output=True, text=True, timeout=2,
-        )
-        if r.returncode == 0:
-            out = (r.stdout or "").lower()
-            if "amd" in out and ("radeon" in out or "graphics" in out):
-                return "amd"
-            if "intel" in out and ("xe" in out or "arc" in out or "uhd" in out or "iris" in out or "graphics" in out):
-                return "intel"
-            if "amd" in out:
-                return "amd"
-            if "intel" in out:
-                return "intel"
+        drm = Path("/sys/class/drm")
+        if drm.is_dir():
+            for card in drm.glob("card*"):
+                try:
+                    vendor_file = card / "device" / "vendor"
+                    if not vendor_file.is_file():
+                        continue
+                    vendor = vendor_file.read_text(encoding="utf-8", errors="ignore").strip().lower()
+                    # Vendor IDs: NVIDIA=0x10de, AMD=0x1002, Intel=0x8086
+                    if "0x10de" in vendor:
+                        found["nvidia"] = True
+                    elif "0x1002" in vendor:
+                        found["amd"] = True
+                    elif "0x8086" in vendor:
+                        found["intel"] = True
+                except Exception:
+                    continue
     except Exception:
         pass
+
+    # 3) lspci fallback (hybrid-friendly): look only at display controller lines
+    try:
+        if not (found["nvidia"] or found["amd"] or found["intel"]):
+            r = subprocess.run(
+                ["lspci", "-nnk"], capture_output=True, text=True, timeout=4,
+                **win_hide_kw(),
+            )
+            out = (r.stdout or "") if r.returncode == 0 else ""
+            for line in out.splitlines():
+                if not re.search(r"(VGA compatible controller|3D controller|Display controller)", line, re.I):
+                    continue
+                l = line.lower()
+                if ("nvidia" in l) or ("10de" in l):
+                    found["nvidia"] = True
+                elif ("advanced micro devices" in l) or ("amd" in l) or ("1002" in l):
+                    found["amd"] = True
+                elif ("intel" in l) or ("8086" in l):
+                    found["intel"] = True
+    except Exception:
+        pass
+
+    try:
+        debug(
+            UTILITY_OPENCV_INSTALL,
+            "detect_gpu: " +
+            f"nvidia={found['nvidia']} amd={found['amd']} intel={found['intel']}"
+        )
+    except Exception:
+        pass
+
+    if found["nvidia"]:
+        return "nvidia"
+    if found["amd"]:
+        return "amd"
+    if found["intel"]:
+        return "intel"
     return ""
 
 
