@@ -652,8 +652,16 @@ class AIScannerPanel(QWidget):
         self._btn_uninstall_models.setEnabled(not busy and models_ready)
         self._btn_install_cv.setEnabled(not busy)
         self._btn_uninstall_cv.setEnabled(not busy and cv_ok)
-        self._guide_glow_phase = 0
-        self._guide_pulse_timer.start()
+        # While scanning (or installing), do not guide-pulse: it can override disabled styling
+        # and make START look active when it should be grey.
+        if busy:
+            self._guide_pulse_timer.stop()
+            self._guide_glow_phase = 0
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = None
+        else:
+            self._guide_glow_phase = 0
+            self._guide_pulse_timer.start()
 
     def _clear_guide_glow(self, w):
         if not w:
@@ -694,6 +702,9 @@ class AIScannerPanel(QWidget):
 
     def _pulse_guide(self):
         target = self._get_guide_target()
+        # Never pulse the Start button when it's disabled (keeps it grey).
+        if target == self._btn_start and not self._btn_start.isEnabled():
+            target = None
         if target != self._guide_target:
             self._clear_guide_glow(self._guide_target)
             self._guide_target = target
