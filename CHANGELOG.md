@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [3.8.8] - 2026-03-25
+### Fixed
+- **Footer GPU metrics**: robust `nvidia-smi` parsing and show `N/A` in UI when NVML query fails (prevents misleading `0%`).
+- **Mass AV1 Encoder footer GPU metrics**: same robustness during encoding.
+- **OpenCV (CUDA) install**: fix `prog()` callback signature crash in the CUDA/cuDNN pip step that could trigger instant fallback / “too fast” installs.
+- **Installer popups debug**: route OpenCV/AI Models/FFmpeg popup progress+phases into the main debug log (throttled) for easier troubleshooting.
+
 ## [3.8.7] - 2026-03-25
 ### Fixed
 - **AI Scanner**: remove redundant GPU re-detection during OpenCV install (variant mismatch).

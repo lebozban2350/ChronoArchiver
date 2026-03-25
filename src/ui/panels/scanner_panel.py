@@ -732,6 +732,12 @@ class AIScannerPanel(QWidget):
         pkg = get_opencv_variant_label()
         lines = [f"Download and install {pkg}?", ""]
         if components:
+            total = sum(s for _, s in components)
+            debug(
+                UTILITY_OPENCV_INSTALL,
+                f"OpenCV popup components: variant={variant!r} total={total}B components={[{'label':l,'sizeB':s} for l,s in components]}",
+            )
+        if components:
             lines.append("Components:")
             total = 0
             for label, size_bytes in components:
@@ -760,8 +766,39 @@ class AIScannerPanel(QWidget):
         self._update_start_enabled()
         dlg = OpenCVSetupDialog(self)
 
+        _last_phase = [None]
+        _last_pct_bucket = [-1]  # 0..9 (pct//10)
+        _last_debug_t = [0.0]
+
         def _prog(phase, detail="", downloaded=0, total=0):
             dlg.phase_update.emit(phase, detail, downloaded, total)
+
+            # Throttled debug so the "main debug log" captures installer phases/output.
+            # This is called a lot during wheel download / pip installs.
+            pct = None
+            if total and total > 0 and downloaded >= 0:
+                pct = int((downloaded * 100) / max(total, 1))
+                pct = max(0, min(100, pct))
+            pct_bucket = (pct // 10) if pct is not None else -1
+
+            now = time.monotonic()
+            should_log = (
+                phase != _last_phase[0]
+                or ("failed" in (phase or "").lower())
+                or (pct_bucket != _last_pct_bucket[0] and pct is not None)
+                or (now - _last_debug_t[0] >= 5.0)
+            )
+            if not should_log:
+                return
+
+            _last_phase[0] = phase
+            _last_pct_bucket[0] = pct_bucket
+            _last_debug_t[0] = now
+
+            dl_s = f"dl={downloaded}B tot={total}B"
+            pct_s = f" pct={pct}%" if pct is not None else ""
+            d_s = (detail or "").replace("\n", " ")[:120]
+            debug(UTILITY_OPENCV_INSTALL, f"OpenCV popup: phase={phase!r}{pct_s} {dl_s} detail={d_s}")
 
         def _task():
             set_subprocess_channel("scanner")
@@ -876,6 +913,8 @@ class AIScannerPanel(QWidget):
         dlg = ModelSetupDialog(self._model_mgr, self)
 
         _last_log = [None]
+        _last_debug_t = [0.0]
+        _last_debug_key = [None]
         def _progress(downloaded, total_size, filename, overall, label, url):
             dlg.progress_update.emit(url, label, filename, downloaded, total_size, overall)
             pct = int(overall * 100)
@@ -883,6 +922,16 @@ class AIScannerPanel(QWidget):
             if key != _last_log[0]:
                 _last_log[0] = key
                 self._sig.log_msg.emit(f"Downloading: {label} ({pct}%)")
+            # Also capture key progress states to the main debug log (throttled).
+            now = time.monotonic()
+            debug_key = (label, pct // 10)  # bucketed
+            if debug_key != _last_debug_key[0] or (now - _last_debug_t[0] >= 6.0) or pct in (0, 100):
+                _last_debug_key[0] = debug_key
+                _last_debug_t[0] = now
+                debug(
+                    UTILITY_MODEL_SETUP,
+                    f"Model setup popup: label={label!r} pct={pct}% downloaded={downloaded}B total={total_size}B file={filename[:80]}",
+                )
 
         def _on_done(ok):
             debug(UTILITY_MODEL_SETUP, f"Model setup _on_done RECV ok={ok} type={type(ok).__name__}")

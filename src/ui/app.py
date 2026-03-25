@@ -11,7 +11,9 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import webbrowser
+import re
 
 import psutil
 
@@ -309,6 +311,9 @@ class PreReqDialog(QDialog):
         self._bar.show()
         self._bar.setValue(0)
         ffmpeg_queue = queue.Queue()
+        _last_debug_t = [0.0]
+        _last_phase = [None]
+        _last_pct_bucket = [-1]
 
         def _on_progress(phase: str, pct: int, detail: str):
             try:
@@ -324,6 +329,24 @@ class PreReqDialog(QDialog):
                     self._bar.setValue(min(100, pct))
                     self._bar.setFormat("%p%")
                     self._lbl_detail.setText(detail[:120] if detail else "")
+
+                    # Capture popup installer phases/progress into the main debug log.
+                    now = time.monotonic()
+                    pct_bucket = (pct // 10) if pct is not None else -1
+                    should_log = (
+                        phase != _last_phase[0]
+                        or phase == "done"
+                        or ("failed" in (phase or "").lower())
+                        or (pct_bucket != _last_pct_bucket[0] and pct is not None)
+                        or (now - _last_debug_t[0] >= 5.0)
+                    )
+                    if should_log:
+                        _last_phase[0] = phase
+                        _last_pct_bucket[0] = pct_bucket
+                        _last_debug_t[0] = now
+                        d_s = (detail or "").replace("\n", " ")[:140]
+                        debug(UTILITY_APP, f"FFmpeg popup: phase={phase!r} pct={pct}% detail={d_s}")
+
                     if phase == "done":
                         timer.stop()
                         self._btn_download.setEnabled(True)
@@ -413,6 +436,8 @@ class UpdateDownloadDialog(QDialog):
         except OSError:
             pass
         self._dest_path = dest
+        _last_debug_t = [0.0]
+        _last_pct_bucket = [-1]
 
         def _on_progress(downloaded, total, pct, mbps):
             try:
@@ -427,6 +452,10 @@ class UpdateDownloadDialog(QDialog):
                     if msg[0] == "done":
                         self._download_ok = bool(msg[1])
                         self._poll_timer.stop()
+                        debug(
+                            UTILITY_APP,
+                            f"Update popup: download_done ok={self._download_ok} version={version}",
+                        )
                         if self._download_ok:
                             self.accept()
                         else:
@@ -437,6 +466,20 @@ class UpdateDownloadDialog(QDialog):
                     self._bar.setValue(min(100, int(pct)))
                     self._bar.setFormat("%p%")
                     self._lbl_speed.setText(f"{mbps:.2f} MB/s" if mbps and mbps > 0 else "")
+
+                    now = time.monotonic()
+                    pct_bucket = int(pct) // 10
+                    if (
+                        pct_bucket != _last_pct_bucket[0]
+                        or now - _last_debug_t[0] >= 5.0
+                        or int(pct) in (0, 100)
+                    ):
+                        _last_pct_bucket[0] = pct_bucket
+                        _last_debug_t[0] = now
+                        debug(
+                            UTILITY_APP,
+                            f"Update popup: downloaded={downloaded}B total={total}B pct={int(pct)}% speed={(mbps or 0):.2f}MB/s",
+                        )
             except queue.Empty:
                 pass
 
@@ -484,6 +527,8 @@ class ChronoArchiverApp(QMainWindow):
         self._component_sync_started = False
         self._metrics_gpu_cache = "  0%"
         self._metrics_gpu_counter = 0
+        self._metrics_gpu_last_err_t = 0.0
+        self._metrics_gpu_last_err = ""
 
         # UI Components
         self.central_widget = QWidget()
@@ -853,17 +898,29 @@ class ChronoArchiverApp(QMainWindow):
             self._metrics_gpu_counter += 1
             if self._metrics_gpu_counter >= 3:
                 try:
+                    smi = shutil.which("nvidia-smi")
+                    if not smi:
+                        raise FileNotFoundError("nvidia-smi not found in PATH")
                     out = subprocess.check_output(
-                        ["nvidia-smi", "--query-gpu=utilization.gpu",
-                         "--format=csv,noheader,nounits"],
-                        text=True, stderr=subprocess.DEVNULL,
+                        [smi, "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
+                        text=True,
+                        stderr=subprocess.DEVNULL,
                         **win_hide_kw(),
                     ).strip()
-                    line = out.strip().split("\n")[0].strip() if out else ""
-                    g = int(line) if line.isdigit() else 0
+                    # Some environments may output multiple lines (multiple GPUs). Take max.
+                    vals = [int(x) for x in re.findall(r"\d+", out or "")]
+                    if not vals:
+                        raise ValueError(f"Unexpected nvidia-smi output: {out[:80]}")
+                    g = max(vals)
                     self._metrics_gpu_cache = f"{min(999, g):3d}%"
-                except Exception:
-                    self._metrics_gpu_cache = "  0%"
+                except Exception as e:
+                    self._metrics_gpu_cache = "  N/A"
+                    now = time.monotonic()
+                    msg = str(e)[:140]
+                    if (now - self._metrics_gpu_last_err_t) >= 20.0 or msg != self._metrics_gpu_last_err:
+                        self._metrics_gpu_last_err_t = now
+                        self._metrics_gpu_last_err = msg
+                        debug(UTILITY_APP, f"GPU metrics: nvidia-smi query failed: {msg}")
                 self._metrics_gpu_counter = 0
             cpu_s = f"{min(999, int(round(cpu_val))):3d}%"
             ram_s = f"{min(999, int(round(ram_val))):3d}%"

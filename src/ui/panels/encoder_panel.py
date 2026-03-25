@@ -10,6 +10,7 @@ import shutil
 import threading
 import time
 import subprocess
+import re
 
 import psutil
 
@@ -125,6 +126,8 @@ class AV1EncoderPanel(QWidget):
         self._io_bytes       = 0.0
         self._gpu_cache      = "  0%"
         self._gpu_counter    = 0
+        self._gpu_last_err_t = 0.0
+        self._gpu_last_err = ""
         self._source_scanned = False
         self._is_scanning    = False
 
@@ -1145,15 +1148,27 @@ class AV1EncoderPanel(QWidget):
 
     def _get_gpu(self) -> str:
         try:
+            smi = shutil.which("nvidia-smi")
+            if not smi:
+                raise FileNotFoundError("nvidia-smi not found in PATH")
             out = subprocess.check_output(
-                ["nvidia-smi", "--query-gpu=utilization.gpu",
-                 "--format=csv,noheader,nounits"],
-                text=True, stderr=subprocess.DEVNULL).strip()
-            line = out.strip().split("\n")[0].strip() if out else ""
-            g = int(line) if line.isdigit() else 0
+                [smi, "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+            vals = [int(x) for x in re.findall(r"\d+", out or "")]
+            if not vals:
+                raise ValueError(f"Unexpected nvidia-smi output: {out[:80]}")
+            g = max(vals)
             return f"{min(999, g):3d}%"
-        except Exception:
-            return "  0%"
+        except Exception as e:
+            now = time.monotonic()
+            msg = str(e)[:140]
+            if (now - self._gpu_last_err_t) >= 30.0 or msg != self._gpu_last_err:
+                self._gpu_last_err_t = now
+                self._gpu_last_err = msg
+                debug(UTILITY_MASS_AV1_ENCODER, f"GPU metrics: nvidia-smi query failed: {msg}")
+            return "  N/A"
 
     def _add_log(self, msg):
         sb = self._log_edit.verticalScrollBar()

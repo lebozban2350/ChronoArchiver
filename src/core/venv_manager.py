@@ -634,9 +634,13 @@ def _is_cuda_cudnn_installed() -> bool:
 
 def _install_cuda_cudnn_venv(progress_callback=None) -> tuple[bool, str | None]:
     """Install CUDA and cuDNN via pip into app venv (no sudo). Returns (success, error)."""
-    def prog(msg, detail=""):
+    def prog(msg, detail="", downloaded=0, total=0):
+        """
+        progress_callback(phase, detail, downloaded_bytes, total_bytes)
+        Some callers provide only (msg, detail), others pass 4 args; keep it permissive.
+        """
         if progress_callback:
-            progress_callback(msg, detail, 0, 0)
+            progress_callback(msg, detail, downloaded, total)
 
     pip = get_pip_exe()
     if not pip.exists():
@@ -644,7 +648,8 @@ def _install_cuda_cudnn_venv(progress_callback=None) -> tuple[bool, str | None]:
         return False, "venv not ready"
 
     debug(UTILITY_OPENCV_INSTALL, "CUDA/cuDNN/cuFFT install: starting pip install (~775 MB, may take 2–5 min)")
-    prog("Installing CUDA runtime, cuBLAS, cuFFT, and cuDNN...", "Downloading ~775 MB (may take 2–5 min)...")
+    t0 = time.monotonic()
+    prog("Installing CUDA runtime, cuBLAS, cuFFT, and cuDNN...", "Downloading ~775 MB (may take 2–5 min)...", 0, 0)
     proc = None
     try:
         proc = subprocess.Popen(
@@ -664,7 +669,10 @@ def _install_cuda_cudnn_venv(progress_callback=None) -> tuple[bool, str | None]:
                 prog("Installing CUDA stack...", ln[:120], 0, 0)
         proc.wait(timeout=600)
         if proc.returncode == 0:
-            debug(UTILITY_OPENCV_INSTALL, "CUDA/cuDNN install: success")
+            elapsed_s = time.monotonic() - t0
+            tail = out_lines[-5:] if out_lines else []
+            tail_str = (" | ".join(tail))[:800] if tail else ""
+            debug(UTILITY_OPENCV_INSTALL, f"CUDA/cuDNN install: success elapsed={elapsed_s:.1f}s lines={len(out_lines)} tail={tail_str}")
             return True, None
         err = "\n".join(out_lines[-40:]) or "Unknown error"
         debug(UTILITY_OPENCV_INSTALL, f"CUDA/cuDNN install FAILED: {err[:500]}")
@@ -892,11 +900,19 @@ def install_opencv(progress_callback=None, variant: str | None = None) -> tuple[
                     prog("Failed", "No matching CUDA wheel for this platform", 0, 0)
                     return False, "No matching CUDA wheel for this platform"
                 debug(UTILITY_OPENCV_INSTALL, f"install_opencv: downloading CUDA wheel ({wheel_size} bytes)")
+                dl_t0 = time.monotonic()
                 wheel_path = _download_wheel_with_progress(
                     wheel_url,
                     lambda p, d, down, tot: prog(p, d, down, tot),
                     total_hint=wheel_size,
                 )
+                dl_elapsed_s = time.monotonic() - dl_t0
+                if wheel_path and wheel_path.exists():
+                    st = wheel_path.stat()
+                    debug(
+                        UTILITY_OPENCV_INSTALL,
+                        f"install_opencv: CUDA wheel download done bytes={st.st_size} elapsed={dl_elapsed_s:.1f}s hint={wheel_size}",
+                    )
                 debug(UTILITY_OPENCV_INSTALL, f"install_opencv: CUDA wheel download done, path={wheel_path}")
             except Exception as e:
                 msg = str(e)[:200]
@@ -907,11 +923,19 @@ def install_opencv(progress_callback=None, variant: str | None = None) -> tuple[
             debug(UTILITY_OPENCV_INSTALL, "install_opencv: OpenCL path, fetching standard wheel")
             wheel_url, wheel_size = _get_opencv_standard_wheel_url()
             if wheel_url:
+                dl_t0 = time.monotonic()
                 wheel_path = _download_wheel_with_progress(
                     wheel_url,
                     lambda p, d, down, tot: prog(p, d, down, tot),
                     total_hint=wheel_size or OPENCV_STANDARD_APPROX_BYTES,
                 )
+                dl_elapsed_s = time.monotonic() - dl_t0
+                if wheel_path and wheel_path.exists():
+                    st = wheel_path.stat()
+                    debug(
+                        UTILITY_OPENCV_INSTALL,
+                        f"install_opencv: standard wheel download done bytes={st.st_size} elapsed={dl_elapsed_s:.1f}s hint={wheel_size}",
+                    )
             if not wheel_path:
                 debug(UTILITY_OPENCV_INSTALL, "install_opencv: pip install opencv-python (no wheel URL)")
                 prog("Installing OpenCV...", "Downloading via pip...", 0, 0)
@@ -926,6 +950,7 @@ def install_opencv(progress_callback=None, variant: str | None = None) -> tuple[
 
         debug(UTILITY_OPENCV_INSTALL, f"install_opencv: pip install wheel {wheel_path}")
         prog("Installing...", "Setting up wheel (this may take a minute)", 1, 1)
+        pip_t0 = time.monotonic()
         proc_w = subprocess.Popen(
             [str(pip), "install", str(wheel_path)],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
@@ -939,6 +964,7 @@ def install_opencv(progress_callback=None, variant: str | None = None) -> tuple[
                 tee_line(f"[pip] {ln[:500]}")
                 prog("Installing...", ln[:100], 1, 1)
         proc_w.wait(timeout=300)
+        pip_elapsed_s = time.monotonic() - pip_t0
         try:
             wheel_path.unlink()
             parent = wheel_path.parent
@@ -948,10 +974,10 @@ def install_opencv(progress_callback=None, variant: str | None = None) -> tuple[
             pass
         if proc_w.returncode != 0:
             err = "\n".join(acc_lines[-40:]) or "Unknown error"
-            debug(UTILITY_OPENCV_INSTALL, f"install_opencv FAIL pip install wheel: {err[:800]}")
+            debug(UTILITY_OPENCV_INSTALL, f"install_opencv FAIL pip install wheel rc={proc_w.returncode} elapsed={pip_elapsed_s:.1f}s tail={err[:800]}")
             prog("Failed", err[:80], 0, 0)
             return False, err
-        debug(UTILITY_OPENCV_INSTALL, "install_opencv SUCCESS, returning (True, None)")
+        debug(UTILITY_OPENCV_INSTALL, f"install_opencv SUCCESS, elapsed={pip_elapsed_s:.1f}s lines={len(acc_lines)}")
         prog("Complete.", "", 1, 1)
         return True, None
     finally:
