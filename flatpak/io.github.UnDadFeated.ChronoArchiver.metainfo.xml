@@ -18,7 +18,7 @@
   <screenshots>
     <screenshot type="default">
       <caption>Application icon (replace with a main-window screenshot when available)</caption>
-      <image type="source">https://raw.githubusercontent.com/UnDadFeated/ChronoArchiver/v3.8.2/src/ui/assets/icon.png</image>
+      <image type="source">https://raw.githubusercontent.com/UnDadFeated/ChronoArchiver/main/flatpak/io.github.UnDadFeated.ChronoArchiver.png</image>
     </screenshot>
   </screenshots>
   <releases>

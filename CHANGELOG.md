@@ -4,6 +4,7 @@
 
 ### Fixed
 - **Flatpak manifest**: Install **`pybind11`** and **`packaging>=24.2`** before **Pillow** so Pillow 12.x / setuptools can prepare metadata inside **`flatpak-builder`** (`pybind11`, `packaging.licenses`). **`nh3`** / **`cryptography`**: use **`manylinux` wheels** per arch (not sdist) so **twine** / **SecretStorage** dependencies do not require **maturin** or a full **cryptography** source build.
+- **Flatpak icon**: **`flatpak/io.github.UnDadFeated.ChronoArchiver.png`** — **256×256** square (transparent pad around `src/ui/assets/icon.png`) so **`appstreamcli` / Flathub** accept **`hicolor/256x256`** export.
 
 ### Changed
 - **Documentation**: Root **README** shortened for public readers — **Installation** (GitHub **v3.8.2**, AUR, Flathub) then **Technical overview**; maintainer Flathub steps moved to **`flatpak/README.md`**.

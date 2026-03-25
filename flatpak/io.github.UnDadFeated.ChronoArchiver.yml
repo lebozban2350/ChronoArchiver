@@ -246,7 +246,7 @@ modules:
   - install -Dm755 chronoarchiver.sh ${FLATPAK_DEST}/bin/chronoarchiver
   - install -Dm644 io.github.UnDadFeated.ChronoArchiver.desktop -t ${FLATPAK_DEST}/share/applications/
   - install -Dm644 io.github.UnDadFeated.ChronoArchiver.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
-  - install -Dm644 src/ui/assets/icon.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.UnDadFeated.ChronoArchiver.png
+  - install -Dm644 io.github.UnDadFeated.ChronoArchiver.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/io.github.UnDadFeated.ChronoArchiver.png
   - install -Dm644 LICENSE -t ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}
   sources:
   - type: git
@@ -258,3 +258,5 @@ modules:
     path: io.github.UnDadFeated.ChronoArchiver.desktop
   - type: file
     path: io.github.UnDadFeated.ChronoArchiver.metainfo.xml
+  - type: file
+    path: io.github.UnDadFeated.ChronoArchiver.png
