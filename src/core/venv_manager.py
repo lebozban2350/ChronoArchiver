@@ -45,10 +45,9 @@ OPENCV_STANDARD_APPROX_BYTES = 90 * 1024 * 1024  # ~90 MB
 # Fallback when API unavailable: cudawarped wheel ~500 MB
 OPENCV_CUDA_FALLBACK_BYTES = 506 * 1024 * 1024
 
-# Base packages (opencv chosen by get_opencv_package())
-# numpy required by scanner; PySide6-Essentials sufficient but PySide6 ensures compatibility
+# Base venv only — no OpenCV. AI Scanner installs: NVIDIA → CUDA wheel + stack; AMD/Intel/other → opencv-python (OpenCL), same as before.
 VENV_PACKAGES_BASE = [
-    "PySide6", "numpy", "psutil", "requests", "Pillow", "platformdirs",
+    "PySide6-Essentials", "numpy", "psutil", "requests", "Pillow", "platformdirs",
     "piexif", "static-ffmpeg", "GitPython",
 ]
 
@@ -94,11 +93,9 @@ def detect_gpu() -> str:
 
 def get_opencv_variant() -> str:
     """
-    Return OpenCV install variant based on GPU:
-    - 'cuda': NVIDIA → cudawarped wheel
-    - 'opencl_amd': AMD Radeon → opencv-python (OpenCL / ROCm path, cv2.UMat)
-    - 'opencl_intel': Intel Xe/Arc/integrated → opencv-python (OpenCL)
-    - 'opencl': No discrete GPU → opencv-python (OpenCL, universal)
+    Variant for **AI Scanner → Install OpenCV** only (not installed by setup/bootstrap):
+    - 'cuda': NVIDIA → cudawarped wheel + CUDA stack in venv
+    - 'opencl_amd' / 'opencl_intel' / 'opencl': PyPI opencv-python (OpenCL), same behavior as before
     """
     gpu = detect_gpu()
     if gpu == "nvidia":
@@ -114,7 +111,7 @@ def get_opencv_variant_label() -> str:
     """Human-readable label for the selected OpenCV variant."""
     v = get_opencv_variant()
     return {
-        "cuda": "OpenCV (CUDA)",
+        "cuda": "OpenCV (CUDA build)",
         "opencl_amd": "OpenCV (OpenCL — AMD Radeon)",
         "opencl_intel": "OpenCV (OpenCL — Intel)",
         "opencl": "OpenCV (OpenCL)",
@@ -122,12 +119,13 @@ def get_opencv_variant_label() -> str:
 
 
 def get_opencv_package() -> str:
-    """Return opencv package for pip (bootstrap/ensure_venv). CUDA uses wheel install separately."""
+    """PyPI name for non-CUDA OpenCV (OpenCL) when installing from AI Scanner — opencv-python, not the CUDA wheel."""
     return "opencv-python"
 
 
 def get_venv_packages() -> list:
-    return VENV_PACKAGES_BASE + [get_opencv_package()]
+    """Packages for ensure_venv / pip install -r requirements.txt (OpenCV only via AI Scanner)."""
+    return list(VENV_PACKAGES_BASE)
 
 
 def get_venv_path() -> Path:
@@ -486,25 +484,13 @@ def is_venv_runnable() -> bool:
 
 
 def is_venv_ready() -> bool:
-    """True if venv exists and has all required packages including OpenCV."""
-    py = get_python_exe()
-    if not py.exists():
-        return False
-    try:
-        r = subprocess.run(
-            [str(py), "-c", "import PySide6; import numpy; import cv2; import PIL; import requests"],
-            capture_output=True, timeout=5,
-            **win_hide_kw(),
-        )
-        return r.returncode == 0
-    except Exception:
-        return False
+    """Same as is_venv_runnable — OpenCV is optional (installed from AI Scanner)."""
+    return is_venv_runnable()
 
 
-def ensure_venv(progress_callback=None, skip_opencv: bool = False) -> bool:
+def ensure_venv(progress_callback=None) -> bool:
     """
-    Create venv and install packages. progress_callback(phase, detail, pct=None).
-    skip_opencv: if True, do not install opencv (caller will install separately).
+    Create venv and install base packages (no OpenCV). progress_callback(phase, detail, pct=None).
     Returns True on success. No-op when frozen.
     """
     if _is_frozen():
@@ -533,7 +519,7 @@ def ensure_venv(progress_callback=None, skip_opencv: bool = False) -> bool:
         prog("venv pip not found", "", 0)
         return False
 
-    packages = VENV_PACKAGES_BASE + ([] if skip_opencv else [get_opencv_package()])
+    packages = get_venv_packages()
     n = len(packages)
     for i, pkg in enumerate(packages):
         prog(f"Installing {pkg} ({i + 1}/{n})...", "", 100.0 * i / n)

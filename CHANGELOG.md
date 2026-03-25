@@ -2,8 +2,14 @@
 
 ## [Unreleased]
 
+## [3.8.3] - 2026-03-25
 ### Removed
 - **Flatpak**: Removed **`flatpak/`** packaging and **`venv_manager`** `/.flatpak-info` handling; README no longer references Flathub.
+
+### Changed
+- Semver **3.8.3** (installers, PKGBUILD, PyPI metadata).
+- **Windows / macOS / git venv**: Base install uses **`PySide6-Essentials`** and **`requirements.txt`** without OpenCV — smaller footprint. **OpenCV** is installed only from **AI Media Scanner** (NVIDIA: CUDA build + stack; AMD, Intel, and other GPUs: **`opencv-python`** OpenCL path, unchanged).
+- **`ensure_venv`**: Always installs the base package set only; **`skip_opencv`** removed (bootstrap and scanner call sites updated). **`is_venv_ready()`** matches **`is_venv_runnable()`** (OpenCV optional).
 
 ## [3.8.2] - 2026-03-25
 ### Fixed

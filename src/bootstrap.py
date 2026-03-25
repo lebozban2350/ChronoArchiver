@@ -51,7 +51,7 @@ def _run_with_ui():
         root.update_idletasks()
 
     def task():
-        result[0] = ensure_venv(progress_callback=progress, skip_opencv=True)  # User installs OpenCV in AI Scanner
+        result[0] = ensure_venv(progress_callback=progress)
         done[0] = True
         root.after(0, root.quit)
 
@@ -68,7 +68,7 @@ def _run_headless():
     def progress(phase, detail="", pct=None):
         print(f"  {phase}  {detail}")
 
-    return ensure_venv(progress_callback=progress, skip_opencv=True)
+    return ensure_venv(progress_callback=progress)
 
 
 def _show_setup_error(msg: str) -> None:

@@ -759,7 +759,7 @@ class AIScannerPanel(QWidget):
                 if not pip.exists():
                     debug(UTILITY_OPENCV_INSTALL, "OpenCV install: pip not found, ensuring venv")
                     _prog("Creating venv...", "")
-                    ok = ensure_venv(progress_callback=_prog, skip_opencv=True)
+                    ok = ensure_venv(progress_callback=_prog)
                     if not ok:
                         debug(UTILITY_OPENCV_INSTALL, "OpenCV install: ensure_venv FAILED")
                         _prog("Failed", "Could not create venv")
