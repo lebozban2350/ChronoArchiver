@@ -36,17 +36,9 @@ Then merge the generated modules into `io.github.UnDadFeated.ChronoArchiver.yml`
 
 ## Submit to Flathub
 
-Follow **official steps**: [Submission](https://docs.flathub.org/docs/for-app-authors/submission).
+Follow the official guide: [Submission](https://docs.flathub.org/docs/for-app-authors/submission). A **step-by-step table** (clone `new-pr`, copy files to the **fork’s root**, open PR against `new-pr`, `bot, build`, approval) is in the root **[README.md](../README.md#maintainer-guide-github-flathub-and-aur)** under **Maintainer guide**.
 
-Summary:
-
-1. Fork [flathub/flathub](https://github.com/flathub/flathub) (uncheck “copy master only”).
-2. Clone `git clone --branch=new-pr git@github.com:YOUR_USER/flathub.git && cd flathub`.
-3. Branch: `git checkout -b add-chronoarchiver new-pr`.
-4. Copy **this `flatpak/` directory’s contents** into the fork (paths Flathub expects are usually the manifest + appstream at repo root for the submission PR; follow the current Flathub PR template).
-5. Open a PR **against the `new-pr` branch** (not `master`), title e.g. `Add io.github.UnDadFeated.ChronoArchiver`.
-6. Comment `bot, build` when ready for a test build.
-7. Address review feedback; after merge, the app repo will appear under [github.com/flathub](https://github.com/flathub) and you will get an invite.
+**Copy rule:** In the `flathub` fork, put `io.github.UnDadFeated.ChronoArchiver.yml` and the same-named `.desktop`, `.metainfo.xml`, `chronoarchiver.sh`, etc. **at the top level of the branch**—not inside a `flatpak/` folder—so paths in the manifest match.
 
 **Important:** Flathub’s policy discourages fully AI-generated submission PRs. A human maintainer should review the manifest, metainfo, and screenshots before opening the PR.
 

@@ -125,12 +125,13 @@ Until then, build locally using [`flatpak/README.md`](flatpak/README.md).
 
 ### Fedora Atomic / Bazzite (and similar immutable desktops)
 
-There is no first-party RPM or Flatpak in this repository yet. To use ChronoArchiver on Bazzite or other Fedora Atomic variants:
+Upstream ships a Flatpak manifest under [`flatpak/`](flatpak/); once the app is [listed on Flathub](https://flathub.org/), install with `flatpak install flathub io.github.UnDadFeated.ChronoArchiver` and use Discover / GNOME Software like any other Flatpak. Until it is published, build locally using [`flatpak/README.md`](flatpak/README.md).
 
-1. **From source (recommended)** — Install Python 3.10+ (or use `toolbox` / `distrobox`), then clone and run bootstrap as in [From Source](#from-source) below. Data dirs follow XDG / `platformdirs` under your home.
+Other options:
+
+1. **From source** — Install Python 3.10+ (or use `toolbox` / `distrobox`), then clone and run bootstrap as in [From Source](#from-source) below. Data dirs follow XDG / `platformdirs` under your home.
 2. **AUR package inside a container** — Create an Arch container (`distrobox create -i archlinux`), enter it, install `paru`/`yay`, then `paru -S chronoarchiver`. Launch the app from that environment (or symlink the generated launcher); models and config live in the container home unless you bind-mount.
-3. **Visibility in Discover / Flathub** — To have the app appear in GNOME Software / Discover for everyone, publish a [Flatpak](https://docs.flathub.org/docs/for-app-authors) manifest in a separate repo and submit it to [Flathub](https://flathub.org/). Upstream can link that from the README once listed.
-4. **Separate packaging repo** — If you maintain a COPR, Flatpak, or `bazzite`-specific fork, add it as a `git remote`, bump `pkgver` alongside this repo, and push there on each release (same pattern as the AUR `PKGBUILD`).
+3. **Separate packaging repo** — If you maintain a COPR or distribution-specific fork, add it as a `git remote`, bump `pkgver` alongside this repo, and push there on each release (same pattern as the AUR `PKGBUILD`).
 
 ### Windows (x64) / macOS
 
@@ -194,6 +195,8 @@ First launch creates an app-private virtual environment at `~/.local/share/Chron
 
 ## Uninstall
 
+**Flatpak:** `flatpak uninstall io.github.UnDadFeated.ChronoArchiver` (add `--delete-data` to remove app data as well).
+
 **AUR:** `pacman -R chronoarchiver` removes the application and all user data (models, config, logs).
 
 **Windows/macOS setup:** **Windows** — Settings → Apps → **ChronoArchiver** → Uninstall (or Start Menu → ChronoArchiver → **`Uninstall_ChronoArchiver.cmd`**). Confirm in the dialog; the install folder under `%LOCALAPPDATA%\ChronoArchiver`, shortcuts, and the Installed Apps entry are removed. **macOS** — in the install folder, open **Uninstall ChronoArchiver.app** or run **Uninstall ChronoArchiver.command**.
@@ -238,8 +241,53 @@ The uninstall script stops **pythonw.exe** / **python.exe** processes launched f
 The application checks GitHub tags on startup. In-app updates work on:
 
 - **Arch Linux (AUR)**: `paru`/`yay` — app closes, updates, restarts.
+- **Flatpak (Flathub)**: `flatpak update` (or your graphical updater); Flathub publishes builds from the app’s manifest repo, not from this README.
 - **Git clone (Linux, Windows, macOS)**: `git pull` — app closes, pulls, restarts.
 - **Windows/macOS setup**: Fetches the new setup launcher; running it performs the update.
+
+---
+
+## Maintainer guide: GitHub, Flathub, and AUR
+
+This section is for **releasing and distributing** the app (current release line **3.8.x**). End users can skip it.
+
+### GitHub release and tag (`v3.8.2`)
+
+1. Ensure **`main`** contains everything you want in the release (including [`flatpak/`](flatpak/) if Flathub should build from that tree).
+2. Create an [annotated tag](https://git-scm.com/book/en/v2/Git-Basics-Tagging) on that commit, e.g. `v3.8.2`, and push it: `git push origin v3.8.2`.
+3. On the [Releases](https://github.com/UnDadFeated/ChronoArchiver/releases) page, create a release from that tag and attach the Windows/macOS setup assets built by CI (or your pipeline), matching the filenames in [Installation](#installation).
+
+**If you already tagged `v3.8.2` before adding `flatpak/`:** either move the tag to the correct commit (`git tag -f v3.8.2 <commit>` then `git push origin v3.8.2 --force` — coordinate with anyone who pulled the old tag), or cut a new release with a new tag and update the Flatpak manifest’s upstream `tag` / checksums accordingly.
+
+### Flathub — first-time submission (steps 2–9)
+
+Read step 1 (fork and policies) on the official pages: [Submission](https://docs.flathub.org/docs/for-app-authors/submission), [Requirements](https://docs.flathub.org/docs/for-app-authors/requirements), and the [Generative AI policy](https://docs.flathub.org/docs/for-app-authors/requirements#generative-ai-policy). **Pull requests must target the `new-pr` branch**, not `master` ([CONTRIBUTING](https://github.com/flathub/flathub/blob/master/CONTRIBUTING.md)).
+
+| Step | What to do |
+|------|------------|
+| **2** | **Clone your fork** with the submission branch: `git clone --branch=new-pr git@github.com:YOUR_USER/flathub.git && cd flathub`. (Or: `gh repo fork flathub/flathub --clone` then `git checkout --track origin/new-pr`.) |
+| **3** | **Create a branch** for the submission, e.g. `git checkout -b add-chronoarchiver new-pr`. |
+| **4** | **Add the Flatpak files at the repository root** of this branch (Flathub expects the manifest **next to** its companion files, not inside a `flatpak/` subfolder in the fork). Copy from this repo’s [`flatpak/`](flatpak/) directory: `io.github.UnDadFeated.ChronoArchiver.yml`, `chronoarchiver.sh`, `io.github.UnDadFeated.ChronoArchiver.desktop`, and `io.github.UnDadFeated.ChronoArchiver.metainfo.xml`. (`requirements-flatpak.txt` is only needed upstream to regenerate pip wheel snippets; it is not part of the built Flatpak unless you wire it in.) Ensure the manifest’s **git `tag:`** matches a commit that includes the sources you intend to ship (see GitHub tag note above). |
+| **5** | **Build and test locally** (recommended): install `org.flatpak.Builder` from Flathub, add the Flathub remote user-wide if needed, `cd` to the folder that contains `io.github.UnDadFeated.ChronoArchiver.yml`, then e.g. `flatpak run org.flatpak.Builder --install --user --force-clean build-dir io.github.UnDadFeated.ChronoArchiver.yml`. Run `flatpak run io.github.UnDadFeated.ChronoArchiver`. Run the [linter](https://docs.flathub.org/docs/for-app-authors/submission#run-the-linter) on the manifest and on the resulting repo. |
+| **6** | **Commit and push** to your fork: `git add` the new files, `git commit`, `git push -u origin add-chronoarchiver`. |
+| **7** | **Open a pull request** on GitHub: **base = `new-pr`**, **compare = your branch**. Title like **`Add io.github.UnDadFeated.ChronoArchiver`**. Use the web UI to create the PR ([submission docs](https://docs.flathub.org/docs/for-app-authors/submission#submission-pr)). |
+| **8** | **Review loop:** answer reviewer questions; do **not** close/reopen the PR to fix issues. When reviewers are ready for a test build, comment **`bot, build`** on the PR. Fix any build or metadata issues they report. |
+| **9** | **After approval:** reviewers merge into a **new** repository under [github.com/flathub](https://github.com/flathub). **Accept the GitHub org invite** within about a week (2FA required). Subsequent **app updates** are **not** submitted via `flathub/flathub` again — you change the manifest in **`flathub/io.github.UnDadFeated.ChronoArchiver`** (see [App maintenance](https://docs.flathub.org/docs/for-app-authors/maintenance)). |
+
+**Screenshots:** Use real PNGs in metainfo; placeholders are for local testing only. Test-build Flathub runs do not show store screenshots until after the app is published ([FAQ](https://docs.flathub.org/docs/for-app-authors/submission#i-dont-see-any-screenshots-from-the-test-builds-why)).
+
+Technical details and a one-line local build command from the **ChronoArchiver** repo layout (with `flatpak/` paths) stay in [`flatpak/README.md`](flatpak/README.md).
+
+### AUR (`chronoarchiver`, `pkgver=3.8.2`)
+
+The [AUR package](https://aur.archlinux.org/packages/chronoarchiver) is a **separate Git repository** from this GitHub project.
+
+1. Clone the AUR package: `git clone ssh://aur@aur.archlinux.org/chronoarchiver.git` (or HTTPS if you use the AUR web upload flow).
+2. Copy or merge **`PKGBUILD`** (and any patches) from this repo so **`pkgver=3.8.2`** and **`pkgrel`** are correct; update **`source`** checksums if the tarball changed (`updpkgsums` / `makepkg -g`).
+3. Regenerate **`.SRCINFO`**: `makepkg --printsrcinfo > .SRCINFO`.
+4. **`git add PKGBUILD .SRCINFO`**, commit, **`git push`** to `aur` (your remote name may differ).
+
+Users install with `paru -S chronoarchiver` or `yay -S chronoarchiver` as in [Installation](#installation).
 
 ---
 

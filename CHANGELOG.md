@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- **Documentation**: Root **README** — maintainer guide for **GitHub** tags/releases, **Flathub** submission steps (fork `new-pr` through merge and post-merge repo), and **AUR** sync; **Bazzite** section updated for upstream **Flatpak** packaging; **Updates** / **Uninstall** note **Flatpak** where relevant. **`flatpak/README`** points to the README for submission UX.
+
 ## [3.8.2] - 2026-03-25
 ### Added
 - **Linux / Flatpak**: Packaging under **`flatpak/`** (`io.github.UnDadFeated.ChronoArchiver`) using **`io.qt.PySide.BaseApp`** plus pip wheels for numpy, OpenCV, static-ffmpeg, etc.; submission steps in **`flatpak/README.md`**. **`venv_manager`**: detect **`/.flatpak-info`** so OpenCV/FFmpeg checks and venv bootstrap behave when dependencies live in **`/app`** (no app-private venv).
