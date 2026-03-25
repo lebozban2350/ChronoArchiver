@@ -919,14 +919,40 @@ class ChronoArchiverApp(QMainWindow):
                     g = max(vals)
                     self._metrics_gpu_cache = f"{min(999, g):3d}%"
                 except Exception as e:
-                    # If NVML/nvidia-smi has no usable output, show N/A (but still log the reason).
-                    self._metrics_gpu_cache = "  N/A"
+                    # If NVML/nvidia-smi can't provide utilization, try a Windows-wide
+                    # vendor-agnostic performance counter fallback. Otherwise show N/A.
                     now = time.monotonic()
                     msg = str(e)[:140]
                     if (now - self._metrics_gpu_last_err_t) >= 20.0 or msg != self._metrics_gpu_last_err:
                         self._metrics_gpu_last_err_t = now
                         self._metrics_gpu_last_err = msg
                         debug(UTILITY_APP, f"GPU metrics: nvidia-smi query failed: {msg}")
+
+                    g_win: int | None = None
+                    if platform.system() == "Windows":
+                        try:
+                            ps_cmd = (
+                                r"$c=Get-Counter '\GPU Engine(*)\Utilization Percentage'; "
+                                r"$vals=$c.CounterSamples | ForEach-Object {$_.CookedValue}; "
+                                r"$max=($vals | Measure-Object -Maximum).Maximum; "
+                                r"if($max -ne $null){Write-Output $max}"
+                            )
+                            proc = subprocess.run(
+                                ["powershell", "-NoProfile", "-Command", ps_cmd],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                text=True,
+                                timeout=2.5,
+                                **win_hide_kw(),
+                            )
+                            stdout = (proc.stdout or "").strip()
+                            vals = [int(x) for x in re.findall(r"\d+", stdout or "")]
+                            if vals:
+                                g_win = max(vals)
+                        except Exception:
+                            g_win = None
+
+                    self._metrics_gpu_cache = f"{min(999, g_win):3d}%" if g_win is not None else "  N/A"
                 self._metrics_gpu_counter = 0
             cpu_s = f"{min(999, int(round(cpu_val))):3d}%"
             ram_s = f"{min(999, int(round(ram_val))):3d}%"

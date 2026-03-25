@@ -1173,7 +1173,30 @@ class AV1EncoderPanel(QWidget):
                 self._gpu_last_err_t = now
                 self._gpu_last_err = msg
                 debug(UTILITY_MASS_AV1_ENCODER, f"GPU metrics: nvidia-smi query failed: {msg}")
-            # If NVML/nvidia-smi can't provide utilization, keep it explicit.
+            # Windows-only fallback for AMD/iGPU-only systems:
+            # try performance counter for GPU utilization percentage.
+            if platform.system() == "Windows":
+                try:
+                    ps_cmd = (
+                        r"$c=Get-Counter '\GPU Engine(*)\Utilization Percentage'; "
+                        r"$vals=$c.CounterSamples | ForEach-Object {$_.CookedValue}; "
+                        r"$max=($vals | Measure-Object -Maximum).Maximum; "
+                        r"if($max -ne $null){Write-Output $max}"
+                    )
+                    proc = subprocess.run(
+                        ["powershell", "-NoProfile", "-Command", ps_cmd],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=2.5,
+                    )
+                    stdout = (proc.stdout or "").strip()
+                    vals = [int(x) for x in re.findall(r"\d+", stdout or "")]
+                    if vals:
+                        g = max(vals)
+                        return f"{min(999, g):3d}%"
+                except Exception:
+                    pass
             return "  N/A"
 
     def _add_log(self, msg):
