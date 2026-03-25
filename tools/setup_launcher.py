@@ -922,6 +922,7 @@ $btn.Enabled = $false
 $btn.ForeColor = [System.Drawing.Color]::White
 $btn.BackColor = [System.Drawing.Color]::FromArgb(55, 55, 55)
 $btn.FlatStyle = 'Flat'
+$btn.UseVisualStyleBackColor = $false
 $btn.Left = 858; $btn.Top = 486; $btn.Width = 90; $btn.Height = 28
 $btn.Add_Click({ $form.Close() })
 $form.Controls.Add($btn)
@@ -941,6 +942,36 @@ function Set-Progress {
   $pb.Value = $v
 }
 
+# DoWork runs on a worker thread; ProgressChanged UserState is unreliable in PS + WinForms.
+# Marshal all console lines and bar updates onto the UI thread.
+function Ui-Log {
+  param([string]$s)
+  if ($form.IsDisposed -or [string]::IsNullOrWhiteSpace($s)) { return }
+  $line = $s
+  try {
+    if ($form.InvokeRequired) {
+      $form.Invoke([Action] { Append-Line $line })
+    } else {
+      Append-Line $line
+    }
+  } catch {}
+}
+
+function Ui-Prog {
+  param([int]$v)
+  if ($form.IsDisposed) { return }
+  if ($v -lt 0) { $v = 0 }
+  if ($v -gt 100) { $v = 100 }
+  $vv = $v
+  try {
+    if ($form.InvokeRequired) {
+      $form.Invoke([Action] { Set-Progress $vv })
+    } else {
+      Set-Progress $vv
+    }
+  } catch {}
+}
+
 $r = [System.Windows.Forms.MessageBox]::Show(
   'Remove ChronoArchiver and all data from this PC?',
   'ChronoArchiver Uninstall',
@@ -950,73 +981,103 @@ $r = [System.Windows.Forms.MessageBox]::Show(
 if ($r -ne [System.Windows.Forms.DialogResult]::Yes) { exit 0 }
 
 $job = New-Object System.ComponentModel.BackgroundWorker
-$job.WorkerReportsProgress = $true
-$job.add_ProgressChanged({
-  param($sender,$e)
-  if ($null -ne $e.UserState -and "$($e.UserState)" -ne '') {
-    Append-Line ([string]$e.UserState)
-  }
-  Set-Progress $e.ProgressPercentage
-})
+$job.WorkerReportsProgress = $false
 $job.add_RunWorkerCompleted({
   param($sender,$e)
+  if ($e.Error) {
+    Append-Line ('ERROR: ' + $e.Error.Message)
+  }
   Append-Line 'Done. You can close this window.'
   Set-Progress 100
   $btn.Enabled = $true
+  $lbl.Text = 'Setup output...'
 })
 
 function Remove-TreeLogged {
-  param($bw, [int]$pct, [string]$rootPath, [string]$label)
-  if ([string]::IsNullOrWhiteSpace($rootPath)) { return }
-  if (-not (Test-Path -LiteralPath $rootPath)) {
-    $bw.ReportProgress($pct, "(skip) Not found ($label): $rootPath")
+  param([int]$pct, [string]$rootPath, [string]$label)
+  if ([string]::IsNullOrWhiteSpace($rootPath)) {
+    Ui-Log "(skip) Empty path ($label)"
+    Ui-Prog $pct
     return
   }
-  $bw.ReportProgress($pct, "--- $label : $rootPath ---")
+  if (-not (Test-Path -LiteralPath $rootPath)) {
+    Ui-Log "(skip) Not found ($label): $rootPath"
+    Ui-Prog $pct
+    return
+  }
+  Ui-Log "--- $label : $rootPath ---"
+  Ui-Prog $pct
   try {
     $items = @(Get-ChildItem -LiteralPath $rootPath -Recurse -Force -ErrorAction SilentlyContinue |
       Sort-Object { $_.FullName.Length } -Descending)
     foreach ($it in $items) {
-      $bw.ReportProgress($pct, "Removing: $($it.FullName)")
-      Remove-Item -LiteralPath $it.FullName -Force -Recurse -ErrorAction SilentlyContinue
+      Ui-Log "Removing: $($it.FullName)"
+      try {
+        Remove-Item -LiteralPath $it.FullName -Force -Recurse -ErrorAction Stop
+      } catch {
+        Ui-Log "FAILED: $($it.FullName) - $($_.Exception.Message)"
+      }
     }
-  } catch {}
-  if (Test-Path -LiteralPath $rootPath) {
-    $bw.ReportProgress($pct, "Removing root: $rootPath")
-    Remove-Item -LiteralPath $rootPath -Force -Recurse -ErrorAction SilentlyContinue
+  } catch {
+    Ui-Log "ERROR listing $rootPath - $($_.Exception.Message)"
   }
   if (Test-Path -LiteralPath $rootPath) {
-    $bw.ReportProgress($pct, "WARNING: still present (in use or permissions): $rootPath")
+    Ui-Log "Removing root: $rootPath"
+    try {
+      Remove-Item -LiteralPath $rootPath -Force -Recurse -ErrorAction Stop
+    } catch {
+      Ui-Log "FAILED root: $($_.Exception.Message)"
+    }
   }
+  if (Test-Path -LiteralPath $rootPath) {
+    Ui-Log "FALLBACK: cmd.exe rmdir /s /q (handles some locked paths)"
+    try {
+      $rdLine = 'rmdir /s /q "' + $rootPath.Replace('"','') + '"'
+      $rd = Start-Process -FilePath cmd.exe -ArgumentList @('/c', $rdLine) -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
+      Ui-Log ('cmd rmdir exit code: ' + $rd.ExitCode)
+    } catch {
+      Ui-Log ('cmd rmdir error: ' + $_.Exception.Message)
+    }
+  }
+  if (Test-Path -LiteralPath $rootPath) {
+    Ui-Log "WARNING: still present (in use or permissions): $rootPath"
+  }
+  Ui-Prog $pct
 }
 
 $job.add_DoWork({
   param($sender,$e)
-  $bw = $sender
 
-  $bw.ReportProgress(5, 'Closing running ChronoArchiver (python) processes…')
+  Ui-Log 'Closing running ChronoArchiver (python) processes...'
+  Ui-Prog 5
   $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
     Where-Object {
       ($_.Name -eq 'pythonw.exe' -or $_.Name -eq 'python.exe') -and $_.CommandLine -and
       ($_.CommandLine -like ('*' + $root + '*'))
     })
   foreach ($p in $procs) {
-    $bw.ReportProgress(5, "Stopping PID $($p.ProcessId): $($p.CommandLine)")
+    Ui-Log "Stopping PID $($p.ProcessId): $($p.CommandLine)"
     Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
   }
   Start-Sleep -Seconds 2
 
-  Remove-TreeLogged $bw 25 $target 'Install directory'
+  Remove-TreeLogged 25 $target 'Install directory'
 
-  Remove-TreeLogged $bw 55 $extraud 'App data (UnDadFeated)'
+  Remove-TreeLogged 55 $extraud 'App data (UnDadFeated)'
 
-  $bw.ReportProgress(75, 'Removing desktop shortcut(s)…')
+  Ui-Log 'Removing desktop shortcut(s)...'
+  Ui-Prog 75
+  $commonDesk = ''
+  try { $commonDesk = [Environment]::GetFolderPath('CommonDesktopDirectory') } catch { $commonDesk = '' }
   $deskPaths = @(
     $desk,
     (Join-Path ([Environment]::GetFolderPath('Desktop')) 'ChronoArchiver.lnk'),
     (Join-Path $env:USERPROFILE 'Desktop\ChronoArchiver.lnk'),
     (Join-Path $env:USERPROFILE 'OneDrive\Desktop\ChronoArchiver.lnk')
   )
+  if (-not [string]::IsNullOrWhiteSpace($commonDesk)) {
+    $deskPaths += (Join-Path $commonDesk 'ChronoArchiver.lnk')
+  }
   $seen = @{}
   foreach ($dp in $deskPaths) {
     if ([string]::IsNullOrWhiteSpace($dp)) { continue }
@@ -1024,27 +1085,47 @@ $job.add_DoWork({
     if ($seen.ContainsKey($k)) { continue }
     $seen[$k] = $true
     if (Test-Path -LiteralPath $dp) {
-      $bw.ReportProgress(75, "Removing desktop shortcut: $dp")
-      Remove-Item -LiteralPath $dp -Force -ErrorAction SilentlyContinue
+      Ui-Log "Removing desktop shortcut: $dp"
+      try {
+        Remove-Item -LiteralPath $dp -Force -ErrorAction Stop
+      } catch {
+        Ui-Log "FAILED shortcut: $dp - $($_.Exception.Message)"
+      }
     } else {
-      $bw.ReportProgress(75, "(skip) No shortcut at: $dp")
+      Ui-Log "(skip) No shortcut at: $dp"
     }
   }
 
-  $bw.ReportProgress(90, "Removing uninstall registry key: $unkey")
+  $rkPs = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ChronoArchiver'
+  Ui-Log "Removing uninstall registry (PowerShell): $rkPs"
+  Ui-Prog 88
+  try {
+    if (Test-Path -LiteralPath $rkPs) {
+      Remove-Item -LiteralPath $rkPs -Recurse -Force -ErrorAction Stop
+      Ui-Log 'Registry key removed (HKCU Software Uninstall ChronoArchiver).'
+    } else {
+      Ui-Log '(skip) Registry key not found via PSDrive; trying reg.exe'
+    }
+  } catch {
+    Ui-Log ('Registry Remove-Item failed: ' + $_.Exception.Message)
+  }
+
+  Ui-Log "reg.exe delete (backup): $unkey"
   try {
     $regp = Start-Process -FilePath 'reg.exe' -ArgumentList @('delete', $unkey, '/f') -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
-    $bw.ReportProgress(90, ('reg.exe exit code: ' + $regp.ExitCode))
+    if ($regp) { Ui-Log ('reg.exe exit code: ' + $regp.ExitCode) }
   } catch {
-    $bw.ReportProgress(90, ('reg.exe error: ' + $_.Exception.Message))
+    Ui-Log ('reg.exe error: ' + $_.Exception.Message)
   }
 
   # Start Menu folder contains this script; delete after exit via delayed cmd.
-  $bw.ReportProgress(92, "Scheduling Start Menu uninstall folder removal (releases file locks): $sm")
+  Ui-Log "Scheduling Start Menu uninstall folder removal (releases file locks): $sm"
+  Ui-Prog 92
   $delayCmd = 'ping 127.0.0.1 -n 5 >nul & rmdir /s /q "' + $sm + '"'
   Start-Process -FilePath cmd.exe -ArgumentList '/c', $delayCmd -WindowStyle Hidden
 
-  $bw.ReportProgress(98, 'Finalizing…')
+  Ui-Log 'Finalizing...'
+  Ui-Prog 98
 })
 
 $form.add_Shown({ $job.RunWorkerAsync() })
@@ -1057,7 +1138,7 @@ $form.add_Shown({ $job.RunWorkerAsync() })
         .replace("__SM__", _ps_sq(str(folder)))
         .replace("__ROOT__", _ps_sq(install_dir))
     )
-    uninstall_ps1.write_text(ps1, encoding="utf-8")
+    uninstall_ps1.write_text(ps1, encoding="utf-8-sig")
 
     uninstall_cmd.write_text(
         """@echo off
@@ -1327,7 +1408,7 @@ def _do_setup_gui(download_url: str) -> bool:
     for lbl in checklist:
         lbl.pack(fill="x", padx=26)
 
-    tk.Label(right, text="Setup output (pip / FFmpeg)", fg="#9ca3af", bg="#0d0d0d", font=("", 9)).pack(anchor="w", pady=(8, 4))
+    tk.Label(right, text="Setup output...", fg="#9ca3af", bg="#0d0d0d", font=("", 9)).pack(anchor="w", pady=(8, 4))
     tf = tk.Frame(right, bg="#0d0d0d")
     tf.pack(fill=tk.BOTH, expand=True)
     sb = tk.Scrollbar(tf, bg="#1a1a1a")

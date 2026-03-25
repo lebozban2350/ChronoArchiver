@@ -5,9 +5,10 @@
 ## [4.0.0] - 2026-03-25
 ### Fixed
 - **Windows uninstaller (Settings → Apps)**: Uninstall WinForms UI uses valid PowerShell (no accidental `{{` / `}}` tokens), runs under **STA** (required for WinForms), and the `.cmd` wrapper uses **`%~dp0`** so the paired `Uninstall_ChronoArchiver.ps1` is found when Windows launches uninstall **without a useful working directory**. The registry `UninstallString` still targets the `.cmd`; it is **re-written on each setup run**, so it stays aligned with the current Start Menu folder layout.
-- **Windows uninstaller — cleanup**: Install tree and `%LOCALAPPDATA%\UnDadFeated\ChronoArchiver` removal logs **each path** (`Remove-TreeLogged`); desktop **`ChronoArchiver.lnk`** is removed from embedded path, **Desktop** folder API, **`%USERPROFILE%\Desktop`**, and **OneDrive Desktop** when present; **registry** removal uses `reg.exe` with explicit arguments and logs exit code; Start Menu uninstall folder is removed via **delayed `rmdir`** with **quoted** path (handles **Start Menu** spaces); console header **Setup output...**, ASCII window title, **Close** button contrast.
+- **Windows uninstaller — cleanup**: Console output uses **`$form.Invoke`** from **`DoWork`** so every removal line appears (**`ProgressChanged`/`UserState` is unreliable** in PowerShell + WinForms); **per-file** deletes with **FAILED** lines; **`cmd rmdir /s /q`** fallback if the install tree remains; **`HKCU:\\...\\Uninstall\\ChronoArchiver`** removed via **`Remove-Item`** on the registry PSDrive and **`reg.exe`** as backup; desktop **`.lnk`** also checked under **common (Public) Desktop**; **`Uninstall_ChronoArchiver.ps1` written with UTF-8 BOM**; **Close** uses **`UseVisualStyleBackColor = false`** for readable label color; Start Menu folder still removed via **delayed quoted `rmdir`**.
 
 ### Changed
+- **Setup UI**: Console caption above the log is **Setup output...** (was “pip / FFmpeg”).
 - **Setup — FFmpeg dependency label**: During static-ffmpeg / FFmpeg bootstrap, the **current component** line keeps the **`FFmpeg (N/10)`** cadence for the whole download (same as other pip dependencies), not only at the start of the step.
 
 ## [3.9.0] - 2026-03-25
