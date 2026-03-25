@@ -29,7 +29,6 @@ from core.av1_engine import AV1EncoderEngine, EncodingProgress
 from ui.console_style import message_to_html, PANEL_CONSOLE_TEXTEDIT_STYLE
 from core.av1_settings import AV1Settings
 from core.debug_logger import debug, UTILITY_MASS_AV1_ENCODER
-from core.subprocess_tee import win_hide_kw
 
 
 def _enc_browse_btn_qss(bar_h: int, btn_w: int, border: str, fg: str) -> str:
@@ -1149,67 +1148,15 @@ class AV1EncoderPanel(QWidget):
 
     def _get_gpu(self) -> str:
         try:
-            smi = shutil.which("nvidia-smi")
-            if not smi:
-                raise FileNotFoundError("nvidia-smi not found in PATH")
-            proc = subprocess.run(
-                [smi, "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                **win_hide_kw(),
-            )
-            out = (proc.stdout or "").strip()
-            err = (proc.stderr or "").strip()
-            if proc.returncode != 0:
-                raise RuntimeError(f"nvidia-smi rc={proc.returncode} stderr={err[:220]}")
-            vals = [int(x) for x in re.findall(r"\d+", out or "")]
-            if not vals:
-                raise ValueError(f"Unexpected nvidia-smi output: {out[:80]}")
-            g = max(vals)
-            g = int(g)
-            if g < 0 or g > 100:
-                return "N/A"
-            if g == 100:
-                return "100%"
-            return f"{g:2d}%"
-        except Exception as e:
-            now = time.monotonic()
-            msg = str(e)[:140]
-            if (now - self._gpu_last_err_t) >= 30.0 or msg != self._gpu_last_err:
-                self._gpu_last_err_t = now
-                self._gpu_last_err = msg
-                debug(UTILITY_MASS_AV1_ENCODER, f"GPU metrics: nvidia-smi query failed: {msg}")
-            # Windows-only fallback for AMD/iGPU-only systems:
-            # try performance counter for GPU utilization percentage.
-            if platform.system() == "Windows":
-                try:
-                    ps_cmd = (
-                        r"$c=Get-Counter '\GPU Engine(*)\Utilization Percentage'; "
-                        r"$vals=$c.CounterSamples | ForEach-Object {$_.CookedValue}; "
-                        r"$max=($vals | Measure-Object -Maximum).Maximum; "
-                        r"if($max -ne $null){Write-Output $max}"
-                    )
-                    proc = subprocess.run(
-                        ["powershell", "-NoProfile", "-Command", ps_cmd],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                        timeout=2.5,
-                        **win_hide_kw(),
-                    )
-                    stdout = (proc.stdout or "").strip()
-                    vals = [int(x) for x in re.findall(r"\d+", stdout or "")]
-                    if vals:
-                        g = int(max(vals))
-                        if g < 0 or g > 100:
-                            return "N/A"
-                        if g == 100:
-                            return "100%"
-                        return f"{g:2d}%"
-                except Exception:
-                    pass
-            return "N/A"
+            out = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=utilization.gpu",
+                 "--format=csv,noheader,nounits"],
+                text=True, stderr=subprocess.DEVNULL).strip()
+            line = out.strip().split("\n")[0].strip() if out else ""
+            g = int(line) if line.isdigit() else 0
+            return f"{min(999, g):3d}%"
+        except Exception:
+            return "  0%"
 
     def _add_log(self, msg):
         sb = self._log_edit.verticalScrollBar()
