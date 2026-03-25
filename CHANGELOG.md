@@ -2,6 +2,7 @@
 
 ## [3.8.1] - 2026-03-25
 ### Fixed
+- **Windows — empty `%LOCALAPPDATA%\\ChronoArchiver\\ChronoArchiver` folder**: **Qt** **`QSettings.setPath`** / **`setDefaultFormat`** now run **before** any **`QApplication`** (per Qt requirement); **`QCoreApplication.setOrganizationName`** / **`setApplicationName`** set at the same time so defaults are not initialized with wrong paths. One-time removal of an **empty** nested legacy folder under the install root when safe (`app_paths.remove_empty_windows_legacy_config_nest`).
 - **Windows/macOS setup — Setup output console**: **Autoscroll** now follows every new pip/FFmpeg line (`see(END)` + `update_idletasks()` after inserts; prior `yview()` “at bottom” check failed on empty/short content on Windows).
 
 ### Changed

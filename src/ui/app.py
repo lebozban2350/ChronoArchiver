@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QStackedWidget, QFrame, QMessageBox, QProgressBar,
     QDialog, QTextEdit, QDialogButtonBox,
 )
-from PySide6.QtCore import Qt, QTimer, Signal, QSettings
+from PySide6.QtCore import Qt, QTimer, Signal, QSettings, QCoreApplication
 from PySide6.QtGui import QIcon, QFontDatabase
 
 from version import __version__
@@ -49,6 +49,7 @@ from core.app_paths import (
     install_root,
     uses_install_layout,
     settings_dir as _app_settings_dir,
+    remove_empty_windows_legacy_config_nest,
 )
 from core.logger import setup_logger
 
@@ -1000,14 +1001,10 @@ class ChronoArchiverApp(QMainWindow):
 
 if __name__ == "__main__":
     from core.single_instance import ensure_single_instance, release_single_instance
-    if not ensure_single_instance():
-        app = QApplication(sys.argv)
-        QMessageBox.warning(None, APP_NAME, "Another instance is already running.")
-        sys.exit(1)
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-    app.setOrganizationName(APP_AUTHOR)
-    app.setApplicationName(APP_NAME)
+
+    # Qt: org/app + QSettings path must be set before any QApplication (see QSettings.setPath docs).
+    QCoreApplication.setOrganizationName(APP_AUTHOR)
+    QCoreApplication.setApplicationName(APP_NAME)
     if install_root() is not None:
         QSettings.setPath(
             QSettings.Format.IniFormat,
@@ -1015,6 +1012,14 @@ if __name__ == "__main__":
             str(_app_settings_dir()),
         )
         QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+
+    if not ensure_single_instance():
+        app = QApplication(sys.argv)
+        QMessageBox.warning(None, APP_NAME, "Another instance is already running.")
+        sys.exit(1)
+    remove_empty_windows_legacy_config_nest()
+    app = QApplication(sys.argv)
+    app.setStyle("Fusion")
     app.aboutToQuit.connect(release_single_instance)
     _load_bundled_fonts()
     _icon = os.path.join(os.path.dirname(__file__), "assets", "icon.png")

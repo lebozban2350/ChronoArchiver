@@ -150,3 +150,21 @@ def legacy_av1_config_file() -> Path:
         if local:
             return Path(local) / APP_NAME / APP_NAME / "av1_config.json"
     return encoder_config_dir() / "av1_config.json"
+
+
+def remove_empty_windows_legacy_config_nest() -> None:
+    """If Qt/platformdirs left an empty nested …\\ChronoArchiver\\ChronoArchiver under install root, remove it."""
+    if os.name != "nt":
+        return
+    ir = install_root()
+    if ir is None:
+        return
+    nested = ir / APP_NAME
+    try:
+        if nested.is_dir():
+            try:
+                next(nested.iterdir())
+            except StopIteration:
+                nested.rmdir()
+    except OSError:
+        pass
