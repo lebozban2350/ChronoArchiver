@@ -409,7 +409,6 @@ class ApplicationUpdater:
         installer launches the updated app. Call QApplication.quit() after this returns
         only if this returns True.
         """
-        launch_cmd = _find_app_launch_cmd("installer")
         if platform.system() == "Windows":
             # Setup exe downloads full app on first run, then launches it; we just run setup
             inst_esc = str(installer_path).replace("\\", "\\\\").replace('"', '\\"')

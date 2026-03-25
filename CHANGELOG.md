@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.8.2] - 2026-03-25
+### Fixed
+- **Lint**: Removed unused **`launch_cmd`** in **`updater.perform_installer_update`**; dropped unused **`QListWidget`** import in **`encoder_panel`**.
+
+### Changed
+- Semver **3.8.2** (installers, PKGBUILD, PyPI metadata).
+- **Repository**: Removed **`AGENTS.md`** from version control (developer-only agent notes; kept out of public tree). **Issues** and **Discussions** enabled on GitHub for community feedback.
+- **UI — Media Organizer**: **Folder structure:** label slightly larger (**9px**) and nudged toward the structure / Action / Dup dropdowns.
+
 ## [3.8.1] - 2026-03-25
 ### Fixed
 - **Windows — empty `%LOCALAPPDATA%\\ChronoArchiver\\ChronoArchiver` folder**: **Qt** **`QSettings.setPath`** / **`setDefaultFormat`** now run **before** any **`QApplication`** (per Qt requirement); **`QCoreApplication.setOrganizationName`** / **`setApplicationName`** set at the same time so defaults are not initialized with wrong paths. One-time removal of an **empty** nested legacy folder under the install root when safe (`app_paths.remove_empty_windows_legacy_config_nest`).

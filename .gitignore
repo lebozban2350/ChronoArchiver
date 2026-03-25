@@ -158,11 +158,11 @@ cython_debug/
 # VS Code
 .vscode/
 
-# Documentation — only root CHANGELOG.md, README.md, and AGENTS.md are tracked in git
+# Documentation — only root CHANGELOG.md and README.md are tracked in git
 *.md
 !/CHANGELOG.md
 !/README.md
-!/AGENTS.md
+AGENTS.md
 
 # Cursor/IDE (local only)
 .cursor/

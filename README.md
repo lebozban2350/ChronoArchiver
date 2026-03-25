@@ -7,7 +7,7 @@
 ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application. Built on PySide6 with an app-private Python environment; no system-wide package installation required.
 </div>
 
-[![Version](https://img.shields.io/badge/version-3.7.7-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-3.8.2-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
 
@@ -113,14 +113,23 @@ paru -S chronoarchiver
 yay -S chronoarchiver
 ```
 
+### Fedora Atomic / Bazzite (and similar immutable desktops)
+
+There is no first-party RPM or Flatpak in this repository yet. To use ChronoArchiver on Bazzite or other Fedora Atomic variants:
+
+1. **From source (recommended)** — Install Python 3.10+ (or use `toolbox` / `distrobox`), then clone and run bootstrap as in [From Source](#from-source) below. Data dirs follow XDG / `platformdirs` under your home.
+2. **AUR package inside a container** — Create an Arch container (`distrobox create -i archlinux`), enter it, install `paru`/`yay`, then `paru -S chronoarchiver`. Launch the app from that environment (or symlink the generated launcher); models and config live in the container home unless you bind-mount.
+3. **Visibility in Discover / Flathub** — To have the app appear in GNOME Software / Discover for everyone, publish a [Flatpak](https://docs.flathub.org/docs/for-app-authors) manifest in a separate repo and submit it to [Flathub](https://flathub.org/). Upstream can link that from the README once listed.
+4. **Separate packaging repo** — If you maintain a COPR, Flatpak, or `bazzite`-specific fork, add it as a `git remote`, bump `pkgver` alongside this repo, and push there on each release (same pattern as the AUR `PKGBUILD`).
+
 ### Windows (x64) / macOS
 
 Download the setup from the [Releases](https://github.com/UnDadFeated/ChronoArchiver/releases) page:
 
 | Platform | File |
 |----------|------|
-| **Windows x64** | `ChronoArchiver-Setup-3.7.7-win64.exe` |
-| **macOS** | `ChronoArchiver-Setup-3.7.7-mac64.zip` |
+| **Windows x64** | `ChronoArchiver-Setup-3.8.2-win64.exe` |
+| **macOS** | `ChronoArchiver-Setup-3.8.2-mac64.zip` |
 
 The setup (~6MB) downloads Python source on first run. Requires Python 3.11+ installed. Creates venv during install; desktop shortcut runs `pythonw` (no command prompt). Install location: `%LOCALAPPDATA%\ChronoArchiver` (Windows) or `~/Library/Application Support/ChronoArchiver` (macOS). Uninstall: Windows Settings → Installed apps → ChronoArchiver (or Start Menu → ChronoArchiver → `Uninstall_ChronoArchiver.cmd`), macOS: `Uninstall ChronoArchiver.app` / `Uninstall ChronoArchiver.command`.
 
