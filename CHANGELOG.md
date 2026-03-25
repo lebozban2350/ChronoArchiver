@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [3.8.9] - 2026-03-25
+### Fixed
+- **GPU metrics (footer + encoder telemetry)**: show `N/A` when `nvidia-smi`/NVML can’t provide utilization, and show real `%` only when numeric utilization is available.
+- **AI Scanner**: yellow **Update!** button visibility now matches what it actually updates (model updates only), removing the “random” appearance.
+
 ## [3.8.8] - 2026-03-25
 ### Fixed
 - **Footer GPU metrics**: robust `nvidia-smi` parsing and show `N/A` in UI when NVML query fails (prevents misleading `0%`).
