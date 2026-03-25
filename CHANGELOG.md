@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [4.0.2] - 2026-03-25
+### Fixed
+- **Windows uninstaller**: Removed **BackgroundWorker** / cross-thread handlers entirely; uninstall runs on the **UI thread** inside **`Form.Load`** with **`Application.DoEvents()`** so **no PowerShell Runspace** errors and removals actually execute. **Borderless** window with **draggable** top strip; **Done** button uses flat dark styling.
+- **Setup cancel**: **Deletes** the **`ChronoArchiver`** install folder (same path as setup) on cancel via **`shutil.rmtree`** when possible, then resets the UI; user message notes removal.
+- **Setup scrollbar**: **`ttk.Scrollbar`** under **`clam`** theme with **dark trough/arrows** (falls back to **`tk.Scrollbar`** if the style is unsupported).
+- **Welcome screen**: **Borderless** + custom drag bar (no OS title bar).
+
 ## [4.0.1] - 2026-03-25
 ### Fixed
 - **Windows uninstaller**: Removed **`$form.Invoke`** scriptblocks from worker thread (fixes *“There is no Runspace available…”*). Log lines and progress use a **thread-safe queue** drained by a **WinForms Timer** on the UI thread; header text is **Uninstalling ChronoArchiver...**

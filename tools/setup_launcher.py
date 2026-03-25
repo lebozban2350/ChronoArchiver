@@ -39,7 +39,7 @@ def _read_version() -> str:
                 return open(vpath, "r", encoding="utf-8").read().strip()
     except Exception:
         pass
-    return os.environ.get("CHRONOARCHIVER_VERSION", "4.0.1")
+    return os.environ.get("CHRONOARCHIVER_VERSION", "4.0.2")
 
 
 VERSION = _read_version()
@@ -232,6 +232,23 @@ def _purge_src_pycache(app_dir: Path) -> None:
                 pass
     if removed:
         _install_log(f"purge __pycache__: removed {removed} dir(s) under src/")
+
+
+def _remove_cancelled_install_tree(app_dir: Path) -> None:
+    """Best-effort delete of install root when user cancels setup (same tree as _app_dir())."""
+    try:
+        resolved = app_dir.resolve()
+    except OSError:
+        resolved = app_dir
+    if resolved.name != "ChronoArchiver":
+        _install_log(f"cancel cleanup: skipped (unexpected folder name): {resolved}")
+        return
+    try:
+        if resolved.is_dir():
+            shutil.rmtree(resolved, ignore_errors=True)
+            _install_log(f"cancel cleanup: removed install tree {resolved}")
+    except Exception as e:
+        _install_log(f"cancel cleanup: EXCEPTION {type(e).__name__}: {e!r}")
 
 
 def _app_dir() -> Path:
@@ -933,7 +950,7 @@ $Shortcut.Save()
         """Escape for PowerShell single-quoted literals."""
         return (s or "").replace("'", "''")
 
-    # Valid PowerShell (no doubled {{ }}); STA + script dir for Apps & Features uninstall.
+    # Borderless WinForms; all work on UI thread (BackgroundWorker/scriptblock marshaling breaks PS runspaces).
     ps1_tmpl = r"""$ErrorActionPreference = "SilentlyContinue"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -946,27 +963,79 @@ $extraud = Join-Path $env:LOCALAPPDATA 'UnDadFeated\ChronoArchiver'
 $root    = '__ROOT__'
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'ChronoArchiver - Uninstall'
+$form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
 $form.StartPosition = 'CenterScreen'
 $form.Width = 980
-$form.Height = 560
-$form.BackColor = [System.Drawing.Color]::FromArgb(13,13,13)
+$form.Height = 592
+$form.BackColor = [System.Drawing.Color]::FromArgb(10,10,10)
+
+$dragBar = New-Object System.Windows.Forms.Panel
+$dragBar.Height = 32
+$dragBar.Dock = 'Top'
+$dragBar.BackColor = [System.Drawing.Color]::FromArgb(26,26,26)
+$form.Controls.Add($dragBar)
+$dragTitle = New-Object System.Windows.Forms.Label
+$dragTitle.Text = '  ChronoArchiver - Uninstall'
+$dragTitle.ForeColor = [System.Drawing.Color]::FromArgb(229,231,235)
+$dragTitle.BackColor = $dragBar.BackColor
+$dragTitle.AutoSize = $false
+$dragTitle.Dock = 'Fill'
+$dragTitle.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+$dragTitle.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
+$dragBar.Controls.Add($dragTitle)
+
+$script:umDown = $false
+$script:umX = 0
+$script:umY = 0
+$dragBar.Add_MouseDown({
+  param($sender, $e)
+  if ($e.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
+    $script:umDown = $true
+    $script:umX = $e.X
+    $script:umY = $e.Y
+  }
+})
+$dragBar.Add_MouseUp({ param($sender, $e) $script:umDown = $false })
+$dragBar.Add_MouseMove({
+  param($sender, $e)
+  if ($script:umDown) {
+    $form.Location = New-Object System.Drawing.Point(
+      ($form.Left + $e.X - $script:umX), ($form.Top + $e.Y - $script:umY))
+  }
+})
+$dragTitle.Add_MouseDown({
+  param($sender, $e)
+  if ($e.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
+    $script:umDown = $true
+    $script:umX = $e.X
+    $script:umY = $e.Y
+  }
+})
+$dragTitle.Add_MouseUp({ param($sender, $e) $script:umDown = $false })
+$dragTitle.Add_MouseMove({
+  param($sender, $e)
+  if ($script:umDown) {
+    $form.Location = New-Object System.Drawing.Point(
+      ($form.Left + $e.X - $script:umX), ($form.Top + $e.Y - $script:umY))
+  }
+})
 
 $font = New-Object System.Drawing.Font('Consolas', 8)
 
 $lbl = New-Object System.Windows.Forms.Label
 $lbl.Text = 'Uninstalling ChronoArchiver...'
 $lbl.ForeColor = [System.Drawing.Color]::FromArgb(229,231,235)
-$lbl.Left = 16; $lbl.Top = 14; $lbl.Width = 920; $lbl.Height = 20
+$lbl.Left = 16; $lbl.Top = 42; $lbl.Width = 920; $lbl.Height = 20
+$lbl.BackColor = $form.BackColor
 $form.Controls.Add($lbl)
 
 $pb = New-Object System.Windows.Forms.ProgressBar
-$pb.Left = 16; $pb.Top = 44; $pb.Width = 932; $pb.Height = 18
+$pb.Left = 16; $pb.Top = 70; $pb.Width = 932; $pb.Height = 18
 $pb.Minimum = 0; $pb.Maximum = 100; $pb.Value = 0
 $form.Controls.Add($pb)
 
 $tb = New-Object System.Windows.Forms.RichTextBox
-$tb.Left = 16; $tb.Top = 74; $tb.Width = 932; $tb.Height = 400
+$tb.Left = 16; $tb.Top = 98; $tb.Width = 932; $tb.Height = 400
 $tb.Font = $font
 $tb.ReadOnly = $true
 $tb.BackColor = [System.Drawing.Color]::FromArgb(17,17,17)
@@ -975,13 +1044,17 @@ $tb.BorderStyle = 'FixedSingle'
 $form.Controls.Add($tb)
 
 $btn = New-Object System.Windows.Forms.Button
-$btn.Text = 'Close'
+$btn.Text = 'Done'
 $btn.Enabled = $false
-$btn.ForeColor = [System.Drawing.Color]::White
-$btn.BackColor = [System.Drawing.Color]::FromArgb(55, 55, 55)
+$btn.ForeColor = [System.Drawing.Color]::FromArgb(241,245,249)
+$btn.BackColor = [System.Drawing.Color]::FromArgb(38,38,38)
 $btn.FlatStyle = 'Flat'
 $btn.UseVisualStyleBackColor = $false
-$btn.Left = 858; $btn.Top = 486; $btn.Width = 90; $btn.Height = 28
+$btn.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(55,55,55)
+$btn.FlatAppearance.BorderSize = 1
+$btn.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(52,52,52)
+$btn.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(30,30,30)
+$btn.Left = 844; $btn.Top = 510; $btn.Width = 104; $btn.Height = 32
 $btn.Add_Click({ $form.Close() })
 $form.Controls.Add($btn)
 
@@ -1000,48 +1073,68 @@ function Set-Progress {
   $pb.Value = $v
 }
 
-# Worker thread must not call $form.Invoke with PS scriptblocks (no Runspace on UI thread).
-# Queue log/progress; WinForms Timer drains on the UI thread (same runspace as the script).
-$script:uiQ = New-Object System.Collections.Queue
-$script:uiQLock = New-Object Object
-function Enqueue-Ui {
-  param([string]$kind, $payload)
-  [System.Threading.Monitor]::Enter($script:uiQLock)
-  try { [void]$script:uiQ.Enqueue(@($kind, $payload)) }
-  finally { [System.Threading.Monitor]::Exit($script:uiQLock) }
-}
-function Ui-Log {
-  param([string]$s)
-  if ([string]::IsNullOrWhiteSpace($s)) { return }
-  Enqueue-Ui 'L' $s
-}
-function Ui-Prog {
-  param([int]$v)
-  Enqueue-Ui 'P' $v
+function Pump-Ui {
+  [System.Windows.Forms.Application]::DoEvents()
 }
 
-$timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 40
-$timer.add_Tick({
-  $lim = 100
-  $n = 0
-  while ($n -lt $lim) {
-    $pair = $null
-    [System.Threading.Monitor]::Enter($script:uiQLock)
-    try {
-      if ($script:uiQ.Count -eq 0) { break }
-      $pair = $script:uiQ.Dequeue()
-    } finally {
-      [System.Threading.Monitor]::Exit($script:uiQLock)
-    }
-    if ($null -eq $pair) { break }
-    $kind = [string]$pair[0]
-    $pay = $pair[1]
-    if ($kind -eq 'L') { Append-Line ([string]$pay) }
-    elseif ($kind -eq 'P') { Set-Progress ([int]$pay) }
-    $n++
+function Remove-TreeLogged {
+  param([int]$pct, [string]$rootPath, [string]$label)
+  if ([string]::IsNullOrWhiteSpace($rootPath)) {
+    Append-Line "(skip) Empty path ($label)"
+    Set-Progress $pct
+    Pump-Ui
+    return
   }
-})
+  if (-not (Test-Path -LiteralPath $rootPath)) {
+    Append-Line "(skip) Not found ($label): $rootPath"
+    Set-Progress $pct
+    Pump-Ui
+    return
+  }
+  Append-Line "--- $label : $rootPath ---"
+  Set-Progress $pct
+  Pump-Ui
+  $nitem = 0
+  try {
+    $items = @(Get-ChildItem -LiteralPath $rootPath -Recurse -Force -ErrorAction SilentlyContinue |
+      Sort-Object { $_.FullName.Length } -Descending)
+    foreach ($it in $items) {
+      Append-Line "Removing: $($it.FullName)"
+      try {
+        Remove-Item -LiteralPath $it.FullName -Force -Recurse -ErrorAction Stop
+      } catch {
+        Append-Line "FAILED: $($it.FullName) - $($_.Exception.Message)"
+      }
+      $nitem++
+      if (($nitem % 12) -eq 0) { Pump-Ui }
+    }
+  } catch {
+    Append-Line "ERROR listing $rootPath - $($_.Exception.Message)"
+  }
+  if (Test-Path -LiteralPath $rootPath) {
+    Append-Line "Removing root: $rootPath"
+    try {
+      Remove-Item -LiteralPath $rootPath -Force -Recurse -ErrorAction Stop
+    } catch {
+      Append-Line "FAILED root: $($_.Exception.Message)"
+    }
+  }
+  if (Test-Path -LiteralPath $rootPath) {
+    Append-Line "FALLBACK: cmd.exe rmdir /s /q (handles some locked paths)"
+    try {
+      $rdLine = 'rmdir /s /q "' + $rootPath.Replace('"','') + '"'
+      $rd = Start-Process -FilePath cmd.exe -ArgumentList @('/c', $rdLine) -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
+      Append-Line ('cmd rmdir exit code: ' + $rd.ExitCode)
+    } catch {
+      Append-Line ('cmd rmdir error: ' + $_.Exception.Message)
+    }
+  }
+  if (Test-Path -LiteralPath $rootPath) {
+    Append-Line "WARNING: still present (in use or permissions): $rootPath"
+  }
+  Set-Progress $pct
+  Pump-Ui
+}
 
 $r = [System.Windows.Forms.MessageBox]::Show(
   'Remove ChronoArchiver and all data from this PC?',
@@ -1051,179 +1144,102 @@ $r = [System.Windows.Forms.MessageBox]::Show(
 )
 if ($r -ne [System.Windows.Forms.DialogResult]::Yes) { exit 0 }
 
-$job = New-Object System.ComponentModel.BackgroundWorker
-$job.WorkerReportsProgress = $false
-$job.add_RunWorkerCompleted({
-  param($sender,$e)
-  $timer.Stop()
-  while ($true) {
-    $pair = $null
-    [System.Threading.Monitor]::Enter($script:uiQLock)
-    try {
-      if ($script:uiQ.Count -eq 0) { break }
-      $pair = $script:uiQ.Dequeue()
-    } finally {
-      [System.Threading.Monitor]::Exit($script:uiQLock)
+$form.add_Load({
+  try {
+    Append-Line 'Closing running ChronoArchiver (python) processes...'
+    Set-Progress 5
+    Pump-Ui
+    $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+      Where-Object {
+        ($_.Name -eq 'pythonw.exe' -or $_.Name -eq 'python.exe') -and $_.CommandLine -and
+        ($_.CommandLine -like ('*' + $root + '*'))
+      })
+    foreach ($p in $procs) {
+      Append-Line "Stopping PID $($p.ProcessId): $($p.CommandLine)"
+      Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+      Pump-Ui
     }
-    if ($null -eq $pair) { break }
-    $kind = [string]$pair[0]
-    $pay = $pair[1]
-    if ($kind -eq 'L') { Append-Line ([string]$pay) }
-    elseif ($kind -eq 'P') { Set-Progress ([int]$pay) }
-  }
-  if ($e.Error) {
-    Append-Line ('ERROR: ' + $e.Error.Message)
+    Start-Sleep -Seconds 2
+
+    Remove-TreeLogged 25 $target 'Install directory'
+
+    Remove-TreeLogged 55 $extraud 'App data (UnDadFeated)'
+
+    Append-Line 'Removing desktop shortcut(s)...'
+    Set-Progress 75
+    Pump-Ui
+    $commonDesk = ''
+    try { $commonDesk = [Environment]::GetFolderPath('CommonDesktopDirectory') } catch { $commonDesk = '' }
+    $deskPaths = @(
+      $desk,
+      (Join-Path ([Environment]::GetFolderPath('Desktop')) 'ChronoArchiver.lnk'),
+      (Join-Path $env:USERPROFILE 'Desktop\ChronoArchiver.lnk'),
+      (Join-Path $env:USERPROFILE 'OneDrive\Desktop\ChronoArchiver.lnk')
+    )
+    if (-not [string]::IsNullOrWhiteSpace($commonDesk)) {
+      $deskPaths += (Join-Path $commonDesk 'ChronoArchiver.lnk')
+    }
+    $seen = @{}
+    foreach ($dp in $deskPaths) {
+      if ([string]::IsNullOrWhiteSpace($dp)) { continue }
+      $k = $dp.ToLowerInvariant()
+      if ($seen.ContainsKey($k)) { continue }
+      $seen[$k] = $true
+      if (Test-Path -LiteralPath $dp) {
+        Append-Line "Removing desktop shortcut: $dp"
+        try {
+          Remove-Item -LiteralPath $dp -Force -ErrorAction Stop
+        } catch {
+          Append-Line "FAILED shortcut: $dp - $($_.Exception.Message)"
+        }
+      } else {
+        Append-Line "(skip) No shortcut at: $dp"
+      }
+      Pump-Ui
+    }
+
+    $rkPs = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ChronoArchiver'
+    Append-Line "Removing uninstall registry (PowerShell): $rkPs"
+    Set-Progress 88
+    Pump-Ui
+    try {
+      if (Test-Path -LiteralPath $rkPs) {
+        Remove-Item -LiteralPath $rkPs -Recurse -Force -ErrorAction Stop
+        Append-Line 'Registry key removed (HKCU Software Uninstall ChronoArchiver).'
+      } else {
+        Append-Line '(skip) Registry key not found via PSDrive; trying reg.exe'
+      }
+    } catch {
+      Append-Line ('Registry Remove-Item failed: ' + $_.Exception.Message)
+    }
+
+    Append-Line "reg.exe delete (backup): $unkey"
+    try {
+      $regp = Start-Process -FilePath 'reg.exe' -ArgumentList @('delete', $unkey, '/f') -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
+      if ($regp) { Append-Line ('reg.exe exit code: ' + $regp.ExitCode) }
+    } catch {
+      Append-Line ('reg.exe error: ' + $_.Exception.Message)
+    }
+
+    Append-Line "Scheduling Start Menu uninstall folder removal (releases file locks): $sm"
+    Set-Progress 92
+    Pump-Ui
+    $delayCmd = 'ping 127.0.0.1 -n 5 >nul & rmdir /s /q "' + $sm + '"'
+    Start-Process -FilePath cmd.exe -ArgumentList '/c', $delayCmd -WindowStyle Hidden
+
+    Append-Line 'Finalizing...'
+    Set-Progress 98
+    Pump-Ui
+  } catch {
+    Append-Line ('ERROR: ' + $_.Exception.Message)
   }
   Append-Line 'Done. You can close this window.'
   Set-Progress 100
   $btn.Enabled = $true
   $lbl.Text = 'Uninstalling ChronoArchiver...'
+  Pump-Ui
 })
 
-$form.add_FormClosing({
-  param($sender,$ev)
-  $timer.Stop()
-})
-
-function Remove-TreeLogged {
-  param([int]$pct, [string]$rootPath, [string]$label)
-  if ([string]::IsNullOrWhiteSpace($rootPath)) {
-    Ui-Log "(skip) Empty path ($label)"
-    Ui-Prog $pct
-    return
-  }
-  if (-not (Test-Path -LiteralPath $rootPath)) {
-    Ui-Log "(skip) Not found ($label): $rootPath"
-    Ui-Prog $pct
-    return
-  }
-  Ui-Log "--- $label : $rootPath ---"
-  Ui-Prog $pct
-  try {
-    $items = @(Get-ChildItem -LiteralPath $rootPath -Recurse -Force -ErrorAction SilentlyContinue |
-      Sort-Object { $_.FullName.Length } -Descending)
-    foreach ($it in $items) {
-      Ui-Log "Removing: $($it.FullName)"
-      try {
-        Remove-Item -LiteralPath $it.FullName -Force -Recurse -ErrorAction Stop
-      } catch {
-        Ui-Log "FAILED: $($it.FullName) - $($_.Exception.Message)"
-      }
-    }
-  } catch {
-    Ui-Log "ERROR listing $rootPath - $($_.Exception.Message)"
-  }
-  if (Test-Path -LiteralPath $rootPath) {
-    Ui-Log "Removing root: $rootPath"
-    try {
-      Remove-Item -LiteralPath $rootPath -Force -Recurse -ErrorAction Stop
-    } catch {
-      Ui-Log "FAILED root: $($_.Exception.Message)"
-    }
-  }
-  if (Test-Path -LiteralPath $rootPath) {
-    Ui-Log "FALLBACK: cmd.exe rmdir /s /q (handles some locked paths)"
-    try {
-      $rdLine = 'rmdir /s /q "' + $rootPath.Replace('"','') + '"'
-      $rd = Start-Process -FilePath cmd.exe -ArgumentList @('/c', $rdLine) -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
-      Ui-Log ('cmd rmdir exit code: ' + $rd.ExitCode)
-    } catch {
-      Ui-Log ('cmd rmdir error: ' + $_.Exception.Message)
-    }
-  }
-  if (Test-Path -LiteralPath $rootPath) {
-    Ui-Log "WARNING: still present (in use or permissions): $rootPath"
-  }
-  Ui-Prog $pct
-}
-
-$job.add_DoWork({
-  param($sender,$e)
-
-  Ui-Log 'Closing running ChronoArchiver (python) processes...'
-  Ui-Prog 5
-  $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-    Where-Object {
-      ($_.Name -eq 'pythonw.exe' -or $_.Name -eq 'python.exe') -and $_.CommandLine -and
-      ($_.CommandLine -like ('*' + $root + '*'))
-    })
-  foreach ($p in $procs) {
-    Ui-Log "Stopping PID $($p.ProcessId): $($p.CommandLine)"
-    Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
-  }
-  Start-Sleep -Seconds 2
-
-  Remove-TreeLogged 25 $target 'Install directory'
-
-  Remove-TreeLogged 55 $extraud 'App data (UnDadFeated)'
-
-  Ui-Log 'Removing desktop shortcut(s)...'
-  Ui-Prog 75
-  $commonDesk = ''
-  try { $commonDesk = [Environment]::GetFolderPath('CommonDesktopDirectory') } catch { $commonDesk = '' }
-  $deskPaths = @(
-    $desk,
-    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'ChronoArchiver.lnk'),
-    (Join-Path $env:USERPROFILE 'Desktop\ChronoArchiver.lnk'),
-    (Join-Path $env:USERPROFILE 'OneDrive\Desktop\ChronoArchiver.lnk')
-  )
-  if (-not [string]::IsNullOrWhiteSpace($commonDesk)) {
-    $deskPaths += (Join-Path $commonDesk 'ChronoArchiver.lnk')
-  }
-  $seen = @{}
-  foreach ($dp in $deskPaths) {
-    if ([string]::IsNullOrWhiteSpace($dp)) { continue }
-    $k = $dp.ToLowerInvariant()
-    if ($seen.ContainsKey($k)) { continue }
-    $seen[$k] = $true
-    if (Test-Path -LiteralPath $dp) {
-      Ui-Log "Removing desktop shortcut: $dp"
-      try {
-        Remove-Item -LiteralPath $dp -Force -ErrorAction Stop
-      } catch {
-        Ui-Log "FAILED shortcut: $dp - $($_.Exception.Message)"
-      }
-    } else {
-      Ui-Log "(skip) No shortcut at: $dp"
-    }
-  }
-
-  $rkPs = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ChronoArchiver'
-  Ui-Log "Removing uninstall registry (PowerShell): $rkPs"
-  Ui-Prog 88
-  try {
-    if (Test-Path -LiteralPath $rkPs) {
-      Remove-Item -LiteralPath $rkPs -Recurse -Force -ErrorAction Stop
-      Ui-Log 'Registry key removed (HKCU Software Uninstall ChronoArchiver).'
-    } else {
-      Ui-Log '(skip) Registry key not found via PSDrive; trying reg.exe'
-    }
-  } catch {
-    Ui-Log ('Registry Remove-Item failed: ' + $_.Exception.Message)
-  }
-
-  Ui-Log "reg.exe delete (backup): $unkey"
-  try {
-    $regp = Start-Process -FilePath 'reg.exe' -ArgumentList @('delete', $unkey, '/f') -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
-    if ($regp) { Ui-Log ('reg.exe exit code: ' + $regp.ExitCode) }
-  } catch {
-    Ui-Log ('reg.exe error: ' + $_.Exception.Message)
-  }
-
-  # Start Menu folder contains this script; delete after exit via delayed cmd.
-  Ui-Log "Scheduling Start Menu uninstall folder removal (releases file locks): $sm"
-  Ui-Prog 92
-  $delayCmd = 'ping 127.0.0.1 -n 5 >nul & rmdir /s /q "' + $sm + '"'
-  Start-Process -FilePath cmd.exe -ArgumentList '/c', $delayCmd -WindowStyle Hidden
-
-  Ui-Log 'Finalizing...'
-  Ui-Prog 98
-})
-
-$form.add_Shown({
-  $timer.Start()
-  $job.RunWorkerAsync()
-})
 [void]$form.ShowDialog()
 """
     ps1 = (
@@ -1368,21 +1384,48 @@ def _show_welcome_and_log_choice() -> tuple[bool, bool]:
         return True, False
     out = {"proceed": False, "log": False}
     root = tk.Tk()
-    root.title("ChronoArchiver — Welcome")
-    root.geometry("500x360")
+    root.overrideredirect(True)
+    root.geometry("500x392+120+120")
     root.resizable(False, False)
-    root.configure(bg="#0d0d0d")
+    root.configure(bg="#0d0d0d", highlightthickness=1, highlightbackground="#333333")
     root.option_add("*Font", "TkDefaultFont 9")
     _apply_setup_window_icon(root)
 
+    title_bar = tk.Frame(root, bg="#1a1a1a", height=32)
+    title_bar.pack(fill=tk.X, side=tk.TOP)
+    title_bar.pack_propagate(False)
+    tb_lbl = tk.Label(
+        title_bar,
+        text="  ChronoArchiver - Welcome",
+        fg="#e5e7eb",
+        bg="#1a1a1a",
+        font=("", 10, "bold"),
+        anchor="w",
+    )
+    tb_lbl.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=6)
+
+    def _w_start_move(e):
+        root._wdx = e.x
+        root._wdy = e.y
+
+    def _w_do_move(e):
+        root.geometry(f"+{root.winfo_x() + e.x - root._wdx}+{root.winfo_y() + e.y - root._wdy}")
+
+    for _w in (title_bar, tb_lbl):
+        _w.bind("<ButtonPress-1>", _w_start_move)
+        _w.bind("<B1-Motion>", _w_do_move)
+
+    body = tk.Frame(root, bg="#0d0d0d")
+    body.pack(fill=tk.BOTH, expand=True)
+
     logo = _welcome_logo_photo(root)
     if logo is not None:
-        lbl_logo = tk.Label(root, image=logo, bg="#0d0d0d")
+        lbl_logo = tk.Label(body, image=logo, bg="#0d0d0d")
         lbl_logo.pack(pady=(18, 4))
         setattr(root, "_welcome_logo_ref", logo)
 
     tk.Label(
-        root,
+        body,
         text="Welcome to ChronoArchiver",
         fg="#e5e7eb",
         bg="#0d0d0d",
@@ -1393,10 +1436,10 @@ def _show_welcome_and_log_choice() -> tuple[bool, bool]:
         "Your data folder is kept; application files and the Python environment "
         "are refreshed from the official release when needed."
     )
-    tk.Label(root, text=blurb, fg="#9ca3af", bg="#0d0d0d", wraplength=440, justify=tk.LEFT).pack(pady=6, padx=22)
+    tk.Label(body, text=blurb, fg="#9ca3af", bg="#0d0d0d", wraplength=440, justify=tk.LEFT).pack(pady=6, padx=22)
     log_var = tk.BooleanVar(value=False)
     tk.Checkbutton(
-        root,
+        body,
         text="Append detailed install log (ChronoArchiver_installer.log next to this installer)",
         variable=log_var,
         fg="#e5e7eb",
@@ -1408,7 +1451,7 @@ def _show_welcome_and_log_choice() -> tuple[bool, bool]:
         anchor="w",
     ).pack(pady=(14, 4), padx=22, fill=tk.X)
     tk.Label(
-        root,
+        body,
         text="Leave off unless troubleshooting. Each run adds a session; the file keeps full history.",
         fg="#6b7280",
         bg="#0d0d0d",
@@ -1416,7 +1459,7 @@ def _show_welcome_and_log_choice() -> tuple[bool, bool]:
         wraplength=440,
         justify=tk.LEFT,
     ).pack(padx=22, anchor="w")
-    btn_fr = tk.Frame(root, bg="#0d0d0d")
+    btn_fr = tk.Frame(body, bg="#0d0d0d")
     btn_fr.pack(pady=22)
 
     def on_exit():
@@ -1463,6 +1506,40 @@ def _do_setup_gui(download_url: str) -> bool:
     root.configure(bg="#0d0d0d", highlightthickness=1, highlightbackground="#333333")
     root.option_add("*Font", "TkDefaultFont 9")
     _apply_setup_window_icon(root)
+
+    style = ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except tk.TclError:
+        pass
+    style.configure(
+        "TProgressbar",
+        troughcolor="#111111",
+        background="#2563eb",
+        darkcolor="#1e3a8a",
+        lightcolor="#3b82f6",
+        bordercolor="#111111",
+    )
+    _sb_style_ok = True
+    try:
+        style.configure(
+            "CA.Vertical.TScrollbar",
+            troughcolor="#0d0d0d",
+            background="#2d2d2d",
+            darkcolor="#0d0d0d",
+            lightcolor="#0d0d0d",
+            bordercolor="#0d0d0d",
+            arrowcolor="#a1a1aa",
+            relief="flat",
+            borderwidth=0,
+        )
+        style.map(
+            "CA.Vertical.TScrollbar",
+            background=[("active", "#3f3f46"), ("pressed", "#52525b")],
+            arrowcolor=[("active", "#f4f4f5")],
+        )
+    except tk.TclError:
+        _sb_style_ok = False
 
     result = [False]
     result_error = [""]
@@ -1532,12 +1609,12 @@ def _do_setup_gui(download_url: str) -> bool:
     lbl_speed = tk.Label(left, text="", fg="#10b981", bg="#0d0d0d")
     lbl_speed.pack(pady=2)
     tk.Label(left, text="Current Component", fg="#9ca3af", bg="#0d0d0d", font=("", 8, "bold")).pack(pady=(8, 0))
-    prog_step = ttk.Progressbar(left, length=420, mode="determinate")
+    prog_step = ttk.Progressbar(left, length=420, mode="determinate", style="TProgressbar")
     prog_step.pack(pady=4)
     lbl_pct_step = tk.Label(left, text="0%", fg="#6b7280", bg="#0d0d0d")
     lbl_pct_step.pack(pady=2)
     tk.Label(left, text="Overall Progress", fg="#9ca3af", bg="#0d0d0d", font=("", 8, "bold")).pack(pady=(8, 0))
-    prog_overall = ttk.Progressbar(left, length=420, mode="determinate")
+    prog_overall = ttk.Progressbar(left, length=420, mode="determinate", style="TProgressbar")
     prog_overall.pack(pady=4)
     lbl_pct_overall = tk.Label(left, text="0%", fg="#6b7280", bg="#0d0d0d")
     lbl_pct_overall.pack(pady=2)
@@ -1558,15 +1635,21 @@ def _do_setup_gui(download_url: str) -> bool:
     tk.Label(right, text="Setup output...", fg="#9ca3af", bg="#0d0d0d", font=("", 9)).pack(anchor="w", pady=(8, 4))
     tf = tk.Frame(right, bg="#0d0d0d")
     tf.pack(fill=tk.BOTH, expand=True)
-    sb = tk.Scrollbar(
-        tf,
-        bg="#2a2a2a",
-        troughcolor="#111111",
-        activebackground="#404040",
-        borderwidth=0,
-        highlightthickness=0,
-        width=12,
-    )
+    if _sb_style_ok:
+        try:
+            sb = ttk.Scrollbar(tf, orient=tk.VERTICAL, style="CA.Vertical.TScrollbar")
+        except tk.TclError:
+            _sb_style_ok = False
+    if not _sb_style_ok:
+        sb = tk.Scrollbar(
+            tf,
+            bg="#2d2d2d",
+            troughcolor="#0d0d0d",
+            activebackground="#3f3f46",
+            borderwidth=0,
+            highlightthickness=0,
+            width=14,
+        )
     sb.pack(side=tk.RIGHT, fill=tk.Y)
     console_text = tk.Text(
         tf,
@@ -1703,6 +1786,7 @@ def _do_setup_gui(download_url: str) -> bool:
                         result[0] = False
                         result_error[0] = "Installation cancelled." if canc else "Failed while downloading source package."
                         if canc:
+                            _remove_cancelled_install_tree(app_dir)
                             root.after(0, reset_progress_ui)
                         done[0] = True
                         return
@@ -1718,6 +1802,7 @@ def _do_setup_gui(download_url: str) -> bool:
                             "Installation cancelled." if canc else "Failed while extracting application files."
                         )
                         if canc:
+                            _remove_cancelled_install_tree(app_dir)
                             root.after(0, reset_progress_ui)
                         done[0] = True
                         return
@@ -1731,6 +1816,7 @@ def _do_setup_gui(download_url: str) -> bool:
             if cancel_ev.is_set():
                 _install_log("task: cancelled before venv step")
                 _install_log_footer(False, "cancelled")
+                _remove_cancelled_install_tree(app_dir)
                 root.after(0, reset_progress_ui)
                 result[0] = False
                 result_error[0] = "Installation cancelled."
@@ -1748,6 +1834,7 @@ def _do_setup_gui(download_url: str) -> bool:
                 result[0] = False
                 result_error[0] = "Installation cancelled." if canc else (err or "Dependency installation failed.")
                 if canc:
+                    _remove_cancelled_install_tree(app_dir)
                     root.after(0, reset_progress_ui)
                 done[0] = True
                 return
@@ -1792,7 +1879,11 @@ def _do_setup_gui(download_url: str) -> bool:
         root2.withdraw()
         err_tail = (result_error[0] or "").strip()
         if err_tail == "Installation cancelled.":
-            messagebox.showinfo("ChronoArchiver", "Installation was cancelled.")
+            messagebox.showinfo(
+                "ChronoArchiver",
+                "Installation was cancelled.\n\n"
+                "The ChronoArchiver install folder under your profile was removed when possible.",
+            )
         else:
             msg = "Setup failed."
             if err_tail:
