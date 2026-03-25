@@ -536,7 +536,10 @@ class AIScannerPanel(QWidget):
                 self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
                 self._btn_setup.hide()
                 self._btn_uninstall_models.show()
-                update_avail = self._model_update_available or self._opencv_update_available
+                # Yellow "Update!" button triggers model setup only (`_setup_models_only`).
+                # Do not show it for OpenCV updates, or it will appear even when the button
+                # can't help (leading to the "random" feel).
+                update_avail = self._model_update_available
                 self._btn_update.setVisible(update_avail)
                 self._start_version_check()
             else:

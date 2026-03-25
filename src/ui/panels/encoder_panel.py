@@ -1151,11 +1151,16 @@ class AV1EncoderPanel(QWidget):
             smi = shutil.which("nvidia-smi")
             if not smi:
                 raise FileNotFoundError("nvidia-smi not found in PATH")
-            out = subprocess.check_output(
+            proc = subprocess.run(
                 [smi, "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                stderr=subprocess.DEVNULL,
-            ).strip()
+            )
+            out = (proc.stdout or "").strip()
+            err = (proc.stderr or "").strip()
+            if proc.returncode != 0:
+                raise RuntimeError(f"nvidia-smi rc={proc.returncode} stderr={err[:220]}")
             vals = [int(x) for x in re.findall(r"\d+", out or "")]
             if not vals:
                 raise ValueError(f"Unexpected nvidia-smi output: {out[:80]}")
@@ -1168,7 +1173,8 @@ class AV1EncoderPanel(QWidget):
                 self._gpu_last_err_t = now
                 self._gpu_last_err = msg
                 debug(UTILITY_MASS_AV1_ENCODER, f"GPU metrics: nvidia-smi query failed: {msg}")
-            return "  N/A"
+            # Keep footer numeric ("0%") so the UI always shows percent tracking.
+            return "  0%"
 
     def _add_log(self, msg):
         sb = self._log_edit.verticalScrollBar()

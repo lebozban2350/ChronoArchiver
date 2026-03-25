@@ -901,12 +901,17 @@ class ChronoArchiverApp(QMainWindow):
                     smi = shutil.which("nvidia-smi")
                     if not smi:
                         raise FileNotFoundError("nvidia-smi not found in PATH")
-                    out = subprocess.check_output(
+                    proc = subprocess.run(
                         [smi, "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
                         text=True,
-                        stderr=subprocess.DEVNULL,
                         **win_hide_kw(),
-                    ).strip()
+                    )
+                    out = (proc.stdout or "").strip()
+                    err = (proc.stderr or "").strip()
+                    if proc.returncode != 0:
+                        raise RuntimeError(f"nvidia-smi rc={proc.returncode} stderr={err[:220]}")
                     # Some environments may output multiple lines (multiple GPUs). Take max.
                     vals = [int(x) for x in re.findall(r"\d+", out or "")]
                     if not vals:
@@ -914,7 +919,9 @@ class ChronoArchiverApp(QMainWindow):
                     g = max(vals)
                     self._metrics_gpu_cache = f"{min(999, g):3d}%"
                 except Exception as e:
-                    self._metrics_gpu_cache = "  N/A"
+                    # Keep footer numeric ("0%") so the UI always shows percent tracking.
+                    # Detailed reason is still logged (throttled) for troubleshooting.
+                    self._metrics_gpu_cache = "  0%"
                     now = time.monotonic()
                     msg = str(e)[:140]
                     if (now - self._metrics_gpu_last_err_t) >= 20.0 or msg != self._metrics_gpu_last_err:
