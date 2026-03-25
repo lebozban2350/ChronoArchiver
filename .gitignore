@@ -162,6 +162,7 @@ cython_debug/
 *.md
 !/CHANGELOG.md
 !/README.md
+!/flatpak/README.md
 AGENTS.md
 
 # Cursor/IDE (local only)

@@ -113,6 +113,16 @@ paru -S chronoarchiver
 yay -S chronoarchiver
 ```
 
+### Flatpak (Flathub)
+
+Packaging lives in [`flatpak/`](flatpak/). After the app is [published on Flathub](https://flathub.org/), install with:
+
+```bash
+flatpak install flathub io.github.UnDadFeated.ChronoArchiver
+```
+
+Until then, build locally using [`flatpak/README.md`](flatpak/README.md).
+
 ### Fedora Atomic / Bazzite (and similar immutable desktops)
 
 There is no first-party RPM or Flatpak in this repository yet. To use ChronoArchiver on Bazzite or other Fedora Atomic variants:

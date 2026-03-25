@@ -1,6 +1,9 @@
 # Changelog
 
 ## [3.8.2] - 2026-03-25
+### Added
+- **Linux / Flatpak**: Packaging under **`flatpak/`** (`io.github.UnDadFeated.ChronoArchiver`) using **`io.qt.PySide.BaseApp`** plus pip wheels for numpy, OpenCV, static-ffmpeg, etc.; submission steps in **`flatpak/README.md`**. **`venv_manager`**: detect **`/.flatpak-info`** so OpenCV/FFmpeg checks and venv bootstrap behave when dependencies live in **`/app`** (no app-private venv).
+
 ### Fixed
 - **Lint**: Removed unused **`launch_cmd`** in **`updater.perform_installer_update`**; dropped unused **`QListWidget`** import in **`encoder_panel`**.
 

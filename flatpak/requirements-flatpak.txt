@@ -1,0 +1,10 @@
+# PySide6 comes from io.qt.PySide.BaseApp — do not list here.
+numpy
+psutil
+requests
+Pillow
+platformdirs
+opencv-python
+piexif
+static-ffmpeg
+GitPython

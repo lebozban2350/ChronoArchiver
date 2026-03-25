@@ -38,6 +38,11 @@ from . import app_paths
 def _is_frozen() -> bool:
     """True when running as PyInstaller bundle (no venv)."""
     return getattr(sys, "frozen", False)
+
+
+def _running_in_flatpak() -> bool:
+    """True when running as a Flatpak (dependencies in /app; no app-private venv)."""
+    return os.path.isfile("/.flatpak-info")
 OPENCV_CUDA_API = "https://api.github.com/repos/cudawarped/opencv-python-cuda-wheels/releases/latest"
 OPENCV_STANDARD_APPROX_BYTES = 90 * 1024 * 1024  # ~90 MB
 # Fallback when API unavailable: cudawarped wheel ~500 MB
@@ -159,6 +164,12 @@ def check_opencv_in_venv() -> bool:
             return True
         except ImportError:
             return False
+    if _running_in_flatpak():
+        try:
+            import cv2  # noqa: F401
+            return True
+        except ImportError:
+            return False
     py = get_python_exe()
     if not py.exists():
         debug(UTILITY_OPENCV_INSTALL, "check_opencv_in_venv: python exe not found")
@@ -181,6 +192,16 @@ def check_opencv_in_venv() -> bool:
 def check_ffmpeg_in_venv() -> bool:
     """True if venv has static-ffmpeg with binaries installed (installed.crumb exists). No download triggered."""
     if _is_frozen():
+        try:
+            import os as _os
+            from static_ffmpeg.run import get_platform_dir
+            crumb = _os.path.join(get_platform_dir(), "installed.crumb")
+            return _os.path.isfile(crumb)
+        except Exception:
+            return False
+    if _running_in_flatpak():
+        if shutil.which("ffmpeg"):
+            return True
         try:
             import os as _os
             from static_ffmpeg.run import get_platform_dir
@@ -469,6 +490,14 @@ def is_venv_runnable() -> bool:
     """True if venv exists and can run the app (PySide6, PIL, requests). Does NOT require OpenCV."""
     if _is_frozen():
         return True
+    if _running_in_flatpak():
+        try:
+            import PySide6  # noqa: F401
+            import PIL  # noqa: F401
+            import requests  # noqa: F401
+            return True
+        except ImportError:
+            return False
     py = get_python_exe()
     if not py.exists():
         return False
@@ -485,6 +514,16 @@ def is_venv_runnable() -> bool:
 
 def is_venv_ready() -> bool:
     """True if venv exists and has all required packages including OpenCV."""
+    if _running_in_flatpak():
+        try:
+            import PySide6  # noqa: F401
+            import numpy  # noqa: F401
+            import cv2  # noqa: F401
+            import PIL  # noqa: F401
+            import requests  # noqa: F401
+            return True
+        except ImportError:
+            return False
     py = get_python_exe()
     if not py.exists():
         return False
@@ -506,6 +545,8 @@ def ensure_venv(progress_callback=None, skip_opencv: bool = False) -> bool:
     Returns True on success. No-op when frozen.
     """
     if _is_frozen():
+        return True
+    if _running_in_flatpak():
         return True
     data = app_paths.data_dir()
     venv = get_venv_path()
