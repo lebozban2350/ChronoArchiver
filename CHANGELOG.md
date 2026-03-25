@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Changed
-- **Documentation**: Root **README** — maintainer guide for **GitHub** tags/releases, **Flathub** submission steps (fork `new-pr` through merge and post-merge repo), and **AUR** sync; **Bazzite** section updated for upstream **Flatpak** packaging; **Updates** / **Uninstall** note **Flatpak** where relevant. **`flatpak/README`** points to the README for submission UX.
+- **Documentation**: Root **README** shortened for public readers — **Installation** (GitHub **v3.8.2**, AUR, Flathub) then **Technical overview**; maintainer Flathub steps moved to **`flatpak/README.md`**.
 
 ## [3.8.2] - 2026-03-25
 ### Added

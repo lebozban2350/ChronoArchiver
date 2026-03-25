@@ -36,11 +36,23 @@ Then merge the generated modules into `io.github.UnDadFeated.ChronoArchiver.yml`
 
 ## Submit to Flathub
 
-Follow the official guide: [Submission](https://docs.flathub.org/docs/for-app-authors/submission). A **step-by-step table** (clone `new-pr`, copy files to the **fork’s root**, open PR against `new-pr`, `bot, build`, approval) is in the root **[README.md](../README.md#maintainer-guide-github-flathub-and-aur)** under **Maintainer guide**.
+Read [Submission](https://docs.flathub.org/docs/for-app-authors/submission), [Requirements](https://docs.flathub.org/docs/for-app-authors/requirements), and the [Generative AI policy](https://docs.flathub.org/docs/for-app-authors/requirements#generative-ai-policy). PRs must target the **`new-pr`** branch ([CONTRIBUTING](https://github.com/flathub/flathub/blob/master/CONTRIBUTING.md)).
 
-**Copy rule:** In the `flathub` fork, put `io.github.UnDadFeated.ChronoArchiver.yml` and the same-named `.desktop`, `.metainfo.xml`, `chronoarchiver.sh`, etc. **at the top level of the branch**—not inside a `flatpak/` folder—so paths in the manifest match.
+**Copy rule:** In your `flathub` fork, put `io.github.UnDadFeated.ChronoArchiver.yml` and the same-named `.desktop`, `.metainfo.xml`, `chronoarchiver.sh`, etc. **at the top level of the branch**—not inside a `flatpak/` folder—so paths in the manifest match.
 
-**Important:** Flathub’s policy discourages fully AI-generated submission PRs. A human maintainer should review the manifest, metainfo, and screenshots before opening the PR.
+| Step | Action |
+|------|--------|
+| 1 | Fork [flathub/flathub](https://github.com/flathub/flathub) with **“Copy the master branch only”** unchecked. |
+| 2 | `git clone --branch=new-pr git@github.com:YOUR_USER/flathub.git && cd flathub` |
+| 3 | `git checkout -b add-chronoarchiver new-pr` |
+| 4 | Copy the files from this repo’s **`flatpak/`** into the fork **root** (see copy rule). Ensure the manifest **`tag:`** matches a commit you intend to ship (e.g. **v3.8.2** on `main`). |
+| 5 | Build and test locally; run the [linter](https://docs.flathub.org/docs/for-app-authors/submission#run-the-linter). |
+| 6 | `git add`, `commit`, `push` to your fork. |
+| 7 | Open a PR with **base = `new-pr`**, title e.g. `Add io.github.UnDadFeated.ChronoArchiver`. |
+| 8 | Review: comment **`bot, build`** when ready; fix feedback. |
+| 9 | After merge, accept the org invite; maintain updates in **`flathub/io.github.UnDadFeated.ChronoArchiver`** ([maintenance](https://docs.flathub.org/docs/for-app-authors/maintenance)). |
+
+**Important:** Flathub discourages fully AI-generated submission PRs; a human should review manifests and metainfo before opening the PR.
 
 ## Screenshots
 

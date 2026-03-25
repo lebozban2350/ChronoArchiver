@@ -9,7 +9,7 @@ ChronoArchiver consolidates date-based file organization, AI-driven image analys
 
 [![Version](https://img.shields.io/badge/version-3.8.2-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#technical-overview--features)
 
 ---
 
@@ -27,85 +27,36 @@ Configuration is stored in the platform user-data directory. Each panel validate
 
 ---
 
-## Media Organizer
-
-Organizes media into date-based folder structures (dropdown):
-
-- **YYYY/YYYY-MM** — Nested (year → month)
-- **YYYY-MM** — Flat by month
-- **YYYY-MM-DD** — Flat by day
-- **YYYY/YYYY-MM/YYYY-MM-DD** — Nested by day
-
-Date resolution order:
-
-1. **Images**: EXIF `DateTimeOriginal`/`DateTimeDigitized` → filename → modification time
-2. **Videos**: FFprobe `creation_time` → filename → modification time
-3. **Filename** — `YYYYMMDD`, `YYYY-MM-DD`, `YYYY_MM_DD` (with optional separators)
-4. **Modification time** — Fallback; timestamps before 1957 are rejected
-
-Features:
-
-- **Action**: Move, Copy, or Symlink.
-- **Exclude**: .trash, @Recently Deleted, .thumbnails, etc. excluded by default.
-- **Duplicates**: Rename, Skip, Keep newer, or Overwrite if same.
-- Appends `YYYY-MM-DD_` to filenames for chronological ordering
-- Corrects mismatched date prefixes
-- Optional target directory for organizing into a separate root
-- Photos and/or Videos checkboxes — processes all supported extensions for selected types
-- Duplicate detection via size comparison and partial MD5 (first 1 MB)
-- Dry-run mode; cancellable during execution
-- Summary statistics: Moved, Skipped, Duplicates
-
----
-
-## AI Media Scanner
-
-Dual-list workflow: **Keep** (subjects detected) and **Move** (no subjects). Detection stack:
-
-- **Face** — OpenCV YuNet (`face_detection_yunet_2023mar.onnx`), OpenCL when available
-- **Persons & Animals** — YOLOv8-nano ONNX (optional, configurable confidence threshold)
-
-Models are stored in `~/.local/share/ChronoArchiver/models` (Linux) or the platform equivalent. Use Setup Models to download; OpenCV is installed via the Install OpenCV button in the AI Scanner panel.
-
-Features:
-
-- Keep/Move lists with inline preview
-- Manual item transfer between lists
-- Move Files — relocates Move list to `Archived_Others/` within the scan directory
-- Export CSV for Keep/Move path lists
-- Progress with ETA; cancellable
-
----
-
-## Mass AV1 Encoder
-
-Batch AV1 transcoding with preserved folder structure and metadata.
-
-**Encoding backends:**
-
-- **NVIDIA NVENC** (`av1_nvenc`) when a compatible GPU is present (RTX 40-series or later for AV1)
-- **AMD VAAPI** (Linux) and **AMF** (Windows) when supported
-- **SVT-AV1** (`libsvtav1`) as software fallback
-
-**Interface:**
-
-- 4-slot job grid with per-job progress and I/O throughput (MB/s)
-- Real-time CPU, GPU, and RAM monitoring
-- Pause and resume for active jobs
-- Master progress bar across the queue
-
-**Options:**
-
-- Output: `.mp4` (`stem_av1.mp4`); files ending `_av1.ext` skipped on rescan
-- Auto-scan on source selection; queue resets when source changes
-- Skip Short Clips, Auto-Shutdown, Delete Source (safety-locked)
-- Space Saved, ETA, per-thread speed
-
----
-
 ## Installation
 
+Release **3.8.2** — installers, AUR `pkgver`, and Flatpak metadata are aligned on this version.
+
+### GitHub (Windows / macOS installers)
+
+Download from [**Releases**](https://github.com/UnDadFeated/ChronoArchiver/releases) (**tag `v3.8.2`**):
+
+| Platform | Asset |
+|----------|--------|
+| Windows x64 | `ChronoArchiver-Setup-3.8.2-win64.exe` |
+| macOS | `ChronoArchiver-Setup-3.8.2-mac64.zip` |
+
+The setup is small; first run may download Python-related components. **Python 3.11+** must be installed for this install path. Data: `%LOCALAPPDATA%\ChronoArchiver` (Windows) or `~/Library/Application Support/ChronoArchiver` (macOS).
+
+### Git clone (Linux, Windows, macOS)
+
+**Needs Python 3.10+.** FFmpeg is bundled.
+
+```bash
+git clone https://github.com/UnDadFeated/ChronoArchiver.git
+cd ChronoArchiver
+python src/bootstrap.py
+```
+
+First launch creates an app-private venv (e.g. `~/.local/share/ChronoArchiver/venv` on Linux). Updates: `git pull` and restart when prompted.
+
 ### Arch Linux (AUR)
+
+Package **[chronoarchiver](https://aur.archlinux.org/packages/chronoarchiver)** at **3.8.2**:
 
 ```bash
 paru -S chronoarchiver
@@ -115,185 +66,37 @@ yay -S chronoarchiver
 
 ### Flatpak (Flathub)
 
-Packaging lives in [`flatpak/`](flatpak/). After the app is [published on Flathub](https://flathub.org/), install with:
+App ID **`io.github.UnDadFeated.ChronoArchiver`**. Manifests live in [`flatpak/`](flatpak/) in this repo.
+
+When the app is published on [Flathub](https://flathub.org/):
 
 ```bash
 flatpak install flathub io.github.UnDadFeated.ChronoArchiver
 ```
 
-Until then, build locally using [`flatpak/README.md`](flatpak/README.md).
+Until then, build locally with [`flatpak/README.md`](flatpak/README.md). Updates: `flatpak update` (or your software center).
 
-### Fedora Atomic / Bazzite (and similar immutable desktops)
-
-Upstream ships a Flatpak manifest under [`flatpak/`](flatpak/); once the app is [listed on Flathub](https://flathub.org/), install with `flatpak install flathub io.github.UnDadFeated.ChronoArchiver` and use Discover / GNOME Software like any other Flatpak. Until it is published, build locally using [`flatpak/README.md`](flatpak/README.md).
-
-Other options:
-
-1. **From source** — Install Python 3.10+ (or use `toolbox` / `distrobox`), then clone and run bootstrap as in [From Source](#from-source) below. Data dirs follow XDG / `platformdirs` under your home.
-2. **AUR package inside a container** — Create an Arch container (`distrobox create -i archlinux`), enter it, install `paru`/`yay`, then `paru -S chronoarchiver`. Launch the app from that environment (or symlink the generated launcher); models and config live in the container home unless you bind-mount.
-3. **Separate packaging repo** — If you maintain a COPR or distribution-specific fork, add it as a `git remote`, bump `pkgver` alongside this repo, and push there on each release (same pattern as the AUR `PKGBUILD`).
-
-### Windows (x64) / macOS
-
-Download the setup from the [Releases](https://github.com/UnDadFeated/ChronoArchiver/releases) page:
-
-| Platform | File |
-|----------|------|
-| **Windows x64** | `ChronoArchiver-Setup-3.8.2-win64.exe` |
-| **macOS** | `ChronoArchiver-Setup-3.8.2-mac64.zip` |
-
-The setup (~6MB) downloads Python source on first run. Requires Python 3.11+ installed. Creates venv during install; desktop shortcut runs `pythonw` (no command prompt). Install location: `%LOCALAPPDATA%\ChronoArchiver` (Windows) or `~/Library/Application Support/ChronoArchiver` (macOS). Uninstall: Windows Settings → Installed apps → ChronoArchiver (or Start Menu → ChronoArchiver → `Uninstall_ChronoArchiver.cmd`), macOS: `Uninstall ChronoArchiver.app` / `Uninstall ChronoArchiver.command`.
-
-### From Source
-
-**Requirements:** Python 3.10 or later. FFmpeg is bundled; no system installation required.
-
-```bash
-git clone https://github.com/UnDadFeated/ChronoArchiver.git
-cd ChronoArchiver
-python src/bootstrap.py
-```
-
-First launch creates an app-private virtual environment at `~/.local/share/ChronoArchiver/venv` and installs dependencies. Subsequent runs start directly. NVIDIA RTX 40-series (or later) with AV1 NVENC enables hardware-accelerated encoding; the application runs fully in software without it.
+**Fedora Atomic / Bazzite:** use Flatpak from Flathub when available; otherwise run [from git](#git-clone-linux-windows-macos) or an Arch toolbox with the AUR package.
 
 ---
 
-## System Requirements
+## Technical overview & features
 
-| Component | Requirement |
-|-----------|-------------|
-| Python | 3.10 or later |
-| OS | Windows, Linux, macOS (Arch/AUR package available) |
-| GPU | Optional — NVIDIA RTX 40-series for NVENC AV1 |
+| | |
+|--|--|
+| **UI / runtime** | PySide6 (Qt), Python **3.10+**, bundled **FFmpeg** |
+| **Media Organizer** | Date-based folders (nested or flat); EXIF, video metadata, filename, mtime; move / copy / symlink; duplicates and dry-run |
+| **AI Media Scanner** | OpenCV YuNet + optional YOLO ONNX; keep/move lists; models under user data (`Setup Models` / `Install OpenCV` in-app) |
+| **Mass AV1 Encoder** | Queue with folder structure preserved; **SVT-AV1**, **NVENC** (e.g. RTX 40+), **VAAPI** / **AMF** where available; pause/resume |
+| **Requirements** | **GPU optional** — hardware AV1/NVENC when supported; full software path otherwise |
 
----
-
-## Configuration Reference
-
-### Media Organizer
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Action | Move | Move, Copy, or Symlink files |
-| Duplicate policy | Rename | Rename, Skip, Keep newer, or Overwrite if same |
-| Folder structure | YYYY/YYYY-MM | Nested, flat by month/day |
-
-### Mass AV1 Encoder
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Encoding quality (CQ) | 30 | Lower = higher quality, larger file |
-| Preset | p4 | p1–p7 (speed/quality trade-off; backend-dependent) |
-| Re-encode audio | On | Off copies original audio stream |
-| Concurrent jobs | 2 | 1, 2, or 4 parallel workers |
-| Maintain structure | On | Mirrors source folder layout in target |
-| Skip Short Clips | Off | User-defined threshold |
-| HW Accel Decode | Off | GPU demux/decode |
-| Auto-Shutdown | Off | Power off after queue completion |
-
----
-
-## Uninstall
-
-**Flatpak:** `flatpak uninstall io.github.UnDadFeated.ChronoArchiver` (add `--delete-data` to remove app data as well).
-
-**AUR:** `pacman -R chronoarchiver` removes the application and all user data (models, config, logs).
-
-**Windows/macOS setup:** **Windows** — Settings → Apps → **ChronoArchiver** → Uninstall (or Start Menu → ChronoArchiver → **`Uninstall_ChronoArchiver.cmd`**). Confirm in the dialog; the install folder under `%LOCALAPPDATA%\ChronoArchiver`, shortcuts, and the Installed Apps entry are removed. **macOS** — in the install folder, open **Uninstall ChronoArchiver.app** or run **Uninstall ChronoArchiver.command**.
-
-**Source install:** Delete the following directories to remove all traces:
-
-- `~/.local/share/ChronoArchiver` (venv, models)
-- `~/.config/ChronoArchiver` (settings)
-- `~/.local/state/ChronoArchiver` (logs)
-
-On Windows, use `%LOCALAPPDATA%\ChronoArchiver` and `%APPDATA%\ChronoArchiver`. On macOS, use `~/Library/Application Support/ChronoArchiver` (via `platformdirs`).
-
----
-
-## Troubleshooting
-
-**Python required (Windows/macOS)**  
-The setup installs the app as a Python program. Install Python 3.11+ from [python.org](https://python.org) if prompted.
-
-**Debug log location**  
-Session logs: `chronoarchiver_YYYY-MM-DD_HH-MM-SS.log`  
-- **Windows/macOS setup install** (desktop shortcut / `.app`): under the app folder, `Logs\` (Windows) or `Logs/` (macOS), e.g. `%LOCALAPPDATA%\ChronoArchiver\Logs\`
-- **Linux / source / AUR** (no install-root env): `~/.local/state/ChronoArchiver/log/`
-- **macOS** when not using the setup install layout: often `~/Library/Logs/ChronoArchiver/` (via `platformdirs`)  
-
-The in-app "Debug" button in the footer opens the log folder. If the app crashes before the GUI loads, no log file is created.
-
-**Windows — ChronoArchiver stuck in Settings → Apps**  
-If you deleted the install folder by hand, the Apps list can still show ChronoArchiver until the **uninstall registry key** is updated. Run the **current** setup installer again (it removes and recreates that key), or delete it yourself in **cmd**:
-
-`reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ChronoArchiver" /f`
-
-If the entry persists, sign out and back in or restart **Windows Explorer**.
-
-**Windows — Uninstall can’t delete files**  
-The uninstall script stops **pythonw.exe** / **python.exe** processes launched from your install directory. Close ChronoArchiver first if something still holds files open.
-
----
-
-## Updates
-
-The application checks GitHub tags on startup. In-app updates work on:
-
-- **Arch Linux (AUR)**: `paru`/`yay` — app closes, updates, restarts.
-- **Flatpak (Flathub)**: `flatpak update` (or your graphical updater); Flathub publishes builds from the app’s manifest repo, not from this README.
-- **Git clone (Linux, Windows, macOS)**: `git pull` — app closes, pulls, restarts.
-- **Windows/macOS setup**: Fetches the new setup launcher; running it performs the update.
-
----
-
-## Maintainer guide: GitHub, Flathub, and AUR
-
-This section is for **releasing and distributing** the app (current release line **3.8.x**). End users can skip it.
-
-### GitHub release and tag (`v3.8.2`)
-
-1. Ensure **`main`** contains everything you want in the release (including [`flatpak/`](flatpak/) if Flathub should build from that tree).
-2. Create an [annotated tag](https://git-scm.com/book/en/v2/Git-Basics-Tagging) on that commit, e.g. `v3.8.2`, and push it: `git push origin v3.8.2`.
-3. On the [Releases](https://github.com/UnDadFeated/ChronoArchiver/releases) page, create a release from that tag and attach the Windows/macOS setup assets built by CI (or your pipeline), matching the filenames in [Installation](#installation).
-
-**If you already tagged `v3.8.2` before adding `flatpak/`:** either move the tag to the correct commit (`git tag -f v3.8.2 <commit>` then `git push origin v3.8.2 --force` — coordinate with anyone who pulled the old tag), or cut a new release with a new tag and update the Flatpak manifest’s upstream `tag` / checksums accordingly.
-
-### Flathub — first-time submission (steps 2–9)
-
-Read step 1 (fork and policies) on the official pages: [Submission](https://docs.flathub.org/docs/for-app-authors/submission), [Requirements](https://docs.flathub.org/docs/for-app-authors/requirements), and the [Generative AI policy](https://docs.flathub.org/docs/for-app-authors/requirements#generative-ai-policy). **Pull requests must target the `new-pr` branch**, not `master` ([CONTRIBUTING](https://github.com/flathub/flathub/blob/master/CONTRIBUTING.md)).
-
-| Step | What to do |
-|------|------------|
-| **2** | **Clone your fork** with the submission branch: `git clone --branch=new-pr git@github.com:YOUR_USER/flathub.git && cd flathub`. (Or: `gh repo fork flathub/flathub --clone` then `git checkout --track origin/new-pr`.) |
-| **3** | **Create a branch** for the submission, e.g. `git checkout -b add-chronoarchiver new-pr`. |
-| **4** | **Add the Flatpak files at the repository root** of this branch (Flathub expects the manifest **next to** its companion files, not inside a `flatpak/` subfolder in the fork). Copy from this repo’s [`flatpak/`](flatpak/) directory: `io.github.UnDadFeated.ChronoArchiver.yml`, `chronoarchiver.sh`, `io.github.UnDadFeated.ChronoArchiver.desktop`, and `io.github.UnDadFeated.ChronoArchiver.metainfo.xml`. (`requirements-flatpak.txt` is only needed upstream to regenerate pip wheel snippets; it is not part of the built Flatpak unless you wire it in.) Ensure the manifest’s **git `tag:`** matches a commit that includes the sources you intend to ship (see GitHub tag note above). |
-| **5** | **Build and test locally** (recommended): install `org.flatpak.Builder` from Flathub, add the Flathub remote user-wide if needed, `cd` to the folder that contains `io.github.UnDadFeated.ChronoArchiver.yml`, then e.g. `flatpak run org.flatpak.Builder --install --user --force-clean build-dir io.github.UnDadFeated.ChronoArchiver.yml`. Run `flatpak run io.github.UnDadFeated.ChronoArchiver`. Run the [linter](https://docs.flathub.org/docs/for-app-authors/submission#run-the-linter) on the manifest and on the resulting repo. |
-| **6** | **Commit and push** to your fork: `git add` the new files, `git commit`, `git push -u origin add-chronoarchiver`. |
-| **7** | **Open a pull request** on GitHub: **base = `new-pr`**, **compare = your branch**. Title like **`Add io.github.UnDadFeated.ChronoArchiver`**. Use the web UI to create the PR ([submission docs](https://docs.flathub.org/docs/for-app-authors/submission#submission-pr)). |
-| **8** | **Review loop:** answer reviewer questions; do **not** close/reopen the PR to fix issues. When reviewers are ready for a test build, comment **`bot, build`** on the PR. Fix any build or metadata issues they report. |
-| **9** | **After approval:** reviewers merge into a **new** repository under [github.com/flathub](https://github.com/flathub). **Accept the GitHub org invite** within about a week (2FA required). Subsequent **app updates** are **not** submitted via `flathub/flathub` again — you change the manifest in **`flathub/io.github.UnDadFeated.ChronoArchiver`** (see [App maintenance](https://docs.flathub.org/docs/for-app-authors/maintenance)). |
-
-**Screenshots:** Use real PNGs in metainfo; placeholders are for local testing only. Test-build Flathub runs do not show store screenshots until after the app is published ([FAQ](https://docs.flathub.org/docs/for-app-authors/submission#i-dont-see-any-screenshots-from-the-test-builds-why)).
-
-Technical details and a one-line local build command from the **ChronoArchiver** repo layout (with `flatpak/` paths) stay in [`flatpak/README.md`](flatpak/README.md).
-
-### AUR (`chronoarchiver`, `pkgver=3.8.2`)
-
-The [AUR package](https://aur.archlinux.org/packages/chronoarchiver) is a **separate Git repository** from this GitHub project.
-
-1. Clone the AUR package: `git clone ssh://aur@aur.archlinux.org/chronoarchiver.git` (or HTTPS if you use the AUR web upload flow).
-2. Copy or merge **`PKGBUILD`** (and any patches) from this repo so **`pkgver=3.8.2`** and **`pkgrel`** are correct; update **`source`** checksums if the tarball changed (`updpkgsums` / `makepkg -g`).
-3. Regenerate **`.SRCINFO`**: `makepkg --printsrcinfo > .SRCINFO`.
-4. **`git add PKGBUILD .SRCINFO`**, commit, **`git push`** to `aur` (your remote name may differ).
-
-Users install with `paru -S chronoarchiver` or `yay -S chronoarchiver` as in [Installation](#installation).
+Full release notes: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
 ## Changelog
 
-Release notes are available in [CHANGELOG.md](CHANGELOG.md). AUR installations include the changelog at `/usr/share/doc/chronoarchiver/CHANGELOG.md`.
+See [CHANGELOG.md](CHANGELOG.md). On Arch, the changelog is also installed at `/usr/share/doc/chronoarchiver/CHANGELOG.md`.
 
 ---
 
