@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [4.0.5] - 2026-03-25
+### Changed
+- **Code quality**: Ruff-clean **src**/**tools**; removed **dead code** (unused **`get_log_content`**, **`OrganizerEngine.count_files`**, **`ApplicationUpdater.get_changelog`**, duplicate **`is_venv_ready()`** alias, unused **`_Signals.setup_phase`**, scanner **`_opencv_update_available`**, encoder dead state, footer unused GPU error fields). Renamed ambiguous **`l`** in GPU / OpenCV debug paths.
+
 ## [4.0.4] - 2026-03-25
 ### Fixed
 - **Windows uninstaller**: Moved uninstall work from **`Form.Load`** to **`Form.Shown`**. **`Load`** runs before the first paint, so **`ShowDialog`** kept the window hidden until removal finished; the UI now appears immediately after **Yes** so the console shows live progress.

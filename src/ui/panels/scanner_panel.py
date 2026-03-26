@@ -71,7 +71,6 @@ class _Signals(QObject):
     setup_complete = Signal(object)  # (ok, err) for OpenCV install, bool for uninstall/model setup
     remove_done = Signal()
     version_check_done = Signal(bool, bool)  # models_update, opencv_update
-    setup_phase = Signal(str, str)  # phase_name, detail
     prereqs_changed = Signal()  # OpenCV or models installed/uninstalled — refresh footer
 
 
@@ -477,7 +476,6 @@ class AIScannerPanel(QWidget):
         root.addWidget(grp_log, 0)
 
         self._model_update_available = False
-        self._opencv_update_available = False
         self._version_check_started = False
         self._setup_in_progress = False
         self._opencv_just_installed = False
@@ -578,9 +576,8 @@ class AIScannerPanel(QWidget):
         else:
             _apply(self._opencv_available_sync())
 
-    def _on_version_check(self, models_update: bool, opencv_update: bool):
+    def _on_version_check(self, models_update: bool, _opencv_update: bool):
         self._model_update_available = bool(models_update)
-        self._opencv_update_available = bool(opencv_update)
         if self._model_mgr.is_up_to_date():
             self._check_models()
 
@@ -758,7 +755,7 @@ class AIScannerPanel(QWidget):
             total = sum(s for _, s in components)
             debug(
                 UTILITY_OPENCV_INSTALL,
-                f"OpenCV popup components: variant={variant!r} total={total}B components={[{'label':l,'sizeB':s} for l,s in components]}",
+                f"OpenCV popup components: variant={variant!r} total={total}B components={[{'label':lbl,'sizeB':sz} for lbl,sz in components]}",
             )
         if components:
             lines.append("Components:")
@@ -1099,7 +1096,7 @@ class AIScannerPanel(QWidget):
             model_dir=str(self._model_mgr.model_dir),
             on_list_cap_reached=_cap_callback,
         )
-        self._engine.progress_callback = lambda c, t, eta, f: self._sig.progress.emit(
+        self._engine.progress_callback = lambda c, t, *_: self._sig.progress.emit(
             min(1.0, c / max(t, 1)))
 
         def _run():

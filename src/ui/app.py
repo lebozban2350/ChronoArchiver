@@ -13,7 +13,6 @@ import tempfile
 import threading
 import time
 import webbrowser
-import re
 
 import psutil
 
@@ -527,8 +526,6 @@ class ChronoArchiverApp(QMainWindow):
         self._component_sync_started = False
         self._metrics_gpu_cache = "  N/A"
         self._metrics_gpu_counter = 0
-        self._metrics_gpu_last_err_t = 0.0
-        self._metrics_gpu_last_err = ""
         self._metrics_gpu_value_width_px = 44  # Keep footer value width stable (avoid text shift)
 
         # UI Components
@@ -908,7 +905,7 @@ class ChronoArchiverApp(QMainWindow):
                     line = out.strip().split("\n")[0].strip() if out else ""
                     g = int(line) if line.isdigit() else 0
                     self._metrics_gpu_cache = f"{min(999, g):3d}%"
-                except Exception as e:
+                except Exception:
                     self._metrics_gpu_cache = "  0%"
                 self._metrics_gpu_counter = 0
             cpu_s = f"{min(999, int(round(cpu_val))):3d}%"

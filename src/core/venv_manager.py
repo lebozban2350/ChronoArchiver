@@ -186,12 +186,12 @@ def detect_gpu() -> str:
             for line in out.splitlines():
                 if not re.search(r"(VGA compatible controller|3D controller|Display controller)", line, re.I):
                     continue
-                l = line.lower()
-                if ("nvidia" in l) or ("10de" in l):
+                line_lc = line.lower()
+                if ("nvidia" in line_lc) or ("10de" in line_lc):
                     found["nvidia"] = True
-                elif ("advanced micro devices" in l) or ("amd" in l) or ("1002" in l):
+                elif ("advanced micro devices" in line_lc) or ("amd" in line_lc) or ("1002" in line_lc):
                     found["amd"] = True
-                elif ("intel" in l) or ("8086" in l):
+                elif ("intel" in line_lc) or ("8086" in line_lc):
                     found["intel"] = True
     except Exception:
         pass
@@ -607,11 +607,6 @@ def is_venv_runnable() -> bool:
         return r.returncode == 0
     except Exception:
         return False
-
-
-def is_venv_ready() -> bool:
-    """Same as is_venv_runnable — OpenCV is optional (installed from AI Scanner)."""
-    return is_venv_runnable()
 
 
 def ensure_venv(progress_callback=None) -> bool:

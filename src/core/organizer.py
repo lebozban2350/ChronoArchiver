@@ -137,15 +137,6 @@ class OrganizerEngine:
         except Exception:
             return ""
 
-    def count_files(self, source_dir: str, valid_exts: set) -> int:
-        count = 0
-        for root, _, files in os.walk(source_dir):
-            if self.cancel_flag: return 0
-            for file in files:
-                if pathlib.Path(file).suffix.lower() in valid_exts:
-                    count += 1
-        return count
-
     FOLDER_STRUCTURES = {
         "nested": "YYYY/YYYY-MM",
         "flat_month": "YYYY-MM",

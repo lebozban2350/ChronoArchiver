@@ -75,15 +75,3 @@ def get_log_path() -> str:
     """Return the current debug log file path."""
     _ensure_init()
     return _log_path
-
-
-def get_log_content() -> str:
-    """Return the full content of the current debug log."""
-    try:
-        path = get_log_path()
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
-                return f.read()
-    except Exception:
-        pass
-    return ""

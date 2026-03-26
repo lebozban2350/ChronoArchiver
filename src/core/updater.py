@@ -325,9 +325,6 @@ class ApplicationUpdater:
     def get_latest_version(self):
         return self._latest_version
 
-    def get_changelog(self):
-        return self._changelog
-
     def get_installer_asset_info(self, version: str) -> tuple[str, int, str] | None:
         """
         Fetch release by tag and return (download_url, size_bytes, filename) for the

@@ -10,7 +10,6 @@ import shutil
 import threading
 import time
 import subprocess
-import re
 
 import psutil
 
@@ -123,13 +122,9 @@ class AV1EncoderPanel(QWidget):
         self._current_files  = {}
         self._total_saved    = 0
         self._batch_start    = 0.0
-        self._io_bytes       = 0.0
         self._gpu_cache      = "N/A"
         self._gpu_counter    = 0
-        self._gpu_last_err_t = 0.0
-        self._gpu_last_err = ""
         self._source_scanned = False
-        self._is_scanning    = False
 
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
         _slbl  = "font-size: 9px; font-weight: 700; color: #aaa;"
@@ -623,10 +618,8 @@ class AV1EncoderPanel(QWidget):
         self._queue.clear()
         if not src or not os.path.isdir(src):
             self._source_scanned = False
-            self._is_scanning = False
             return
         self._source_scanned = False
-        self._is_scanning = True
         self._add_log("Scanning source folder...")
         self._update_start_enabled()
         debug(UTILITY_MASS_AV1_ENCODER, f"Auto-scan start: src={src}")
@@ -691,7 +684,6 @@ class AV1EncoderPanel(QWidget):
         self._continue_start_encoding(src, dst)
 
     def _apply_scan_result(self, items, scanned_src):
-        self._is_scanning = False
         if self._edit_src.text().strip() != scanned_src:
             return
         self._source_scanned = True
@@ -794,7 +786,6 @@ class AV1EncoderPanel(QWidget):
         self._queue_sizes = {p: s for p, s in self._queue}
         self._total_q_bytes   = sum(s for _, s in self._queue)
         self._done_bytes      = 0.0
-        self._io_bytes        = 0.0
         self._total_count     = len(self._queue)
         self._done_count     = 0
         self._active_jobs    = 0
