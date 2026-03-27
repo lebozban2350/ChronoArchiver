@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [4.5.4] - 2026-03-26
+### Added
+- **`upscaler_settings`**: Upscaler panel options persist under **`Settings/z_image_pro_upscaler/panel_settings.json`** (encoder-style JSON).
+- **Installer pop-ups — VRAM guidance**: OpenCV setup confirmation + progress dialog and PyTorch/diffusers confirmation + setup dialog show **recommended GDDR/VRAM** (scanner CUDA vs OpenCL paths; upscaler CUDA vs CPU).
+
+### Changed
+- **PyTorch installer (`ml_runtime`)**: Uses the same **NVIDIA → AMD → Intel** GPU detection as OpenCV — **CUDA wheels** when an NVIDIA GPU is selected; **CPU PyPI wheels** on macOS, AMD, Intel, or unknown (PyTorch has no OpenCL wheel). **`check_ml_runtime`** requires CUDA only on the CUDA install path.
+- **Z-Image engine**: Runs on **CPU** when CUDA is unavailable (float32); **EXIF-aware** load. Upscaler status shows **READY · CPU** vs **READY · CUDA**.
+- **Upscaler defaults** (HF Z-Image-Turbo recipe + img2img guides): strength **0.30**, steps **9**, max edge **2048**; tooltips updated.
+- **Upscaler panel**: `sys.path` bootstrap aligned with other panels; shared install-flow copy.
+
 ## [4.5.3] - 2026-03-26
 ### Added
 - **Debug log — installer popups**: Progress text from prerequisite / download dialogs (FFmpeg bootstrap, app update download, OpenCV install, scanner model fetch, upscaler model fetch, PyTorch/`ml_runtime` pip phases) is written **line-for-line** to the master debug log under **`Installer popup`** for easier support triage.

@@ -219,6 +219,33 @@ def detect_gpu() -> str:
     return ""
 
 
+def get_ml_torch_install_variant() -> str:
+    """
+    PyTorch pip variant for Z-Image / ml_runtime (parity with OpenCV GPU precedence).
+    - **cuda**: Linux/Windows when **detect_gpu() == "nvidia"** (published cu12x wheels).
+    - **cpu**: macOS (no CUDA), AMD/Intel, or unknown — PyPI CPU wheels (PyTorch has no OpenCL wheel).
+    """
+    if platform.system() == "Darwin":
+        return "cpu"
+    if detect_gpu() == "nvidia":
+        return "cuda"
+    return "cpu"
+
+
+def get_ml_torch_install_label() -> str:
+    """Human-readable install line for dialogs (mirrors OpenCV variant labels)."""
+    if platform.system() == "Darwin":
+        return "PyTorch (CPU — macOS)"
+    gpu = detect_gpu()
+    if gpu == "nvidia":
+        return "PyTorch (CUDA — NVIDIA)"
+    if gpu == "amd":
+        return "PyTorch (CPU — AMD; OpenCL N/A for torch)"
+    if gpu == "intel":
+        return "PyTorch (CPU — Intel; OpenCL N/A for torch)"
+    return "PyTorch (CPU)"
+
+
 def get_opencv_variant() -> str:
     """
     Variant for **AI Scanner → Install OpenCV** only (not installed by setup/bootstrap):

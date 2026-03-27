@@ -16,9 +16,9 @@ except ImportError:
     from core.debug_logger import UTILITY_APP, UTILITY_INSTALLER_POPUP, debug as _debug_log
 
 try:
-    from .venv_manager import VENV_PYTHON_MAX_LINUX_WIN, VENV_PYTHON_MIN
+    from .venv_manager import VENV_PYTHON_MAX_LINUX_WIN, VENV_PYTHON_MIN, get_ml_torch_install_variant
 except ImportError:
-    from core.venv_manager import VENV_PYTHON_MAX_LINUX_WIN, VENV_PYTHON_MIN
+    from core.venv_manager import VENV_PYTHON_MAX_LINUX_WIN, VENV_PYTHON_MIN, get_ml_torch_install_variant
 
 ProgressCB = Callable[[str, str, int, int], None]
 
@@ -49,18 +49,18 @@ def estimate_ml_runtime_components() -> tuple[list[tuple[str, int]], int]:
     Return ([(label, approx_bytes), ...], total_bytes) for the pip-based install.
     Coarse estimates used only for UI sizing/progress display.
     """
-    if platform.system() == "Darwin":
-        components = [
-            ("torch (CPU wheel)", int(0.65 * 1024**3)),
-            ("torchvision", int(0.20 * 1024**3)),
-            ("diffusers + transformers stack", int(0.30 * 1024**3)),
-        ]
-    else:
-        # cu124 wheels include CUDA libs; these dominate download size.
+    use_cuda = get_ml_torch_install_variant() == "cuda"
+    if use_cuda:
         components = [
             ("torch (CUDA/cu124 wheel)", int(2.80 * 1024**3)),
             ("torchvision", int(0.35 * 1024**3)),
             ("diffusers + transformers stack", int(0.50 * 1024**3)),
+        ]
+    else:
+        components = [
+            ("torch (CPU wheel)", int(0.65 * 1024**3)),
+            ("torchvision", int(0.20 * 1024**3)),
+            ("diffusers + transformers stack", int(0.30 * 1024**3)),
         ]
     total = sum(s for _, s in components)
     return components, total
@@ -80,6 +80,7 @@ def check_ml_runtime() -> tuple[bool, str]:
     """
     Returns (ready_for_upscale, reason).
     reason: ok | missing_torch | missing_diffusers | no_cuda | import_error
+    NVIDIA + Linux/Windows: CUDA must be usable. macOS / AMD / Intel: torch+diffusers only (CPU).
     """
     try:
         import torch
@@ -90,7 +91,7 @@ def check_ml_runtime() -> tuple[bool, str]:
     except ImportError:
         return False, "missing_diffusers"
     try:
-        if not torch.cuda.is_available():
+        if get_ml_torch_install_variant() == "cuda" and not torch.cuda.is_available():
             return False, "no_cuda"
     except Exception:
         return False, "import_error"
@@ -99,7 +100,7 @@ def check_ml_runtime() -> tuple[bool, str]:
 
 def install_ml_runtime(progress: Optional[ProgressCB] = None) -> tuple[bool, Optional[str]]:
     """
-    pip install torch (CUDA wheels on Linux/Windows) + diffusers stack into the running interpreter.
+    pip install torch (CUDA on NVIDIA Linux/Windows, else CPU) + diffusers stack.
     progress(phase, detail, downloaded, total) — total may be 0 when unknown.
     """
 
@@ -112,16 +113,16 @@ def install_ml_runtime(progress: Optional[ProgressCB] = None) -> tuple[bool, Opt
         if progress:
             progress(phase, detail, downloaded, total)
 
-    # CUDA wheels (Linux/Windows) track a narrower CPython range than CPU-only macOS builds.
-    if platform.system() != "Darwin":
+    variant = get_ml_torch_install_variant()
+
+    # CUDA wheels track a narrower CPython range than many CPU builds.
+    if platform.system() != "Darwin" and variant == "cuda":
         py_ok, py_msg = _cuda_torch_supported_python()
         if not py_ok:
             _debug_log(UTILITY_APP, f"install_ml_runtime: blocked ({py_msg})")
             return False, py_msg
 
-    if platform.system() == "Darwin":
-        torch_cmd = _pip("install", "-U", "torch", "torchvision")
-    else:
+    if variant == "cuda":
         torch_cmd = _pip(
             "install",
             "-U",
@@ -130,6 +131,11 @@ def install_ml_runtime(progress: Optional[ProgressCB] = None) -> tuple[bool, Opt
             "--index-url",
             "https://download.pytorch.org/whl/cu124",
         )
+        torch_phase = "Installing PyTorch (CUDA)…"
+    else:
+        torch_cmd = _pip("install", "-U", "torch", "torchvision")
+        torch_phase = "Installing PyTorch (CPU)…"
+
     stack_cmd = _pip(
         "install",
         "-U",
@@ -141,7 +147,7 @@ def install_ml_runtime(progress: Optional[ProgressCB] = None) -> tuple[bool, Opt
     )
     steps = [
         ("Upgrading pip…", _pip("install", "-U", "pip")),
-        ("Installing PyTorch (CUDA)…" if platform.system() != "Darwin" else "Installing PyTorch…", torch_cmd),
+        (torch_phase, torch_cmd),
         ("Installing diffusers stack…", stack_cmd),
     ]
 
@@ -241,4 +247,3 @@ def uninstall_ml_runtime(progress: Optional[ProgressCB] = None) -> bool:
         return rc == 0
     except Exception:
         return False
-

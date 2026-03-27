@@ -48,13 +48,15 @@ class ZImageUpscaleEngine:
     ):
         import torch
         from diffusers import ZImageImg2ImgPipeline
-        from PIL import Image
+        from PIL import Image, ImageOps
 
-        if not torch.cuda.is_available():
-            raise RuntimeError("CUDA GPU is required for Z-Image-Turbo.")
-
-        device = "cuda"
-        dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        if torch.cuda.is_available():
+            device = "cuda"
+            dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        else:
+            device = "cpu"
+            dtype = torch.float32
+            log("Using CPU for Z-Image (no CUDA). This will be slow and needs substantial RAM.")
 
         if self._pipe is None:
             log("Loading Z-Image Img2Img pipeline (first time may take a while)…")
@@ -71,7 +73,7 @@ class ZImageUpscaleEngine:
                     pass
             log("Pipeline ready.")
 
-        img = Image.open(image_path).convert("RGB")
+        img = ImageOps.exif_transpose(Image.open(image_path)).convert("RGB")
         ow, oh = img.size
         tw, th = compute_output_size(ow, oh, scale, max_side)
         want_w, want_h = ow * scale, oh * scale
@@ -82,7 +84,8 @@ class ZImageUpscaleEngine:
             )
 
         init = img.resize((tw, th), Image.Resampling.LANCZOS)
-        generator = torch.Generator(device=device)
+        gen_device = device if device == "cuda" else "cpu"
+        generator = torch.Generator(device=gen_device)
         if seed >= 0:
             generator.manual_seed(int(seed))
 

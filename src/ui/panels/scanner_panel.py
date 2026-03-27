@@ -70,6 +70,19 @@ def _scan_eng_btn_qss(w: int, h: int, fg: str, bd: str, bg: str = "transparent")
     )
 
 
+def _opencv_installer_vram_guidance(variant: str) -> str:
+    """Short GDDR/VRAM note for OpenCV installer pop-ups (CUDA vs OpenCL paths)."""
+    if variant == "cuda":
+        return (
+            "Recommended GDDR: ≥ 4 GB on the NVIDIA GPU for YuNet + YOLOv8n DNN inference; "
+            "8 GB+ GDDR for comfortable headroom on large images."
+        )
+    return (
+        "Recommended graphics memory: ≥ 4 GB VRAM on AMD/Intel dGPU, or a recent iGPU with 16 GB+ "
+        "system RAM (shared memory). Light use may work on ~2 GB class graphics; OpenCL uses GPU memory."
+    )
+
+
 class _Signals(QObject):
     log_msg  = Signal(str)
     progress = Signal(float)
@@ -84,17 +97,23 @@ class OpenCVSetupDialog(QDialog):
     """Popup for OpenCV install progress."""
     phase_update = Signal(str, str, int, int)  # phase, detail, downloaded, total
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, vram_guidance: str = ""):
         super().__init__(parent)
         self.setWindowTitle("OpenCV Setup")
         self.setModal(False)
-        self.setFixedSize(420, 180)
+        h_main = 216 if vram_guidance else 180
+        self.setFixedSize(420, h_main)
         v = QVBoxLayout(self)
         v.setSpacing(8)
         v.setContentsMargins(12, 12, 12, 12)
         self._lbl_phase = QLabel("Preparing...")
         self._lbl_phase.setStyleSheet("font-size: 10px; font-weight: 600; color: #10b981;")
         v.addWidget(self._lbl_phase)
+        if vram_guidance:
+            self._lbl_vram = QLabel(vram_guidance)
+            self._lbl_vram.setWordWrap(True)
+            self._lbl_vram.setStyleSheet("font-size: 8px; color: #6b7280;")
+            v.addWidget(self._lbl_vram)
         self._lbl_detail = QLabel("")
         self._lbl_detail.setStyleSheet("font-size: 8px; color: #6b7280;")
         v.addWidget(self._lbl_detail)
@@ -781,6 +800,7 @@ class AIScannerPanel(QWidget):
             lines.append(f"\nTotal download: {total_sz}")
         if variant == "cuda":
             lines.append("\nCUDA runtime, cuBLAS, cuFFT, and cuDNN install via pip into venv (no sudo).")
+        lines.append("\n" + _opencv_installer_vram_guidance(variant))
         lines.append("\nInstall into app's private venv (no sudo required).")
         reply = QMessageBox.question(
             self,
@@ -793,7 +813,7 @@ class AIScannerPanel(QWidget):
             return
         self._setup_in_progress = True
         self._update_start_enabled()
-        dlg = OpenCVSetupDialog(self)
+        dlg = OpenCVSetupDialog(self, vram_guidance=_opencv_installer_vram_guidance(variant))
 
         def _prog(phase, detail="", downloaded=0, total=0):
             dlg.phase_update.emit(phase, detail, downloaded, total)

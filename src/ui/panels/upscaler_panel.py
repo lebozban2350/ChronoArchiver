@@ -5,6 +5,7 @@ Z-Image Pro Upscaler panel for ChronoArchiver (PyTorch row + models row, engine 
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import time
 import tempfile
@@ -41,8 +42,12 @@ from ui.console_style import PANEL_CONSOLE_TEXTEDIT_STYLE, message_to_html
 
 from PIL import Image, ImageOps
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+
 from core.app_paths import settings_dir
 from core.debug_logger import debug as _debug_installer, UTILITY_INSTALLER_POPUP
+from core.upscaler_settings import UpscalerPanelSettings
+from core.venv_manager import get_ml_torch_install_label, get_ml_torch_install_variant
 from core.ml_runtime import (
     check_ml_runtime,
     install_ml_runtime,
@@ -79,6 +84,18 @@ def _scan_browse_btn_qss(bar_h: int, btn_w: int, border: str, fg: str) -> str:
     )
 
 
+def _pytorch_installer_vram_guidance() -> str:
+    """GDDR / RAM note for PyTorch + diffusers installer pop-ups."""
+    if get_ml_torch_install_variant() == "cuda":
+        return (
+            "Recommended GDDR: ≥ 16 GB on NVIDIA for Z-Image-Turbo class CUDA inference (model guidance); "
+            "8 GB GDDR may work with smaller max resolution — lower it if you hit OOM."
+        )
+    return (
+        "CPU PyTorch: no GDDR. Prefer 32 GB+ system RAM for practical Z-Image runs; CPU is far slower than CUDA."
+    )
+
+
 def _fmt_bytes(b: int) -> str:
     if b <= 0:
         return "0 B"
@@ -110,7 +127,7 @@ class EngineSetupDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("PyTorch & diffusers setup")
         self.setModal(False)
-        self.setFixedSize(460, 210)
+        self.setFixedSize(460, 248)
         v = QVBoxLayout(self)
         v.setSpacing(8)
         v.setContentsMargins(12, 12, 12, 12)
@@ -247,6 +264,8 @@ class ZImageProUpscalerPanel(QWidget):
             pass
         self._model_mgr = ZImageModelManager(self._z_settings / "models")
         self._engine = ZImageUpscaleEngine(self._model_mgr.snapshot_dir)
+        self._panel_prefs = UpscalerPanelSettings(self._z_settings)
+        self._loading_panel_prefs = False
         self._setup_in_progress = False
         self._upscale_in_progress = False
         self._last_result = None
@@ -411,11 +430,14 @@ class ZImageProUpscalerPanel(QWidget):
         self._spin_strength = QDoubleSpinBox()
         self._spin_strength.setRange(0.15, 0.85)
         self._spin_strength.setSingleStep(0.05)
-        self._spin_strength.setValue(0.42)
+        self._spin_strength.setValue(0.30)
         self._spin_strength.setDecimals(2)
         self._spin_strength.setStyleSheet(_spin_style)
         self._spin_strength.setFixedSize(44, 18)
-        self._spin_strength.setToolTip("Higher = stronger AI change vs. the LANCZOS upscale.")
+        self._spin_strength.setToolTip(
+            "Img2img denoise: ~0.25–0.35 keeps layout after LANCZOS (typical refine); "
+            "higher = bolder restyle (community guides; Z-Image-Turbo is few-step)."
+        )
         h_tune.addWidget(self._spin_strength, 0, Qt.AlignmentFlag.AlignVCenter)
         h_tune.addWidget(_field_label("Steps", 40))
         self._spin_steps = QSpinBox()
@@ -423,6 +445,9 @@ class ZImageProUpscalerPanel(QWidget):
         self._spin_steps.setValue(9)
         self._spin_steps.setStyleSheet(_spin_style)
         self._spin_steps.setFixedSize(44, 18)
+        self._spin_steps.setToolTip(
+            "Z-Image-Turbo is distilled for ~8 DiT steps; HF docs use num_inference_steps=9 (8 forwards)."
+        )
         h_tune.addWidget(self._spin_steps, 0, Qt.AlignmentFlag.AlignVCenter)
         h_tune.addWidget(_field_label("Seed", 36))
         self._spin_seed = QSpinBox()
@@ -430,7 +455,7 @@ class ZImageProUpscalerPanel(QWidget):
         self._spin_seed.setValue(-1)
         self._spin_seed.setStyleSheet(_spin_style)
         self._spin_seed.setFixedSize(44, 18)
-        self._spin_seed.setToolTip("-1 = random seed each run")
+        self._spin_seed.setToolTip("-1 = random each run; fixed seed for reproducible img2img (try another seed before adding steps).")
         h_tune.addWidget(self._spin_seed, 0, Qt.AlignmentFlag.AlignVCenter)
         v_tune.addLayout(h_tune)
         v_tune.addStretch(1)
@@ -602,10 +627,12 @@ class ZImageProUpscalerPanel(QWidget):
         self._spin_max_edge = QSpinBox()
         self._spin_max_edge.setRange(512, 8192)
         self._spin_max_edge.setSingleStep(64)
-        self._spin_max_edge.setValue(3072)
+        self._spin_max_edge.setValue(2048)
         self._spin_max_edge.setStyleSheet(_spin_style)
         self._spin_max_edge.setFixedSize(58, 18)
-        self._spin_max_edge.setToolTip("Longest output side (px). Lower if you hit VRAM limits.")
+        self._spin_max_edge.setToolTip(
+            "Caps longest side after scale-up; Turbo is aimed at ~16 GB class GPUs — raise toward 3072+ if you have headroom."
+        )
         h_out_actions.addWidget(self._spin_max_edge, 0, Qt.AlignmentFlag.AlignVCenter)
         h_out_actions.addStretch(1)
 
@@ -668,8 +695,78 @@ class ZImageProUpscalerPanel(QWidget):
         v_log.addWidget(self._log_edit)
         root.addWidget(grp_log, 0)
 
+        self._loading_panel_prefs = True
+        try:
+            prefs = self._panel_prefs.load()
+            p_img = (prefs.get("source_image") or "").strip()
+            if p_img:
+                if os.path.isfile(p_img):
+                    self._apply_source_path(p_img, reset_edits=True)
+                else:
+                    self._edit_image.setText(p_img)
+            self._edit_prompt.setText(str(prefs.get("prompt") or self._edit_prompt.text()))
+            self._spin_strength.setValue(float(prefs.get("strength", self._spin_strength.value())))
+            self._spin_steps.setValue(int(prefs.get("steps", self._spin_steps.value())))
+            self._spin_seed.setValue(int(prefs.get("seed", self._spin_seed.value())))
+            idx = int(prefs.get("scale_index", 0))
+            self._combo_scale.setCurrentIndex(max(0, min(self._combo_scale.count() - 1, idx)))
+            self._spin_max_edge.setValue(int(prefs.get("max_edge", self._spin_max_edge.value())))
+            fmt = str(prefs.get("save_fmt", "PNG")).upper()
+            if fmt in ("PNG", "JPG"):
+                self._combo_save_fmt.setCurrentText(fmt)
+        finally:
+            self._loading_panel_prefs = False
+
+        self._edit_image.textChanged.connect(lambda *_: self._persist_panel_prefs())
+        self._edit_prompt.textChanged.connect(lambda *_: self._persist_panel_prefs())
+        self._spin_strength.valueChanged.connect(lambda *_: self._persist_panel_prefs())
+        self._spin_steps.valueChanged.connect(lambda *_: self._persist_panel_prefs())
+        self._spin_seed.valueChanged.connect(lambda *_: self._persist_panel_prefs())
+        self._combo_scale.currentIndexChanged.connect(lambda *_: self._persist_panel_prefs())
+        self._spin_max_edge.valueChanged.connect(lambda *_: self._persist_panel_prefs())
+        self._combo_save_fmt.currentTextChanged.connect(lambda *_: self._persist_panel_prefs())
+
         self._refresh_engine_and_models()
         self._update_buttons()
+
+    def _panel_prefs_payload(self) -> dict:
+        return {
+            "source_image": self._edit_image.text().strip(),
+            "prompt": self._edit_prompt.text(),
+            "strength": float(self._spin_strength.value()),
+            "steps": int(self._spin_steps.value()),
+            "seed": int(self._spin_seed.value()),
+            "scale_index": int(self._combo_scale.currentIndex()),
+            "max_edge": int(self._spin_max_edge.value()),
+            "save_fmt": (self._combo_save_fmt.currentText().strip().upper() or "PNG"),
+        }
+
+    def _persist_panel_prefs(self) -> None:
+        if self._loading_panel_prefs:
+            return
+        self._panel_prefs.save(self._panel_prefs_payload())
+
+    def _apply_source_path(self, p: str) -> None:
+        """Load image path like Browse (clears edits, refreshes previews)."""
+        p = (p or "").strip()
+        if not p:
+            return
+        self._edit_image.setText(p)
+        self._source_path = p
+        self._preview_zoom = 1.0
+        self._edited_path = None
+        self._undo_stack.clear()
+        try:
+            self._work_pil = ImageOps.exif_transpose(Image.open(p)).convert("RGB")
+        except Exception:
+            self._work_pil = None
+        self._show_original_preview(p)
+        self._lbl_up.clear()
+        self._lbl_up.setText("—")
+        self._last_result = None
+        self._update_buttons()
+        self._update_undo_ui()
+        self._persist_panel_prefs()
 
     def _update_undo_ui(self) -> None:
         n = len(self._undo_stack)
@@ -875,12 +972,28 @@ class ZImageProUpscalerPanel(QWidget):
             self._lbl_pytorch.setText(txt)
             self._lbl_pytorch.setStyleSheet(f"font-size:9px; font-weight:700; color:{col};")
             self._btn_install_engine.setText("Install PyTorch")
-            self._btn_install_engine.setToolTip("pip install: torch (CUDA) + diffusers stack")
+            self._btn_install_engine.setToolTip(
+                f"{get_ml_torch_install_label()} + diffusers stack (pip)"
+            )
             self._btn_install_engine.show()
             self._btn_uninstall_engine.hide()
         else:
-            suf = self._gpu_suffix()
-            self._lbl_pytorch.setText(f"READY · CUDA · {suf}" if suf else "READY · CUDA")
+            try:
+                import torch
+
+                use_cuda = bool(torch.cuda.is_available())
+            except Exception:
+                use_cuda = False
+            if use_cuda:
+                suf = self._gpu_suffix()
+                self._lbl_pytorch.setText(f"READY · CUDA · {suf}" if suf else "READY · CUDA")
+                self._lbl_pytorch.setToolTip("")
+            else:
+                self._lbl_pytorch.setText("READY · CPU")
+                self._lbl_pytorch.setToolTip(
+                    "PyTorch on CPU (typical for AMD/Intel, macOS, or no NVIDIA CUDA). "
+                    "Runs are slower than on NVIDIA CUDA."
+                )
             self._lbl_pytorch.setStyleSheet("font-size:9px; font-weight:700; color:#10b981;")
             self._btn_install_engine.setText("Install PyTorch")
             self._btn_install_engine.setToolTip("")
@@ -932,12 +1045,17 @@ class ZImageProUpscalerPanel(QWidget):
         lines = [
             "Download and install PyTorch + diffusers stack?",
             "",
+            "Selected install:",
+            f"  • {get_ml_torch_install_label()}",
+            "",
             "Components:",
         ]
         for label, sz in components:
             lines.append(f"  • {label}: {_fmt_bytes(sz)}")
         lines.append("")
         lines.append(f"Estimated total download: {_fmt_bytes(total_bytes)}")
+        lines.append("")
+        lines.append(_pytorch_installer_vram_guidance())
         lines.append("")
         lines.append("Requires internet. You may need to restart the app afterward.")
         reply = QMessageBox.question(
@@ -955,6 +1073,8 @@ class ZImageProUpscalerPanel(QWidget):
         self._update_buttons()
         dlg = EngineSetupDialog(self)
         dlg._lbl_components.setText(
+            f"{get_ml_torch_install_label()}\n\n"
+            f"{_pytorch_installer_vram_guidance()}\n\n"
             "Components:\n"
             + "\n".join([f"  • {label}: {_fmt_bytes(sz)}" for (label, sz) in components])
             + f"\n\nEstimated total download: {_fmt_bytes(total_bytes)}"
@@ -1054,23 +1174,7 @@ class ZImageProUpscalerPanel(QWidget):
             "Images (*.png *.jpg *.jpeg *.webp *.bmp *.tif *.tiff);;All files (*)",
         )
         if p:
-            self._edit_image.setText(p)
-            self._source_path = p
-            self._preview_zoom = 1.0
-            self._edited_path = None
-            self._undo_stack.clear()
-            # Keep an in-memory working copy for quick rotate/crop/flip edits.
-            try:
-                self._work_pil = ImageOps.exif_transpose(Image.open(p)).convert("RGB")
-            except Exception:
-                self._work_pil = None
-
-            self._show_original_preview(p)
-            self._lbl_up.clear()
-            self._lbl_up.setText("—")
-            self._last_result = None
-            self._update_buttons()
-            self._update_undo_ui()
+            self._apply_source_path(p)
 
     def _preview_target_size(self) -> tuple[int, int]:
         z = max(0.75, min(float(self._preview_zoom), 1.75))
