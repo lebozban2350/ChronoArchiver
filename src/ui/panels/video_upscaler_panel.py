@@ -65,16 +65,31 @@ from core.venv_manager import get_ml_torch_install_label
 
 from ui.panels.upscaler_panel import EngineSetupDialog
 
+# Action row: REFRESH + UPSCALE (same geometry; aligns with parameter spin row).
+_VUP_ACTION_W = 80
+_VUP_ACTION_H = 22
+
+_VUP_REFRESH_BTN_QSS = (
+    "QPushButton {"
+    "background-color:#1a1a1a; color:#e5e7eb; border:1px solid #262626; border-radius:4px; "
+    f"font-size:9px; font-weight:800; min-width:{_VUP_ACTION_W}px; max-width:{_VUP_ACTION_W}px; "
+    f"min-height:{_VUP_ACTION_H}px; max-height:{_VUP_ACTION_H}px; padding:0px; "
+    "}"
+    "QPushButton:hover:enabled { background-color:#262626; color:#fff; }"
+    "QPushButton:disabled { color:#6b7280; background-color:#1a1a1a; border-color:#262626; }"
+)
+
 
 def _run_video_btn_stylesheet(*, pulse: bool = False) -> str:
     """Run video upscale (#btnStart): fixed size; guide pulse only swaps border (red ↔ green)."""
     bd = "#ef4444" if pulse else "#10b981"
+    w, h = _VUP_ACTION_W, _VUP_ACTION_H
     return (
         "QPushButton#btnStart {"
         "background-color:#10b981; color:#064e3b; "
         f"border:2px solid {bd}; "
         "font-size:9px; font-weight:900; "
-        "min-width:128px; max-width:128px; min-height:28px; max-height:28px; padding:0px; "
+        f"min-width:{w}px; max-width:{w}px; min-height:{h}px; max-height:{h}px; padding:0px; "
         "}"
         "QPushButton#btnStart:hover:enabled {"
         "background-color:#34d399; color:#064e3b; "
@@ -83,7 +98,7 @@ def _run_video_btn_stylesheet(*, pulse: bool = False) -> str:
         "QPushButton#btnStart:disabled {"
         "background-color:#1a1a1a; color:#6b7280; border:2px solid #262626; "
         "font-size:9px; font-weight:900; "
-        "min-width:128px; max-width:128px; min-height:28px; max-height:28px; padding:0px; "
+        f"min-width:{w}px; max-width:{w}px; min-height:{h}px; max-height:{h}px; padding:0px; "
         "}"
     )
 
@@ -138,7 +153,7 @@ def _user_scale_from_index(i: int) -> float:
     return (2.0, 3.0, 4.0)[max(0, min(2, i))]
 
 
-def _pixmap_from_bgr(bgr, max_w: int = 320, max_h: int = 280) -> QPixmap:
+def _pixmap_from_bgr(bgr, max_w: int = 320, max_h: int = 300) -> QPixmap:
     import cv2
 
     if bgr is None:
@@ -355,7 +370,7 @@ class VideoUpscalerPanel(QWidget):
         vo.addWidget(QLabel("Original", objectName="previewTitle"))
         self._lbl_orig = QLabel("No video")
         self._lbl_orig.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._lbl_orig.setMinimumSize(280, 240)
+        self._lbl_orig.setMinimumSize(280, 320)
         self._lbl_orig.setStyleSheet("color:#3f3f46; font-size:10px;")
         vo.addWidget(self._lbl_orig, 1)
         hp.addWidget(fr_o, 1)
@@ -370,18 +385,19 @@ class VideoUpscalerPanel(QWidget):
         vp.addWidget(QLabel("AI preview", objectName="previewTitle"))
         self._lbl_prev = QLabel("—")
         self._lbl_prev.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._lbl_prev.setMinimumSize(280, 240)
+        self._lbl_prev.setMinimumSize(280, 320)
         self._lbl_prev.setStyleSheet("color:#3f3f46; font-size:10px;")
         vp.addWidget(self._lbl_prev, 1)
         hp.addWidget(fr_p, 1)
-        root.addWidget(grp_prev, 3)
+        root.addWidget(grp_prev, 5)
 
         grp_ctrl = QGroupBox("Real-ESRGAN · output & color")
         vc_ctrl = QVBoxLayout(grp_ctrl)
         vc_ctrl.setContentsMargins(8, 4, 10, 6)
-        vc_ctrl.setSpacing(5)
-        h_params = QHBoxLayout()
-        h_params.setSpacing(5)
+        vc_ctrl.setSpacing(0)
+        h_left = QHBoxLayout()
+        h_left.setSpacing(4)
+        h_left.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._combo_scale = QComboBox()
         self._combo_scale.addItem("2×", 0)
         self._combo_scale.addItem("3×", 1)
@@ -390,26 +406,28 @@ class VideoUpscalerPanel(QWidget):
         self._combo_scale.setStyleSheet(_combo_style)
         self._combo_scale.setFixedSize(52, 22)
         self._combo_scale.currentIndexChanged.connect(lambda *_: (self._refresh_engine_labels(), self._update_buttons()))
-        h_params.addWidget(field_label("Scale", 40))
-        h_params.addWidget(self._combo_scale)
+        h_left.addWidget(field_label("Scale", 40))
+        h_left.addWidget(self._combo_scale)
         self._spin_max_edge = QSpinBox()
         self._spin_max_edge.setRange(1280, 3840)
         self._spin_max_edge.setSingleStep(16)
         self._spin_max_edge.setValue(3840)
         self._spin_max_edge.setStyleSheet(_spin_style)
         self._spin_max_edge.setFixedWidth(68)
+        self._spin_max_edge.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._spin_max_edge.setToolTip("Cap longest side after upscale (4K = 3840 on the long edge).")
-        h_params.addWidget(field_label("Max edge", 50))
-        h_params.addWidget(self._spin_max_edge)
+        h_left.addWidget(field_label("Max edge", 64))
+        h_left.addWidget(self._spin_max_edge)
         self._spin_tile = QSpinBox()
         self._spin_tile.setRange(0, 512)
         self._spin_tile.setSingleStep(32)
         self._spin_tile.setValue(400)
         self._spin_tile.setStyleSheet(_spin_style)
         self._spin_tile.setFixedWidth(48)
+        self._spin_tile.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._spin_tile.setToolTip("Tile size for GPU memory; 0 = full frame (needs VRAM). Try 256–512.")
-        h_params.addWidget(field_label("Tile", 32))
-        h_params.addWidget(self._spin_tile)
+        h_left.addWidget(field_label("Tile", 32))
+        h_left.addWidget(self._spin_tile)
 
         self._sat = QDoubleSpinBox()
         self._sat.setRange(0.0, 2.0)
@@ -418,15 +436,17 @@ class VideoUpscalerPanel(QWidget):
         self._sat.setDecimals(2)
         self._sat.setStyleSheet(_spin_style)
         self._sat.setFixedWidth(48)
-        h_params.addWidget(field_label("Sat", 28))
-        h_params.addWidget(self._sat)
+        self._sat.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        h_left.addWidget(field_label("Sat", 28))
+        h_left.addWidget(self._sat)
         self._bright = QDoubleSpinBox()
         self._bright.setRange(-80, 80)
         self._bright.setValue(0)
         self._bright.setStyleSheet(_spin_style)
         self._bright.setFixedWidth(48)
-        h_params.addWidget(field_label("Bright", 38))
-        h_params.addWidget(self._bright)
+        self._bright.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        h_left.addWidget(field_label("Bright", 38))
+        h_left.addWidget(self._bright)
         self._contrast = QDoubleSpinBox()
         self._contrast.setRange(0.2, 2.0)
         self._contrast.setSingleStep(0.05)
@@ -434,8 +454,9 @@ class VideoUpscalerPanel(QWidget):
         self._contrast.setDecimals(2)
         self._contrast.setStyleSheet(_spin_style)
         self._contrast.setFixedWidth(48)
-        h_params.addWidget(field_label("Contrast", 46))
-        h_params.addWidget(self._contrast)
+        self._contrast.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        h_left.addWidget(field_label("Contrast", 58))
+        h_left.addWidget(self._contrast)
         self._sharp = QDoubleSpinBox()
         self._sharp.setRange(0.0, 1.5)
         self._sharp.setSingleStep(0.05)
@@ -443,29 +464,43 @@ class VideoUpscalerPanel(QWidget):
         self._sharp.setDecimals(2)
         self._sharp.setStyleSheet(_spin_style)
         self._sharp.setFixedWidth(44)
+        self._sharp.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._sharp.setToolTip("Unsharp strength for extra crispness (use lightly; 0 = off).")
-        h_params.addWidget(field_label("Sharp", 34))
-        h_params.addWidget(self._sharp)
-        h_params.addStretch(1)
+        h_left.addWidget(field_label("Sharp", 34))
+        h_left.addWidget(self._sharp)
 
-        h_actions = QHBoxLayout()
-        h_actions.setSpacing(8)
-        h_actions.addStretch(1)
-        self._btn_refresh_prev = QPushButton("Refresh preview")
-        self._btn_refresh_prev.setFixedHeight(26)
-        self._btn_refresh_prev.setMinimumWidth(108)
+        w_params = QWidget()
+        w_params.setLayout(h_left)
+        w_params.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+
+        self._btn_refresh_prev = QPushButton("REFRESH")
+        self._btn_refresh_prev.setFixedSize(_VUP_ACTION_W, _VUP_ACTION_H)
+        self._btn_refresh_prev.setStyleSheet(_VUP_REFRESH_BTN_QSS)
+        self._btn_refresh_prev.setToolTip("Render AI preview on the sample frame")
         self._btn_refresh_prev.clicked.connect(self._run_preview)
-        h_actions.addWidget(self._btn_refresh_prev)
 
-        self._btn_run = QPushButton("Run video upscale")
+        self._btn_run = QPushButton("UPSCALE")
         self._btn_run.setObjectName("btnStart")
-        self._btn_run.setFixedSize(128, 28)
+        self._btn_run.setFixedSize(_VUP_ACTION_W, _VUP_ACTION_H)
         self._btn_run.setStyleSheet(_run_video_btn_stylesheet(pulse=False))
+        self._btn_run.setToolTip("Export full video (H.264 + audio when possible)")
         self._btn_run.clicked.connect(self._run_full_job)
+
+        w_actions = QWidget()
+        h_actions = QHBoxLayout(w_actions)
+        h_actions.setContentsMargins(0, 0, 0, 0)
+        h_actions.setSpacing(6)
+        h_actions.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        h_actions.addWidget(self._btn_refresh_prev)
         h_actions.addWidget(self._btn_run)
 
-        vc_ctrl.addLayout(h_params)
-        vc_ctrl.addLayout(h_actions)
+        h_row = QHBoxLayout()
+        h_row.setSpacing(8)
+        h_row.addWidget(w_params, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        h_row.addStretch(1)
+        h_row.addWidget(w_actions, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+        vc_ctrl.addLayout(h_row)
         root.addWidget(grp_ctrl)
 
         h_bar = QHBoxLayout()
@@ -729,7 +764,7 @@ class VideoUpscalerPanel(QWidget):
             return
         self._lbl_orig.setPixmap(_pixmap_from_bgr(fr))
         self._lbl_orig.setText("")
-        self._lbl_prev.setText("Tap Refresh preview")
+        self._lbl_prev.setText("Tap REFRESH")
         self._lbl_prev.setPixmap(QPixmap())
 
     def _run_preview(self):

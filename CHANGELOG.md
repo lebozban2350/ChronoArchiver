@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [4.7.5] - 2026-03-27
+
+### Changed
+- **AI Video Upscaler**: Wider **Max edge** and **Contrast** field labels (no clipped “M” / “C”); **REFRESH** / **UPSCALE** equal-size buttons (right-aligned cluster); numeric fields left-aligned in **Real-ESRGAN** row; extra vertical space for **Original** / **AI preview** (layout stretch + taller min height + preview pixmap cap).
+
 ## [4.7.4] - 2026-03-27
 
 ### Changed
