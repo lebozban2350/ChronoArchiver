@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [4.6.0] - 2026-03-26
+### Changed
+- **Upscaler controls**: Replaced **Seed** with **CFG** in the tune row and persistence; CFG now directly controls prompt guidance strength for edit-driven runs.
+- **Upscaler prompt/source UX**: Prompt stays empty on relaunch, uses finalized helper text (**"Empty prompt: Only clean-up and upscaling will occur..."**), and source image is not restored after app restart.
+- **Upscaler runtime behavior**: Prompt-driven runs respect selected **strength** exactly (no forced minimum clamp).
+- **README**: Updated current version metadata and feature notes.
+
 ## [4.5.11] - 2026-03-26
 ### Changed
 - **Upscaler UI polish**: PyTorch/Models status labels in Engine Status were shifted slightly left to prevent overlap near uninstall actions.

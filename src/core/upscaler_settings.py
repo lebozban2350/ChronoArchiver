@@ -18,7 +18,7 @@ DEFAULTS: dict = {
     # Lower default to preserve source while still allowing prompt edits.
     "strength": 0.35,
     "steps": 9,
-    "seed": -1,
+    "cfg": 6.0,
     "scale_index": 0,
     "max_edge": 2048,
     "save_fmt": "PNG",
@@ -42,10 +42,10 @@ def _sanitize(data: dict, defaults: dict) -> dict:
         stp = int(defaults["steps"])
     out["steps"] = max(4, min(16, stp))
     try:
-        sd = int(out.get("seed", defaults["seed"]))
+        cfg = float(out.get("cfg", defaults["cfg"]))
     except (TypeError, ValueError):
-        sd = int(defaults["seed"])
-    out["seed"] = max(-1, min(2_147_483_647, sd))
+        cfg = float(defaults["cfg"])
+    out["cfg"] = max(0.0, min(12.0, cfg))
     try:
         si = int(out.get("scale_index", defaults["scale_index"]))
     except (TypeError, ValueError):

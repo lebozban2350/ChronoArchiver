@@ -523,14 +523,19 @@ class ZImageProUpscalerPanel(QWidget):
             "Z-Image-Turbo is distilled for ~8 DiT steps; HF docs use num_inference_steps=9 (8 forwards)."
         )
         h_tune.addWidget(self._spin_steps, 0, Qt.AlignmentFlag.AlignVCenter)
-        h_tune.addWidget(_field_label("Seed", 36))
-        self._spin_seed = QSpinBox()
-        self._spin_seed.setRange(-1, 2_147_483_647)
-        self._spin_seed.setValue(-1)
-        self._spin_seed.setStyleSheet(_spin_style)
-        self._spin_seed.setFixedSize(44, 18)
-        self._spin_seed.setToolTip("-1 = random each run; fixed seed for reproducible img2img (try another seed before adding steps).")
-        h_tune.addWidget(self._spin_seed, 0, Qt.AlignmentFlag.AlignVCenter)
+        h_tune.addWidget(_field_label("CFG", 30))
+        self._spin_cfg = QDoubleSpinBox()
+        self._spin_cfg.setRange(0.0, 12.0)
+        self._spin_cfg.setSingleStep(0.5)
+        self._spin_cfg.setValue(6.0)
+        self._spin_cfg.setDecimals(1)
+        self._spin_cfg.setStyleSheet(_spin_style)
+        self._spin_cfg.setFixedSize(48, 18)
+        self._spin_cfg.setToolTip(
+            "Prompt guidance scale: higher makes prompt edits stronger. "
+            "Ignored when prompt is empty (cleanup/upscale-only mode)."
+        )
+        h_tune.addWidget(self._spin_cfg, 0, Qt.AlignmentFlag.AlignVCenter)
         v_tune.addLayout(h_tune)
         v_tune.addStretch(1)
         left_strip_col = QWidget()
@@ -776,7 +781,7 @@ class ZImageProUpscalerPanel(QWidget):
             prefs = self._panel_prefs.load()
             self._spin_strength.setValue(float(prefs.get("strength", self._spin_strength.value())))
             self._spin_steps.setValue(int(prefs.get("steps", self._spin_steps.value())))
-            self._spin_seed.setValue(int(prefs.get("seed", self._spin_seed.value())))
+            self._spin_cfg.setValue(float(prefs.get("cfg", self._spin_cfg.value())))
             idx = int(prefs.get("scale_index", 0))
             self._combo_scale.setCurrentIndex(max(0, min(self._combo_scale.count() - 1, idx)))
             self._spin_max_edge.setValue(int(prefs.get("max_edge", self._spin_max_edge.value())))
@@ -790,7 +795,7 @@ class ZImageProUpscalerPanel(QWidget):
         self._edit_prompt.textChanged.connect(lambda *_: self._persist_panel_prefs())
         self._spin_strength.valueChanged.connect(lambda *_: self._persist_panel_prefs())
         self._spin_steps.valueChanged.connect(lambda *_: self._persist_panel_prefs())
-        self._spin_seed.valueChanged.connect(lambda *_: self._persist_panel_prefs())
+        self._spin_cfg.valueChanged.connect(lambda *_: self._persist_panel_prefs())
         self._combo_scale.currentIndexChanged.connect(lambda *_: self._persist_panel_prefs())
         self._spin_max_edge.valueChanged.connect(lambda *_: self._persist_panel_prefs())
         self._combo_save_fmt.currentTextChanged.connect(lambda *_: self._persist_panel_prefs())
@@ -807,7 +812,7 @@ class ZImageProUpscalerPanel(QWidget):
             "prompt": "",
             "strength": float(self._spin_strength.value()),
             "steps": int(self._spin_steps.value()),
-            "seed": int(self._spin_seed.value()),
+            "cfg": float(self._spin_cfg.value()),
             "scale_index": int(self._combo_scale.currentIndex()),
             "max_edge": int(self._spin_max_edge.value()),
             "save_fmt": (self._combo_save_fmt.currentText().strip().upper() or "PNG"),
@@ -1444,7 +1449,7 @@ class ZImageProUpscalerPanel(QWidget):
         prompt = self._edit_prompt.text().strip()
         strength = float(self._spin_strength.value())
         steps = int(self._spin_steps.value())
-        seed = int(self._spin_seed.value())
+        cfg = float(self._spin_cfg.value())
 
         def _work():
             try:
@@ -1455,7 +1460,7 @@ class ZImageProUpscalerPanel(QWidget):
                     prompt=prompt,
                     strength=strength,
                     num_inference_steps=steps,
-                    seed=seed,
+                    cfg=cfg,
                     log=_log,
                 )
                 self._sig.upscale_done.emit(img)

@@ -43,7 +43,7 @@ class ZImageUpscaleEngine:
         prompt: str,
         strength: float,
         num_inference_steps: int,
-        seed: int,
+        cfg: float,
         log,
     ):
         import torch
@@ -84,16 +84,11 @@ class ZImageUpscaleEngine:
             )
 
         init = img.resize((tw, th), Image.Resampling.LANCZOS)
-        gen_device = device if device == "cuda" else "cpu"
-        generator = torch.Generator(device=gen_device)
-        if seed >= 0:
-            generator.manual_seed(int(seed))
-
         # Empty prompt => cleanup/upscale only. Non-empty prompt => stronger edit mode
         # (hair/eye/clothing color, skin tone, freckles, background, etc.).
         use_prompt = bool((prompt or "").strip())
-        cfg = 6.0 if use_prompt else 0.0
-        effective_strength = max(float(strength), 0.50) if use_prompt else float(strength)
+        cfg_value = max(0.0, min(12.0, float(cfg))) if use_prompt else 0.0
+        effective_strength = float(strength)
         run_prompt = (
             f"edit photo: {prompt.strip()}, photorealistic, natural skin tones, realistic hair texture, high quality"
             if use_prompt
@@ -101,15 +96,14 @@ class ZImageUpscaleEngine:
         )
         log(
             f"Refining {tw}×{th}px with Z-Image-Turbo "
-            f"(strength={effective_strength:.2f}, steps={num_inference_steps}, cfg={cfg:.1f})…"
+            f"(strength={effective_strength:.2f}, steps={num_inference_steps}, cfg={cfg_value:.1f})…"
         )
         result = self._pipe(
             run_prompt,
             image=init,
             strength=effective_strength,
             num_inference_steps=int(num_inference_steps),
-            guidance_scale=float(cfg),
-            generator=generator,
+            guidance_scale=cfg_value,
         ).images[0]
         return result
 
