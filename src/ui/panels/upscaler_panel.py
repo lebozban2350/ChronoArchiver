@@ -516,11 +516,11 @@ class ZImageProUpscalerPanel(QWidget):
         h_tune.addWidget(_field_label("Steps", 40))
         self._spin_steps = QSpinBox()
         self._spin_steps.setRange(4, 16)
-        self._spin_steps.setValue(9)
+        self._spin_steps.setValue(4)
         self._spin_steps.setStyleSheet(_spin_style)
         self._spin_steps.setFixedSize(44, 18)
         self._spin_steps.setToolTip(
-            "Z-Image-Turbo is distilled for ~8 DiT steps; HF docs use num_inference_steps=9 (8 forwards)."
+            "Lower default for faster runs; raise steps for stronger detail reconstruction."
         )
         h_tune.addWidget(self._spin_steps, 0, Qt.AlignmentFlag.AlignVCenter)
         h_tune.addWidget(_field_label("CFG", 30))

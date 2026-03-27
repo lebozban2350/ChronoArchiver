@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [4.6.1] - 2026-03-26
+### Changed
+- **Upscaler defaults**: Set default **steps** to **4** for faster baseline runs while keeping **strength 0.35** and **CFG 6.0**.
+
 ## [4.6.0] - 2026-03-26
 ### Changed
 - **Upscaler controls**: Replaced **Seed** with **CFG** in the tune row and persistence; CFG now directly controls prompt guidance strength for edit-driven runs.

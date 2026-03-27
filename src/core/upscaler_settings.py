@@ -17,7 +17,7 @@ DEFAULTS: dict = {
     "prompt": DEFAULT_PROMPT,
     # Lower default to preserve source while still allowing prompt edits.
     "strength": 0.35,
-    "steps": 9,
+    "steps": 4,
     "cfg": 6.0,
     "scale_index": 0,
     "max_edge": 2048,
