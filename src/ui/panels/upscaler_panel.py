@@ -39,6 +39,16 @@ from PySide6.QtWidgets import (
 )
 
 from ui.console_style import PANEL_CONSOLE_TEXTEDIT_STYLE, message_to_html
+from ui.panel_widgets import (
+    COMBO_BOX_PANEL_QSS,
+    SPIN_BOX_COMPACT_QSS,
+    eng_row_btn_qss,
+    field_label,
+    fmt_bytes,
+    format_net_speed,
+    path_browse_btn_qss,
+    pytorch_installer_vram_guidance,
+)
 
 from PIL import Image, ImageOps
 
@@ -47,7 +57,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from core.app_paths import settings_dir
 from core.debug_logger import debug as _debug_installer, UTILITY_INSTALLER_POPUP
 from core.upscaler_settings import UpscalerPanelSettings
-from core.venv_manager import get_ml_torch_install_label, get_ml_torch_install_variant
+from core.venv_manager import get_ml_torch_install_label
 from core.ml_runtime import (
     check_ml_runtime,
     install_ml_runtime,
@@ -57,31 +67,6 @@ from core.ml_runtime import (
 from core.model_manager import REPO_ID, ZImageModelManager
 from core.restart import restart_application
 from core.zimage_engine import ZImageUpscaleEngine
-
-
-def _field_label(text: str, width: int) -> QLabel:
-    w = QLabel(text)
-    w.setObjectName("fieldLabel")
-    w.setFixedWidth(width)
-    w.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-    return w
-
-
-def _eng_row_btn_qss(w: int, h: int, fg: str, bd: str, bg: str = "transparent") -> str:
-    return (
-        f"font-size:7px; font-weight:700; color:{fg}; background-color:{bg}; "
-        f"border:2px solid {bd}; "
-        f"min-width:{w}px; max-width:{w}px; min-height:{h}px; max-height:{h}px; padding:0px;"
-    )
-
-
-def _scan_browse_btn_qss(bar_h: int, btn_w: int, border: str, fg: str) -> str:
-    """Browse buttons: idle vs guide pulse only swap colors (fixed box, no layout warp)."""
-    return (
-        f"font-size:9px; font-weight:700; color:{fg}; border:1px solid {border}; "
-        f"min-width:{btn_w}px; max-width:{btn_w}px; "
-        f"min-height:{bar_h}px; max-height:{bar_h}px; padding:0px;"
-    )
 
 
 def _run_upscale_btn_stylesheet(*, pulse: bool = False) -> str:
@@ -104,46 +89,6 @@ def _run_upscale_btn_stylesheet(*, pulse: bool = False) -> str:
         "min-width:108px; max-width:108px; min-height:28px; max-height:28px; padding:0px; "
         "}"
     )
-
-
-def _pytorch_installer_vram_guidance() -> str:
-    """GDDR / RAM note for PyTorch + diffusers installer pop-ups."""
-    if get_ml_torch_install_variant() == "cuda":
-        return (
-            "Recommended GDDR: ≥ 16 GB on NVIDIA for Z-Image-Turbo class CUDA inference (model guidance); "
-            "8 GB GDDR may work with smaller max resolution — lower it if you hit OOM."
-        )
-    return (
-        "CPU PyTorch: no GDDR. Prefer 32 GB+ system RAM for practical Z-Image runs; CPU is far slower than CUDA."
-    )
-
-
-def _format_net_speed(bytes_per_sec: float) -> str:
-    """Human-readable throughput for installer pop-ups (B/s … GB/s)."""
-    if bytes_per_sec < 0 or bytes_per_sec != bytes_per_sec:  # NaN
-        return "—"
-    if bytes_per_sec >= 1024**3:
-        return f"{bytes_per_sec / (1024**3):.2f} GB/s"
-    if bytes_per_sec >= 1024**2:
-        return f"{bytes_per_sec / (1024**2):.1f} MB/s"
-    if bytes_per_sec >= 1024:
-        return f"{bytes_per_sec / 1024:.1f} KB/s"
-    return f"{bytes_per_sec:.0f} B/s"
-
-
-def _fmt_bytes(b: int) -> str:
-    if b <= 0:
-        return "0 B"
-    gb = b / (1024**3)
-    if gb >= 0.1:
-        return f"~{gb:.2f} GB"
-    mb = b / (1024**2)
-    if mb >= 0.1:
-        return f"~{mb:.0f} MB"
-    kb = b / 1024
-    if kb >= 1:
-        return f"~{kb:.0f} KB"
-    return f"{b} B"
 
 
 class _Signals(QObject):
@@ -199,7 +144,7 @@ class EngineSetupDialog(QDialog):
             dt = now - self._net_spd_t
             if dt > 1e-6:
                 bps = (downloaded - self._net_spd_b) / dt
-                spd = f" · {_format_net_speed(bps)}"
+                spd = f" · {format_net_speed(bps)}"
         if total > 0 and downloaded >= 0:
             self._net_spd_t = now
             self._net_spd_b = downloaded
@@ -300,7 +245,7 @@ class ZImageModelSetupDialog(QDialog):
             if downloaded > 0 and self._net_spd_t is not None and downloaded > self._net_spd_b:
                 dt = now - self._net_spd_t
                 if dt > 1e-6:
-                    spd_suffix = f" · {_format_net_speed((downloaded - self._net_spd_b) / dt)}"
+                    spd_suffix = f" · {format_net_speed((downloaded - self._net_spd_b) / dt)}"
             self._lbl_model.setText(f"Downloading: {label} ({filename})")
             if total > 0:
                 mb_d = downloaded / (1024 * 1024)
@@ -377,13 +322,8 @@ class AIImageUpscalerPanel(QWidget):
         self._path_bar_h = _ctrl_h
         self._browse_btn_w = 64
 
-        # Per-widget styling copied from ChronoArchiver to avoid conflicting global QSS.
-        _combo_style = (
-            "QComboBox { font-size: 9px; padding: 0 4px; min-height: 12px; max-height: 16px; }"
-            "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: right; width: 16px; }"
-            "QComboBox QAbstractItemView { max-height: 160px; outline: none; padding: 0px; }"
-        )
-        _spin_style = "font-size:8px; padding-left:2px; padding-right:4px; min-height:18px; max-height:18px;"
+        _combo_style = COMBO_BOX_PANEL_QSS
+        _spin_style = SPIN_BOX_COMPACT_QSS
 
         self._guide_pulse_timer = QTimer(self)
         self._guide_pulse_timer.setInterval(550)
@@ -411,7 +351,7 @@ class AIImageUpscalerPanel(QWidget):
         h_img = QHBoxLayout()
         h_img.setSpacing(8)
         h_img.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        h_img.addWidget(_field_label("Image", 40))
+        h_img.addWidget(field_label("Image", 40))
         self._edit_image = QLineEdit()
         self._edit_image.setPlaceholderText("Path to image…")
         self._edit_image.setFixedHeight(_ctrl_h)
@@ -446,11 +386,11 @@ class AIImageUpscalerPanel(QWidget):
         h_pt.addSpacing(4)
         self._btn_install_engine = QPushButton("Install PyTorch")
         self._btn_install_engine.setFixedSize(_ew, _eh)
-        self._btn_install_engine.setStyleSheet(_eng_row_btn_qss(_ew, _eh, "#aaa", "#262626"))
+        self._btn_install_engine.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#aaa", "#262626"))
         self._btn_install_engine.clicked.connect(self._on_install_engine_clicked)
         self._btn_uninstall_engine = QPushButton("Uninstall PyTorch")
         self._btn_uninstall_engine.setFixedSize(_ew, _eh)
-        self._btn_uninstall_engine.setStyleSheet(_eng_row_btn_qss(_ew, _eh, "#6b7280", "#262626"))
+        self._btn_uninstall_engine.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#6b7280", "#262626"))
         self._btn_uninstall_engine.clicked.connect(self._on_uninstall_engine)
         h_pt.addWidget(self._btn_install_engine)
         h_pt.addWidget(self._btn_uninstall_engine)
@@ -468,16 +408,16 @@ class AIImageUpscalerPanel(QWidget):
         h_md.addSpacing(4)
         self._btn_update_models = QPushButton("Update!")
         self._btn_update_models.setFixedSize(_ew, _eh)
-        self._btn_update_models.setStyleSheet(_eng_row_btn_qss(_ew, _eh, "#eab308", "#eab308"))
+        self._btn_update_models.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#eab308", "#eab308"))
         self._btn_update_models.clicked.connect(self._setup_models_only)
         self._btn_update_models.hide()
         self._btn_setup_models = QPushButton("Setup Models")
         self._btn_setup_models.setFixedSize(_ew, _eh)
-        self._btn_setup_models.setStyleSheet(_eng_row_btn_qss(_ew, _eh, "#aaa", "#262626"))
+        self._btn_setup_models.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#aaa", "#262626"))
         self._btn_setup_models.clicked.connect(self._on_setup_models)
         self._btn_uninstall_models = QPushButton("Uninstall Models")
         self._btn_uninstall_models.setFixedSize(_ew, _eh)
-        self._btn_uninstall_models.setStyleSheet(_eng_row_btn_qss(_ew, _eh, "#6b7280", "#262626"))
+        self._btn_uninstall_models.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#6b7280", "#262626"))
         self._btn_uninstall_models.setToolTip("Remove Z-Image weight files only")
         self._btn_uninstall_models.clicked.connect(self._on_remove_models)
         h_md.addWidget(self._btn_update_models)
@@ -502,7 +442,7 @@ class AIImageUpscalerPanel(QWidget):
         self._edit_prompt.setReadOnly(False)
         self._edit_prompt.setEnabled(True)
         h_tune.addWidget(self._edit_prompt, 1)
-        h_tune.addWidget(_field_label("Strength", 54))
+        h_tune.addWidget(field_label("Strength", 54))
         self._spin_strength = QDoubleSpinBox()
         self._spin_strength.setRange(0.15, 0.85)
         self._spin_strength.setSingleStep(0.05)
@@ -515,7 +455,7 @@ class AIImageUpscalerPanel(QWidget):
             "higher applies stronger restyle/editing."
         )
         h_tune.addWidget(self._spin_strength, 0, Qt.AlignmentFlag.AlignVCenter)
-        h_tune.addWidget(_field_label("Steps", 40))
+        h_tune.addWidget(field_label("Steps", 40))
         self._spin_steps = QSpinBox()
         self._spin_steps.setRange(4, 16)
         self._spin_steps.setValue(4)
@@ -525,7 +465,7 @@ class AIImageUpscalerPanel(QWidget):
             "Lower default for faster runs; raise steps for stronger detail reconstruction."
         )
         h_tune.addWidget(self._spin_steps, 0, Qt.AlignmentFlag.AlignVCenter)
-        h_tune.addWidget(_field_label("CFG", 30))
+        h_tune.addWidget(field_label("CFG", 30))
         self._spin_cfg = QDoubleSpinBox()
         self._spin_cfg.setRange(0.0, 12.0)
         self._spin_cfg.setSingleStep(0.5)
@@ -696,7 +636,7 @@ class AIImageUpscalerPanel(QWidget):
 
         h_out_actions = QHBoxLayout()
         h_out_actions.setSpacing(6)
-        h_out_actions.addWidget(_field_label("Scale", 36))
+        h_out_actions.addWidget(field_label("Scale", 36))
         self._combo_scale = QComboBox()
         self._combo_scale.addItem("2×", 2)
         self._combo_scale.addItem("3×", 3)
@@ -705,7 +645,7 @@ class AIImageUpscalerPanel(QWidget):
         self._combo_scale.setStyleSheet(_combo_style)
         self._combo_scale.setFixedSize(52, 18)
         h_out_actions.addWidget(self._combo_scale, 0, Qt.AlignmentFlag.AlignVCenter)
-        h_out_actions.addWidget(_field_label("Max edge", 54))
+        h_out_actions.addWidget(field_label("Max edge", 54))
         self._spin_max_edge = QSpinBox()
         self._spin_max_edge.setRange(512, 8192)
         self._spin_max_edge.setSingleStep(64)
@@ -963,13 +903,13 @@ class AIImageUpscalerPanel(QWidget):
             w.setStyleSheet("")
         elif w == self._btn_install_engine:
             if self._engine_just_installed:
-                w.setStyleSheet(_eng_row_btn_qss(ew, eh, "#064e3b", "#064e3b", "#10b981"))
+                w.setStyleSheet(eng_row_btn_qss(ew, eh, "#064e3b", "#064e3b", "#10b981"))
             elif not self._get_runtime_cached()[0]:
-                w.setStyleSheet(_eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
+                w.setStyleSheet(eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
             else:
-                w.setStyleSheet(_eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
+                w.setStyleSheet(eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
         elif w == self._btn_setup_models:
-            w.setStyleSheet(_eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
+            w.setStyleSheet(eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
 
     def _pulse_guide(self):
         target = self._get_guide_target()
@@ -990,12 +930,14 @@ class AIImageUpscalerPanel(QWidget):
                 target.setStyleSheet(_run_upscale_btn_stylesheet(pulse=True))
             elif target == self._btn_browse_img:
                 target.setStyleSheet(
-                    _scan_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444")
+                    path_browse_btn_qss(
+                        self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444", border_px=1
+                    )
                 )
             elif target == self._btn_install_engine and self._engine_just_installed:
-                target.setStyleSheet(_eng_row_btn_qss(ew, eh, "#064e3b", "#34d399", "#10b981"))
+                target.setStyleSheet(eng_row_btn_qss(ew, eh, "#064e3b", "#34d399", "#10b981"))
             elif target in (self._btn_install_engine, self._btn_setup_models):
-                target.setStyleSheet(_eng_row_btn_qss(ew, eh, "#ef4444", "#ef4444", "transparent"))
+                target.setStyleSheet(eng_row_btn_qss(ew, eh, "#ef4444", "#ef4444", "transparent"))
         else:
             self._clear_guide_glow(target)
 
@@ -1123,11 +1065,11 @@ class AIImageUpscalerPanel(QWidget):
             "Components:",
         ]
         for label, sz in components:
-            lines.append(f"  • {label}: {_fmt_bytes(sz)}")
+            lines.append(f"  • {label}: {fmt_bytes(sz)}")
         lines.append("")
-        lines.append(f"Estimated total download: {_fmt_bytes(total_bytes)}")
+        lines.append(f"Estimated total download: {fmt_bytes(total_bytes)}")
         lines.append("")
-        lines.append(_pytorch_installer_vram_guidance())
+        lines.append(pytorch_installer_vram_guidance())
         lines.append("")
         lines.append("Requires internet. You may need to restart the app afterward.")
         reply = QMessageBox.question(
@@ -1146,10 +1088,10 @@ class AIImageUpscalerPanel(QWidget):
         dlg = EngineSetupDialog(self)
         dlg._lbl_components.setText(
             f"{get_ml_torch_install_label()}\n\n"
-            f"{_pytorch_installer_vram_guidance()}\n\n"
+            f"{pytorch_installer_vram_guidance()}\n\n"
             "Components:\n"
-            + "\n".join([f"  • {label}: {_fmt_bytes(sz)}" for (label, sz) in components])
-            + f"\n\nEstimated total download: {_fmt_bytes(total_bytes)}"
+            + "\n".join([f"  • {label}: {fmt_bytes(sz)}" for (label, sz) in components])
+            + f"\n\nEstimated total download: {fmt_bytes(total_bytes)}"
         )
         self._active_setup_dialog = dlg
 

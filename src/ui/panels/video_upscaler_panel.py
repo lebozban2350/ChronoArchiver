@@ -38,6 +38,15 @@ from PySide6.QtWidgets import (
 )
 
 from ui.console_style import PANEL_CONSOLE_TEXTEDIT_STYLE, message_to_html
+from ui.panel_widgets import (
+    COMBO_BOX_PANEL_QSS,
+    SPIN_BOX_COMPACT_QSS,
+    eng_row_btn_qss,
+    field_label,
+    fmt_bytes,
+    format_net_speed,
+    pytorch_installer_vram_guidance,
+)
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -54,32 +63,7 @@ from core.video_upscaler_settings import VideoUpscalerPanelSettings
 from core.restart import restart_application
 from core.venv_manager import get_ml_torch_install_label
 
-from ui.panels.upscaler_panel import (
-    EngineSetupDialog,
-    _fmt_bytes,
-    _eng_row_btn_qss,
-    _pytorch_installer_vram_guidance,
-)
-
-
-def _field_label(text: str, width: int) -> QLabel:
-    w = QLabel(text)
-    w.setObjectName("fieldLabel")
-    w.setFixedWidth(width)
-    w.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-    return w
-
-
-def _format_net_speed(bytes_per_sec: float) -> str:
-    if bytes_per_sec < 0 or bytes_per_sec != bytes_per_sec:
-        return "—"
-    if bytes_per_sec >= 1024**3:
-        return f"{bytes_per_sec / (1024**3):.2f} GB/s"
-    if bytes_per_sec >= 1024**2:
-        return f"{bytes_per_sec / (1024**2):.1f} MB/s"
-    if bytes_per_sec >= 1024:
-        return f"{bytes_per_sec / 1024:.1f} KB/s"
-    return f"{bytes_per_sec:.0f} B/s"
+from ui.panels.upscaler_panel import EngineSetupDialog
 
 
 def _ffmpeg_exe() -> str | None:
@@ -191,7 +175,7 @@ class RealESRGANDownloadDialog(QDialog):
         if total > 0 and downloaded > 0 and self._net_t is not None and downloaded > self._net_b:
             dt = now - self._net_t
             if dt > 1e-6:
-                spd = f" · {_format_net_speed((downloaded - self._net_b) / dt)}"
+                spd = f" · {format_net_speed((downloaded - self._net_b) / dt)}"
         if total > 0:
             pct = min(100, int(100 * downloaded / total))
             self._bar.setValue(pct)
@@ -295,12 +279,8 @@ class VideoUpscalerPanel(QWidget):
         _strip_eng = 84
         _ew, _eh = 82, 22
         self._eng_btn_w, self._eng_btn_h = _ew, _eh
-        _combo_style = (
-            "QComboBox { font-size: 9px; padding: 0 4px; min-height: 12px; max-height: 16px; }"
-            "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: right; width: 16px; }"
-            "QComboBox QAbstractItemView { max-height: 160px; outline: none; padding: 0px; }"
-        )
-        _spin_style = "font-size:8px; padding-left:2px; padding-right:4px; min-height:18px; max-height:18px;"
+        _combo_style = COMBO_BOX_PANEL_QSS
+        _spin_style = SPIN_BOX_COMPACT_QSS
 
         root = QVBoxLayout(self)
         root.setContentsMargins(8, 5, 8, 4)
@@ -319,7 +299,7 @@ class VideoUpscalerPanel(QWidget):
         h_vid = QHBoxLayout()
         h_vid.setSpacing(8)
         h_vid.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        h_vid.addWidget(_field_label("Video", 40))
+        h_vid.addWidget(field_label("Video", 40))
         self._edit_video = QLineEdit()
         self._edit_video.setPlaceholderText("Path to video…")
         self._edit_video.setFixedHeight(_ctrl_h)
@@ -433,7 +413,7 @@ class VideoUpscalerPanel(QWidget):
         self._combo_scale.setStyleSheet(_combo_style)
         self._combo_scale.setFixedSize(52, 22)
         self._combo_scale.currentIndexChanged.connect(lambda *_: (self._refresh_engine_labels(), self._update_buttons()))
-        h_params.addWidget(_field_label("Scale", 40))
+        h_params.addWidget(field_label("Scale", 40))
         h_params.addWidget(self._combo_scale)
         self._spin_max_edge = QSpinBox()
         self._spin_max_edge.setRange(1280, 3840)
@@ -442,7 +422,7 @@ class VideoUpscalerPanel(QWidget):
         self._spin_max_edge.setStyleSheet(_spin_style)
         self._spin_max_edge.setFixedWidth(68)
         self._spin_max_edge.setToolTip("Cap longest side after upscale (4K = 3840 on the long edge).")
-        h_params.addWidget(_field_label("Max edge", 50))
+        h_params.addWidget(field_label("Max edge", 50))
         h_params.addWidget(self._spin_max_edge)
         self._spin_tile = QSpinBox()
         self._spin_tile.setRange(0, 512)
@@ -451,7 +431,7 @@ class VideoUpscalerPanel(QWidget):
         self._spin_tile.setStyleSheet(_spin_style)
         self._spin_tile.setFixedWidth(48)
         self._spin_tile.setToolTip("Tile size for GPU memory; 0 = full frame (needs VRAM). Try 256–512.")
-        h_params.addWidget(_field_label("Tile", 32))
+        h_params.addWidget(field_label("Tile", 32))
         h_params.addWidget(self._spin_tile)
 
         self._sat = QDoubleSpinBox()
@@ -461,14 +441,14 @@ class VideoUpscalerPanel(QWidget):
         self._sat.setDecimals(2)
         self._sat.setStyleSheet(_spin_style)
         self._sat.setFixedWidth(48)
-        h_params.addWidget(_field_label("Sat", 28))
+        h_params.addWidget(field_label("Sat", 28))
         h_params.addWidget(self._sat)
         self._bright = QDoubleSpinBox()
         self._bright.setRange(-80, 80)
         self._bright.setValue(0)
         self._bright.setStyleSheet(_spin_style)
         self._bright.setFixedWidth(48)
-        h_params.addWidget(_field_label("Bright", 38))
+        h_params.addWidget(field_label("Bright", 38))
         h_params.addWidget(self._bright)
         self._contrast = QDoubleSpinBox()
         self._contrast.setRange(0.2, 2.0)
@@ -477,7 +457,7 @@ class VideoUpscalerPanel(QWidget):
         self._contrast.setDecimals(2)
         self._contrast.setStyleSheet(_spin_style)
         self._contrast.setFixedWidth(48)
-        h_params.addWidget(_field_label("Contrast", 46))
+        h_params.addWidget(field_label("Contrast", 46))
         h_params.addWidget(self._contrast)
         self._sharp = QDoubleSpinBox()
         self._sharp.setRange(0.0, 1.5)
@@ -487,7 +467,7 @@ class VideoUpscalerPanel(QWidget):
         self._sharp.setStyleSheet(_spin_style)
         self._sharp.setFixedWidth(44)
         self._sharp.setToolTip("Unsharp strength for extra crispness (use lightly; 0 = off).")
-        h_params.addWidget(_field_label("Sharp", 34))
+        h_params.addWidget(field_label("Sharp", 34))
         h_params.addWidget(self._sharp)
         h_params.addStretch(1)
         self._btn_guide = QToolButton()
@@ -991,8 +971,8 @@ class VideoUpscalerPanel(QWidget):
             "Components:",
         ]
         for label, sz in components:
-            lines.append(f"  • {label}: {_fmt_bytes(sz)}")
-        lines.extend(["", f"Estimated total: {_fmt_bytes(total_bytes)}", "", _pytorch_installer_vram_guidance(), "", "Restart may be required."])
+            lines.append(f"  • {label}: {fmt_bytes(sz)}")
+        lines.extend(["", f"Estimated total: {fmt_bytes(total_bytes)}", "", pytorch_installer_vram_guidance(), "", "Restart may be required."])
         if (
             QMessageBox.question(
                 self,
@@ -1010,9 +990,9 @@ class VideoUpscalerPanel(QWidget):
         dlg = EngineSetupDialog(self)
         self._engine_setup_dialog = dlg
         dlg._lbl_components.setText(
-            f"{get_ml_torch_install_label()}\n\n{_pytorch_installer_vram_guidance()}\n\n"
-            + "\n".join([f"  • {lbl}: {_fmt_bytes(sz)}" for lbl, sz in components])
-            + f"\n\nEstimated total: {_fmt_bytes(total_bytes)}"
+            f"{get_ml_torch_install_label()}\n\n{pytorch_installer_vram_guidance()}\n\n"
+            + "\n".join([f"  • {lbl}: {fmt_bytes(sz)}" for lbl, sz in components])
+            + f"\n\nEstimated total: {fmt_bytes(total_bytes)}"
         )
 
         def task():

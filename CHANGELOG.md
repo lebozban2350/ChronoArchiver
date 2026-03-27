@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [4.7.2] - 2026-03-27
+### Changed
+- **UI modules**: Shared panel helpers in **`ui/panel_widgets.py`** (field labels, engine-row / browse-button QSS, combo + compact spin styles, network speed + byte formatting, PyTorch installer VRAM blurb). **AI Image Upscaler**, **AI Video Upscaler**, **AI Media Scanner**, and **Mass AV1 Encoder** import these instead of duplicating definitions.
+
 ## [4.7.1] - 2026-03-27
 ### Changed
 - **AI Video Upscaler**: **Engine Status** strip matches **AI Image Upscaler** (84px height, 248px min width, 7:3 split with SOURCE, aligned PyTorch/Weights rows and full-width engine buttons).

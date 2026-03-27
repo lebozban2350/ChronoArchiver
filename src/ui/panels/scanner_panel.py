@@ -33,6 +33,7 @@ import pathlib
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.scanner import ScannerEngine, OPENCV_AVAILABLE
 from ui.console_style import message_to_html, PANEL_CONSOLE_TEXTEDIT_STYLE
+from ui.panel_widgets import eng_row_btn_qss, path_browse_btn_qss
 from core.model_manager import ModelManager
 from core.app_paths import models_dir
 from core.venv_manager import (
@@ -50,24 +51,6 @@ from core.debug_logger import (
 )
 from core.updater import restart_app
 from core.subprocess_tee import set_subprocess_channel
-
-
-def _scan_browse_btn_qss(bar_h: int, btn_w: int, border: str, fg: str) -> str:
-    """Browse buttons: idle and guide pulse only swap colors (fixed box, no layout warp)."""
-    return (
-        f"font-size:9px; font-weight:700; color:{fg}; border:2px solid {border}; "
-        f"min-width:{btn_w}px; max-width:{btn_w}px; "
-        f"min-height:{bar_h}px; max-height:{bar_h}px; padding:0px;"
-    )
-
-
-def _scan_eng_btn_qss(w: int, h: int, fg: str, bd: str, bg: str = "transparent") -> str:
-    """Engine row buttons: fixed size; idle vs pulse only changes colors."""
-    return (
-        f"font-size:7px; font-weight:700; color:{fg}; background-color:{bg}; "
-        f"border:2px solid {bd}; "
-        f"min-width:{w}px; max-width:{w}px; min-height:{h}px; max-height:{h}px; padding:0px;"
-    )
 
 
 def _opencv_installer_vram_guidance(variant: str) -> str:
@@ -263,7 +246,7 @@ class AIScannerPanel(QWidget):
             f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; max-height:{_bar_h}px; "
             "padding:2px 6px; background:#121212; border:1px solid #1a1a1a;"
         )
-        _btn_ss = _scan_browse_btn_qss(_bar_h, _browse_w, "#262626", "#aaa")
+        _btn_ss = path_browse_btn_qss(_bar_h, _browse_w, "#262626", "#aaa")
 
         # 1. Directories
         grp_dir = QGroupBox("Directories")
@@ -339,11 +322,11 @@ class AIScannerPanel(QWidget):
         h_cv.addWidget(self._lbl_opencv, 1)
         self._btn_install_cv = QPushButton("Install OpenCV")
         self._btn_install_cv.setFixedSize(_ew, _eh)
-        self._btn_install_cv.setStyleSheet(_scan_eng_btn_qss(_ew, _eh, "#aaa", "#262626"))
+        self._btn_install_cv.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#aaa", "#262626"))
         self._btn_install_cv.clicked.connect(self._on_install_opencv)
         self._btn_uninstall_cv = QPushButton("Uninstall OpenCV")
         self._btn_uninstall_cv.setFixedSize(_ew, _eh)
-        self._btn_uninstall_cv.setStyleSheet(_scan_eng_btn_qss(_ew, _eh, "#6b7280", "#262626"))
+        self._btn_uninstall_cv.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#6b7280", "#262626"))
         self._btn_uninstall_cv.clicked.connect(self._on_uninstall_opencv)
         h_cv.addWidget(self._btn_install_cv)
         h_cv.addWidget(self._btn_uninstall_cv)
@@ -356,16 +339,16 @@ class AIScannerPanel(QWidget):
         h_mod.addWidget(self._lbl_model, 1)
         self._btn_update = QPushButton("Update!")
         self._btn_update.setFixedSize(_ew, _eh)
-        self._btn_update.setStyleSheet(_scan_eng_btn_qss(_ew, _eh, "#eab308", "#eab308"))
+        self._btn_update.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#eab308", "#eab308"))
         self._btn_update.clicked.connect(self._setup_models_only)
         self._btn_update.hide()
         self._btn_setup = QPushButton("Setup Models")
         self._btn_setup.setFixedSize(_ew, _eh)
-        self._btn_setup.setStyleSheet(_scan_eng_btn_qss(_ew, _eh, "#aaa", "#262626"))
+        self._btn_setup.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#aaa", "#262626"))
         self._btn_setup.clicked.connect(self._on_setup_models)
         self._btn_uninstall_models = QPushButton("Uninstall Models")
         self._btn_uninstall_models.setFixedSize(_ew, _eh)
-        self._btn_uninstall_models.setStyleSheet(_scan_eng_btn_qss(_ew, _eh, "#6b7280", "#262626"))
+        self._btn_uninstall_models.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#6b7280", "#262626"))
         self._btn_uninstall_models.clicked.connect(self._remove_models_only)
         self._btn_uninstall_models.setToolTip("Remove AI model files only")
         h_mod.addWidget(self._btn_update)
@@ -716,23 +699,23 @@ class AIScannerPanel(QWidget):
                 )
         elif w == self._btn_browse:
             w.setStyleSheet(
-                _scan_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
+                path_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
             )
         elif w == self._btn_browse_target:
             w.setStyleSheet(
-                _scan_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
+                path_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
             )
         elif w == self._btn_setup:
-            w.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#aaa", "#262626"))
+            w.setStyleSheet(eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
         elif w == self._btn_uninstall_models:
-            w.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#6b7280", "#262626"))
+            w.setStyleSheet(eng_row_btn_qss(ew, eh, "#6b7280", "#262626"))
         elif w == self._btn_install_cv:
             if self._opencv_just_installed:
-                w.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#064e3b", "#064e3b", "#10b981"))
+                w.setStyleSheet(eng_row_btn_qss(ew, eh, "#064e3b", "#064e3b", "#10b981"))
             else:
-                w.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#aaa", "#262626"))
+                w.setStyleSheet(eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
         elif w == self._btn_update:
-            w.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#eab308", "#eab308"))
+            w.setStyleSheet(eng_row_btn_qss(ew, eh, "#eab308", "#eab308"))
 
     def _pulse_guide(self):
         target = self._get_guide_target()
@@ -758,15 +741,15 @@ class AIScannerPanel(QWidget):
                     "background-color:#10b981; color:#064e3b; border:2px solid #ef4444; padding:0px;"
                 )
             elif target == self._btn_install_cv and self._opencv_just_installed:
-                target.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#064e3b", "#34d399", "#10b981"))
+                target.setStyleSheet(eng_row_btn_qss(ew, eh, "#064e3b", "#34d399", "#10b981"))
             elif target == self._btn_browse or target == self._btn_browse_target:
                 target.setStyleSheet(
-                    _scan_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444")
+                    path_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444")
                 )
             elif target in (self._btn_setup, self._btn_install_cv):
-                target.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#ef4444", "#ef4444", "transparent"))
+                target.setStyleSheet(eng_row_btn_qss(ew, eh, "#ef4444", "#ef4444", "transparent"))
             else:
-                target.setStyleSheet(_scan_eng_btn_qss(ew, eh, "#ef4444", "#ef4444", "transparent"))
+                target.setStyleSheet(eng_row_btn_qss(ew, eh, "#ef4444", "#ef4444", "transparent"))
         else:
             self._clear_guide_glow(target)
 

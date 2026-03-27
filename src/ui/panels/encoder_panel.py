@@ -26,17 +26,9 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.av1_engine import AV1EncoderEngine, EncodingProgress
 from ui.console_style import message_to_html, PANEL_CONSOLE_TEXTEDIT_STYLE
+from ui.panel_widgets import COMBO_BOX_PANEL_QSS, path_browse_btn_qss
 from core.av1_settings import AV1Settings
 from core.debug_logger import debug, UTILITY_MASS_AV1_ENCODER
-
-
-def _enc_browse_btn_qss(bar_h: int, btn_w: int, border: str, fg: str) -> str:
-    """Fixed box for source/target Browse; idle and guide-pulse only swap colors (no layout warp)."""
-    return (
-        f"font-size:9px; font-weight:700; color:{fg}; border:2px solid {border}; "
-        f"min-width:{btn_w}px; max-width:{btn_w}px; "
-        f"min-height:{bar_h}px; max-height:{bar_h}px; padding:0px;"
-    )
 
 
 class _Signals(QObject):
@@ -128,11 +120,7 @@ class AV1EncoderPanel(QWidget):
 
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
         _slbl  = "font-size: 9px; font-weight: 700; color: #aaa;"
-        _combo_style = (
-            "QComboBox { font-size: 9px; padding: 0 4px; min-height: 12px; max-height: 16px; }"
-            "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: right; width: 16px; }"
-            "QComboBox QAbstractItemView { max-height: 160px; outline: none; padding: 0px; }"
-        )
+        _combo_style = COMBO_BOX_PANEL_QSS
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 2, 6, 2)
@@ -153,7 +141,7 @@ class AV1EncoderPanel(QWidget):
             f"color:#fff; font-size:11px; font-weight:500; min-height:{_bar_h}px; max-height:{_bar_h}px; "
             "padding:2px 6px; background:#121212; border:1px solid #1a1a1a;"
         )
-        _dir_btn_ss = _enc_browse_btn_qss(_bar_h, _browse_w, "#262626", "#aaa")
+        _dir_btn_ss = path_browse_btn_qss(_bar_h, _browse_w, "#262626", "#aaa")
 
         grp_dir = QGroupBox("Directories")
         v_dir = QVBoxLayout(grp_dir)
@@ -582,7 +570,7 @@ class AV1EncoderPanel(QWidget):
             w.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:10px; font-weight:900;")
         else:
             w.setStyleSheet(
-                _enc_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
+                path_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
             )
 
     def _update_start_enabled(self):
@@ -609,7 +597,7 @@ class AV1EncoderPanel(QWidget):
                 target.setStyleSheet("background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;")
             else:
                 target.setStyleSheet(
-                    _enc_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444")
+                    path_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444")
                 )
         else:
             self._clear_guide_glow(target)
