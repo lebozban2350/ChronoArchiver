@@ -10,15 +10,13 @@ try:
 except ImportError:
     from core.debug_logger import UTILITY_APP, debug
 
-DEFAULT_PROMPT = (
-    "photorealistic, sharp fine detail, clean texture, crisp edges, high quality, no noise, no blur"
-)
+DEFAULT_PROMPT = ""
 
 DEFAULTS: dict = {
     "source_image": "",
     "prompt": DEFAULT_PROMPT,
-    # Defaults aligned with HF Z-Image-Turbo (9 steps ≈ 8 DiT forwards) and img2img polish bands (~0.25–0.35).
-    "strength": 0.30,
+    # Lower default to preserve source while still allowing prompt edits.
+    "strength": 0.35,
     "steps": 9,
     "seed": -1,
     "scale_index": 0,
@@ -31,8 +29,8 @@ def _sanitize(data: dict, defaults: dict) -> dict:
     out = {**defaults, **{k: v for k, v in data.items() if k in defaults}}
     p = str(out.get("source_image", "")).strip()
     out["source_image"] = p
-    pr = str(out.get("prompt", defaults["prompt"]) or "").strip()
-    out["prompt"] = pr if pr else str(defaults["prompt"])
+    # Empty prompt is valid: cleanup/upscale-only mode without prompt-driven edits.
+    out["prompt"] = str(out.get("prompt", defaults["prompt"]) or "").strip()
     try:
         st = float(out.get("strength", defaults["strength"]))
     except (TypeError, ValueError):

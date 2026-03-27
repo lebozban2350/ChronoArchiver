@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [4.5.9] - 2026-03-26
+### Changed
+- **Upscaler prompt behavior**: Prompt placeholder now explains blank-prompt mode. When prompt is empty, runs do cleanup/upscale only; adding prompt text enables edit-driven guidance.
+- **Upscaler defaults**: Strength default set to **0.35**.
+
 ## [4.5.8] - 2026-03-26
 ### Changed
 - **Upscaler preview layout**: Removed in-preview edit buttons so photos use the full preview card area with tight inner padding; realtime edits remain controlled from **Source Photo Adjustment Tools** only.

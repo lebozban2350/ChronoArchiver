@@ -89,16 +89,20 @@ class ZImageUpscaleEngine:
         if seed >= 0:
             generator.manual_seed(int(seed))
 
+        # Empty prompt => cleanup/upscale only. Non-empty prompt => allow visible edits
+        # (eye color, clothing color, skin tone, freckles, background, etc.).
+        use_prompt = bool((prompt or "").strip())
+        cfg = 3.5 if use_prompt else 0.0
         log(
             f"Refining {tw}×{th}px with Z-Image-Turbo "
-            f"(strength={strength:.2f}, steps={num_inference_steps})…"
+            f"(strength={strength:.2f}, steps={num_inference_steps}, cfg={cfg:.1f})…"
         )
         result = self._pipe(
             prompt,
             image=init,
             strength=float(strength),
             num_inference_steps=int(num_inference_steps),
-            guidance_scale=0.0,
+            guidance_scale=float(cfg),
             generator=generator,
         ).images[0]
         return result

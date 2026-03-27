@@ -490,12 +490,12 @@ class ZImageProUpscalerPanel(QWidget):
         h_tune.setSpacing(6)
         h_tune.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self._edit_prompt = QLineEdit()
-        self._edit_prompt.setPlaceholderText("Prompt: sharp, clean, photorealistic, …")
+        self._edit_prompt.setPlaceholderText(
+            "If prompt is left empty, only clean-up and upscaling will occur. "
+            "Add words to change the photo."
+        )
         self._edit_prompt.setFixedHeight(_ctrl_h)
         self._edit_prompt.setMaximumWidth(16777215)
-        self._edit_prompt.setText(
-            "photorealistic, sharp fine detail, clean texture, crisp edges, high quality, no noise, no blur"
-        )
         self._edit_prompt.setReadOnly(False)
         self._edit_prompt.setEnabled(True)
         h_tune.addWidget(self._edit_prompt, 1)
@@ -503,13 +503,13 @@ class ZImageProUpscalerPanel(QWidget):
         self._spin_strength = QDoubleSpinBox()
         self._spin_strength.setRange(0.15, 0.85)
         self._spin_strength.setSingleStep(0.05)
-        self._spin_strength.setValue(0.30)
+        self._spin_strength.setValue(0.35)
         self._spin_strength.setDecimals(2)
         self._spin_strength.setStyleSheet(_spin_style)
         self._spin_strength.setFixedSize(44, 18)
         self._spin_strength.setToolTip(
-            "Img2img denoise: ~0.25–0.35 keeps layout after LANCZOS (typical refine); "
-            "higher = bolder restyle (community guides; Z-Image-Turbo is few-step)."
+            "Img2img denoise/edits: ~0.30–0.45 keeps source closer while allowing prompt-driven changes; "
+            "higher applies stronger restyle/editing."
         )
         h_tune.addWidget(self._spin_strength, 0, Qt.AlignmentFlag.AlignVCenter)
         h_tune.addWidget(_field_label("Steps", 40))
@@ -1444,7 +1444,7 @@ class ZImageProUpscalerPanel(QWidget):
             self._sig.log_msg.emit(msg)
 
         max_side = int(self._spin_max_edge.value())
-        prompt = self._edit_prompt.text().strip() or "high quality, detailed"
+        prompt = self._edit_prompt.text().strip()
         strength = float(self._spin_strength.value())
         steps = int(self._spin_steps.value())
         seed = int(self._spin_seed.value())
