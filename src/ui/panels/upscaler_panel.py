@@ -84,6 +84,28 @@ def _scan_browse_btn_qss(bar_h: int, btn_w: int, border: str, fg: str) -> str:
     )
 
 
+def _run_upscale_btn_stylesheet(*, pulse: bool = False) -> str:
+    """Run upscale (#btnStart): same geometry/fonts always; guide pulse only changes border color."""
+    bd = "#ef4444" if pulse else "#10b981"
+    return (
+        "QPushButton#btnStart {"
+        "background-color:#10b981; color:#064e3b; "
+        f"border:2px solid {bd}; "
+        "font-size:10px; font-weight:900; "
+        "min-width:108px; max-width:108px; min-height:28px; max-height:28px; padding:0px; "
+        "}"
+        "QPushButton#btnStart:hover:enabled {"
+        "background-color:#34d399; color:#064e3b; "
+        f"border:2px solid {bd}; "
+        "}"
+        "QPushButton#btnStart:disabled {"
+        "background-color:#1a1a1a; color:#6b7280; border:2px solid #262626; "
+        "font-size:10px; font-weight:900; "
+        "min-width:108px; max-width:108px; min-height:28px; max-height:28px; padding:0px; "
+        "}"
+    )
+
+
 def _pytorch_installer_vram_guidance() -> str:
     """GDDR / RAM note for PyTorch + diffusers installer pop-ups."""
     if get_ml_torch_install_variant() == "cuda":
@@ -94,6 +116,19 @@ def _pytorch_installer_vram_guidance() -> str:
     return (
         "CPU PyTorch: no GDDR. Prefer 32 GB+ system RAM for practical Z-Image runs; CPU is far slower than CUDA."
     )
+
+
+def _format_net_speed(bytes_per_sec: float) -> str:
+    """Human-readable throughput for installer pop-ups (B/s … GB/s)."""
+    if bytes_per_sec < 0 or bytes_per_sec != bytes_per_sec:  # NaN
+        return "—"
+    if bytes_per_sec >= 1024**3:
+        return f"{bytes_per_sec / (1024**3):.2f} GB/s"
+    if bytes_per_sec >= 1024**2:
+        return f"{bytes_per_sec / (1024**2):.1f} MB/s"
+    if bytes_per_sec >= 1024:
+        return f"{bytes_per_sec / 1024:.1f} KB/s"
+    return f"{bytes_per_sec:.0f} B/s"
 
 
 def _fmt_bytes(b: int) -> str:
@@ -150,10 +185,24 @@ class EngineSetupDialog(QDialog):
         v.addStretch()
         self.setStyleSheet("QDialog { background: #0d0d0d; }")
         self.phase_update.connect(self._on_phase_update)
+        self._net_spd_t: float | None = None
+        self._net_spd_b: int = 0
 
     def _on_phase_update(self, phase: str, detail: str, downloaded: int, total: int):
         self._lbl_phase.setText(phase)
+        now = time.monotonic()
+        spd = ""
+        if downloaded == 0 or (self._net_spd_b and downloaded < self._net_spd_b):
+            self._net_spd_t = None
+            self._net_spd_b = 0
+        if total > 0 and downloaded > 0 and self._net_spd_t is not None and downloaded > self._net_spd_b:
+            dt = now - self._net_spd_t
+            if dt > 1e-6:
+                bps = (downloaded - self._net_spd_b) / dt
+                spd = f" · {_format_net_speed(bps)}"
         if total > 0 and downloaded >= 0:
+            self._net_spd_t = now
+            self._net_spd_b = downloaded
             pct = min(100, int(100 * downloaded / total)) if total else 0
             self._bar.setRange(0, 100)
             self._bar.setValue(pct)
@@ -166,7 +215,8 @@ class EngineSetupDialog(QDialog):
                 mb_d = downloaded / (1024 * 1024)
                 mb_t = total / (1024 * 1024)
                 size_str = f"{mb_d:.0f} / {mb_t:.0f} MB"
-            self._lbl_detail.setText(f"{size_str}  ·  {detail}" if detail else size_str)
+            tail = f"{size_str}{spd}  ·  {detail}" if detail else f"{size_str}{spd}"
+            self._lbl_detail.setText(tail)
         else:
             self._lbl_detail.setText(detail[:120] if detail else "")
 
@@ -217,6 +267,9 @@ class ZImageModelSetupDialog(QDialog):
 
         self.setStyleSheet("QDialog { background: #0d0d0d; }")
         self.progress_update.connect(self.update_progress)
+        self._net_spd_key = ""
+        self._net_spd_t: float | None = None
+        self._net_spd_b: int = 0
 
     def _on_cancel(self):
         self._model_mgr.cancel()
@@ -227,24 +280,44 @@ class ZImageModelSetupDialog(QDialog):
         if self._bar.minimum() == 0 and self._bar.maximum() == 0:
             self._bar.setRange(0, 100)
         self._lbl_url.setText(f"From: {url[:70]}..." if len(url) > 70 else f"From: {url}")
-        if filename.startswith("Extracting") or "Installing models" in filename or filename == "Verifying":
+        now = time.monotonic()
+        special = filename.startswith("Extracting") or "Installing models" in filename or filename == "Verifying"
+        if special:
+            self._net_spd_key = ""
+            self._net_spd_t = None
+            self._net_spd_b = 0
             self._lbl_model.setText("Installing models... please wait...")
             self._lbl_detail.setText("")
         else:
+            if filename != self._net_spd_key:
+                self._net_spd_key = filename
+                self._net_spd_t = None
+                self._net_spd_b = 0
+            if self._net_spd_b and downloaded < self._net_spd_b:
+                self._net_spd_t = None
+                self._net_spd_b = 0
+            spd_suffix = ""
+            if downloaded > 0 and self._net_spd_t is not None and downloaded > self._net_spd_b:
+                dt = now - self._net_spd_t
+                if dt > 1e-6:
+                    spd_suffix = f" · {_format_net_speed((downloaded - self._net_spd_b) / dt)}"
             self._lbl_model.setText(f"Downloading: {label} ({filename})")
+            if total > 0:
+                mb_d = downloaded / (1024 * 1024)
+                mb_t = total / (1024 * 1024)
+                if mb_t >= 0.01:
+                    self._lbl_detail.setText(f"{mb_d:.2f} / {mb_t:.2f} MB{spd_suffix}")
+                else:
+                    kb_d = downloaded / 1024
+                    kb_t = total / 1024
+                    self._lbl_detail.setText(f"{kb_d:.1f} / {kb_t:.1f} KB{spd_suffix}")
+            else:
+                self._lbl_detail.setText(f"{downloaded:,} bytes{spd_suffix}")
+            self._net_spd_t = now
+            self._net_spd_b = downloaded
+
         pct = int(overall * 100)
         self._bar.setValue(min(100, pct))
-        if total > 0:
-            mb_d = downloaded / (1024 * 1024)
-            mb_t = total / (1024 * 1024)
-            if mb_t >= 0.01:
-                self._lbl_detail.setText(f"{mb_d:.2f} / {mb_t:.2f} MB")
-            else:
-                kb_d = downloaded / 1024
-                kb_t = total / 1024
-                self._lbl_detail.setText(f"{kb_d:.1f} / {kb_t:.1f} KB")
-        else:
-            self._lbl_detail.setText(f"{downloaded:,} bytes")
 
 
 class ZImageProUpscalerPanel(QWidget):
@@ -470,6 +543,27 @@ class ZImageProUpscalerPanel(QWidget):
         h_strip.addWidget(grp_mod, 3)
         root.addLayout(h_strip)
 
+        # PNGs under ui/panels/assets/upscaler/ — only for the strip between the two vertical separators
+        # (undo/reset and the Original preview row use Qt standard icons only).
+        icons_dir = Path(__file__).resolve().parent / "assets" / "upscaler"
+
+        def _mk_tool_btn(
+            icon_sp: QStyle.StandardPixmap, tip: str, handler, file_name: str | None = None
+        ) -> QToolButton:
+            btn = QToolButton()
+            btn.setToolTip(tip)
+            custom_icon = None
+            if file_name:
+                p = icons_dir / file_name
+                if p.is_file():
+                    custom_icon = QIcon(str(p))
+            btn.setIcon(custom_icon if custom_icon and not custom_icon.isNull() else self.style().standardIcon(icon_sp))
+            btn.setIconSize(QSize(18, 18))
+            btn.setFixedSize(28, 28)
+            btn.setStyleSheet("background-color:#181818; border:1px solid #2a2a2a; border-radius:3px;")
+            btn.clicked.connect(handler)
+            return btn
+
         grp_prev = QGroupBox("Preview")
         h_prev = QHBoxLayout(grp_prev)
         h_prev.setContentsMargins(9, 4, 9, 7)
@@ -484,6 +578,42 @@ class ZImageProUpscalerPanel(QWidget):
         pt_o = QLabel("Original")
         pt_o.setObjectName("previewTitle")
         vo.addWidget(pt_o)
+        h_orig_tools = QHBoxLayout()
+        h_orig_tools.setSpacing(6)
+        h_orig_tools.addStretch(1)
+        self._orig_rot_left = _mk_tool_btn(
+            QStyle.StandardPixmap.SP_ArrowBack, "Rotate left 90°", self._rotate_left, None
+        )
+        self._orig_rot_right = _mk_tool_btn(
+            QStyle.StandardPixmap.SP_ArrowForward, "Rotate right 90°", self._rotate_right, None
+        )
+        self._orig_flip_h = _mk_tool_btn(
+            QStyle.StandardPixmap.SP_BrowserReload, "Flip horizontal", self._flip_horizontal, None
+        )
+        self._orig_flip_v = _mk_tool_btn(
+            QStyle.StandardPixmap.SP_BrowserStop, "Flip vertical", self._flip_vertical, None
+        )
+        self._orig_zoom_out = _mk_tool_btn(
+            QStyle.StandardPixmap.SP_MediaSeekBackward, "Zoom out (preview)", self._zoom_out_preview, None
+        )
+        self._orig_zoom_in = _mk_tool_btn(
+            QStyle.StandardPixmap.SP_MediaSeekForward, "Zoom in (preview)", self._zoom_in_preview, None
+        )
+        self._orig_crop = _mk_tool_btn(
+            QStyle.StandardPixmap.SP_FileDialogDetailedView, "Center crop (basic)", self._crop_center, None
+        )
+        for _b in (
+            self._orig_rot_left,
+            self._orig_rot_right,
+            self._orig_flip_h,
+            self._orig_flip_v,
+            self._orig_zoom_out,
+            self._orig_zoom_in,
+            self._orig_crop,
+        ):
+            h_orig_tools.addWidget(_b)
+        h_orig_tools.addStretch(1)
+        vo.addLayout(h_orig_tools)
         self._lbl_orig = QLabel("No image")
         self._lbl_orig.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lbl_orig.setMinimumSize(280, 280)
@@ -522,26 +652,6 @@ class ZImageProUpscalerPanel(QWidget):
         v_src_tools.setContentsMargins(7, 3, 7, 5)
         v_src_tools.setSpacing(4)
 
-        # Bundled next to this panel: src/ui/assets/upscaler/*.png (AUR / installs have no sibling repo).
-        icons_dir = Path(__file__).resolve().parent / "assets" / "upscaler"
-
-        def _mk_tool_btn(
-            icon_sp: QStyle.StandardPixmap, tip: str, handler, file_name: str | None = None
-        ) -> QToolButton:
-            btn = QToolButton()
-            btn.setToolTip(tip)
-            custom_icon = None
-            if file_name:
-                p = icons_dir / file_name
-                if p.is_file():
-                    custom_icon = QIcon(str(p))
-            btn.setIcon(custom_icon if custom_icon and not custom_icon.isNull() else self.style().standardIcon(icon_sp))
-            btn.setIconSize(QSize(18, 18))
-            btn.setFixedSize(28, 28)
-            btn.setStyleSheet("background-color:#181818; border:1px solid #2a2a2a; border-radius:3px;")
-            btn.clicked.connect(handler)
-            return btn
-
         h_src_tools = QHBoxLayout()
         h_src_tools.setSpacing(6)
         # UNDO + counter (left aligned)
@@ -555,7 +665,7 @@ class ZImageProUpscalerPanel(QWidget):
         self._lbl_undo_left.setStyleSheet("color:#6b7280; font-size:9px; font-weight:800;")
         self._btn_undo.setEnabled(False)
 
-        # Most tools use bundled assets/upscaler/*.png (Qt fallback if missing).
+        # PNG icons only between separators; undo/reset use Qt standard (above).
         self._btn_rot_left = _mk_tool_btn(
             QStyle.StandardPixmap.SP_ArrowBack, "Rotate left 90°", self._rotate_left, "rotate_left_90.png"
         )
@@ -639,6 +749,7 @@ class ZImageProUpscalerPanel(QWidget):
         self._btn_run = QPushButton("Run upscale")
         self._btn_run.setObjectName("btnStart")
         self._btn_run.setFixedSize(108, 28)
+        self._btn_run.setStyleSheet(_run_upscale_btn_stylesheet(pulse=False))
         self._btn_run.clicked.connect(self._run_upscale)
         h_out_actions.addWidget(self._btn_run)
 
@@ -879,10 +990,7 @@ class ZImageProUpscalerPanel(QWidget):
             return
         ew, eh = self._eng_btn_w, self._eng_btn_h
         if w == self._btn_run:
-            if w.isEnabled():
-                w.setStyleSheet("")
-            else:
-                w.setStyleSheet("")
+            w.setStyleSheet(_run_upscale_btn_stylesheet(pulse=False))
         elif w == self._btn_browse_img:
             w.setStyleSheet("")
         elif w == self._btn_install_engine:
@@ -911,11 +1019,7 @@ class ZImageProUpscalerPanel(QWidget):
         ew, eh = self._eng_btn_w, self._eng_btn_h
         if self._guide_glow_phase:
             if target == self._btn_run and target.isEnabled():
-                target.setStyleSheet(
-                    "background-color:#10b981; color:#064e3b; border:1px solid #ef4444; "
-                    "font-size:9px; font-weight:800; min-width:108px; max-width:108px; "
-                    "min-height:28px; max-height:28px; padding:0;"
-                )
+                target.setStyleSheet(_run_upscale_btn_stylesheet(pulse=True))
             elif target == self._btn_browse_img:
                 target.setStyleSheet(
                     _scan_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444")

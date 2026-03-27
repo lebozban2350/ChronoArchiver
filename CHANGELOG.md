@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [4.5.6] - 2026-03-26
+### Added
+- **Upscaler / installers**: PyTorch & diffusers setup dialog and Z-Image model download dialog show **network download speed** (throughput between progress updates).
+
+### Fixed
+- **Upscaler**: Guide pulse on **Run upscale** no longer causes layout jitter (fixed border and font metrics in stylesheet; only highlight toggles).
+
+### Changed
+- **Upscaler — photo tools**: Adjustment PNG icons under **`src/ui/panels/assets/upscaler/`** (used only for tools **between the two vertical separators** in **Source Photo Adjustment**). **Undo**, **Reset**, and the **Original** preview quick-action row use **Qt standard icons** only.
+
 ## [4.5.5] - 2026-03-27
 ### Fixed
 - **PyTorch CUDA on Python 3.14**: Bundled pip install uses **`cu130`** (`download.pytorch.org/whl/cu130`) because **`cu124`** has no **cp314** wheels; Linux/Windows venv ceiling raised to **3.14** to match.
