@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [4.5.11] - 2026-03-26
+### Changed
+- **Upscaler UI polish**: PyTorch/Models status labels in Engine Status were shifted slightly left to prevent overlap near uninstall actions.
+- **Upscaler edit mode**: Non-empty prompt now runs stronger guidance/edit behavior for visible attribute changes (for example hair color changes), while empty prompt remains cleanup/upscale only.
+- **Upscaler prompt text**: Placeholder finalized as **"Empty prompt: Only clean-up and upscaling will occur..."**.
+
 ## [4.5.10] - 2026-03-26
 ### Changed
 - **Upscaler prompt/source UX**: Prompt field now defaults blank with shorter helper text (**"Empty prompt: Only clean-up and upscaling will occur..."**). Prompt text enables edit-guided runs; blank prompt keeps cleanup/upscale-only mode. Source image is no longer restored after app relaunch.

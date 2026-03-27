@@ -433,14 +433,15 @@ class ZImageProUpscalerPanel(QWidget):
         v_mod.setSpacing(2)
 
         h_pt = QHBoxLayout()
-        h_pt.setSpacing(4)
+        h_pt.setSpacing(6)
         self._lbl_pytorch = QLabel("CHECKING…")
         self._lbl_pytorch.setStyleSheet("font-size:9px; font-weight:700; color:#10b981;")
-        self._lbl_pytorch.setFixedWidth(98)
+        self._lbl_pytorch.setFixedWidth(106)
         lbl_pt = QLabel("PyTorch:", styleSheet="font-size:8px; color:#888;")
         lbl_pt.setFixedWidth(44)
         h_pt.addWidget(lbl_pt)
         h_pt.addWidget(self._lbl_pytorch)
+        h_pt.addSpacing(4)
         self._btn_install_engine = QPushButton("Install PyTorch")
         self._btn_install_engine.setFixedSize(_ew, _eh)
         self._btn_install_engine.setStyleSheet(_eng_row_btn_qss(_ew, _eh, "#aaa", "#262626"))
@@ -454,14 +455,15 @@ class ZImageProUpscalerPanel(QWidget):
         v_mod.addLayout(h_pt)
 
         h_md = QHBoxLayout()
-        h_md.setSpacing(4)
+        h_md.setSpacing(6)
         self._lbl_model = QLabel("CHECKING…")
         self._lbl_model.setStyleSheet("font-size:9px; font-weight:700; color:#10b981;")
-        self._lbl_model.setFixedWidth(98)
+        self._lbl_model.setFixedWidth(106)
         lbl_md = QLabel("Models:", styleSheet="font-size:8px; color:#888;")
         lbl_md.setFixedWidth(44)
         h_md.addWidget(lbl_md)
         h_md.addWidget(self._lbl_model)
+        h_md.addSpacing(4)
         self._btn_update_models = QPushButton("Update!")
         self._btn_update_models.setFixedSize(_ew, _eh)
         self._btn_update_models.setStyleSheet(_eng_row_btn_qss(_ew, _eh, "#eab308", "#eab308"))
@@ -772,7 +774,6 @@ class ZImageProUpscalerPanel(QWidget):
         self._loading_panel_prefs = True
         try:
             prefs = self._panel_prefs.load()
-            self._edit_prompt.setText(str(prefs.get("prompt") or self._edit_prompt.text()))
             self._spin_strength.setValue(float(prefs.get("strength", self._spin_strength.value())))
             self._spin_steps.setValue(int(prefs.get("steps", self._spin_steps.value())))
             self._spin_seed.setValue(int(prefs.get("seed", self._spin_seed.value())))
@@ -802,7 +803,8 @@ class ZImageProUpscalerPanel(QWidget):
             # Do not restore source image across app relaunch.
             # The in-memory edit/source state still persists while the app remains open.
             "source_image": "",
-            "prompt": self._edit_prompt.text(),
+            # Prompt should start empty on each relaunch.
+            "prompt": "",
             "strength": float(self._spin_strength.value()),
             "steps": int(self._spin_steps.value()),
             "seed": int(self._spin_seed.value()),
