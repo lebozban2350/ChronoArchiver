@@ -491,8 +491,7 @@ class ZImageProUpscalerPanel(QWidget):
         h_tune.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self._edit_prompt = QLineEdit()
         self._edit_prompt.setPlaceholderText(
-            "If prompt is left empty, only clean-up and upscaling will occur. "
-            "Add words to change the photo."
+            "Empty prompt: Only clean-up and upscaling will occur..."
         )
         self._edit_prompt.setFixedHeight(_ctrl_h)
         self._edit_prompt.setMaximumWidth(16777215)
@@ -773,12 +772,6 @@ class ZImageProUpscalerPanel(QWidget):
         self._loading_panel_prefs = True
         try:
             prefs = self._panel_prefs.load()
-            p_img = (prefs.get("source_image") or "").strip()
-            if p_img:
-                if os.path.isfile(p_img):
-                    self._apply_source_path(p_img)
-                else:
-                    self._edit_image.setText(p_img)
             self._edit_prompt.setText(str(prefs.get("prompt") or self._edit_prompt.text()))
             self._spin_strength.setValue(float(prefs.get("strength", self._spin_strength.value())))
             self._spin_steps.setValue(int(prefs.get("steps", self._spin_steps.value())))
@@ -806,7 +799,9 @@ class ZImageProUpscalerPanel(QWidget):
 
     def _panel_prefs_payload(self) -> dict:
         return {
-            "source_image": self._edit_image.text().strip(),
+            # Do not restore source image across app relaunch.
+            # The in-memory edit/source state still persists while the app remains open.
+            "source_image": "",
             "prompt": self._edit_prompt.text(),
             "strength": float(self._spin_strength.value()),
             "steps": int(self._spin_steps.value()),

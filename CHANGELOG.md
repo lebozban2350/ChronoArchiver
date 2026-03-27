@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [4.5.10] - 2026-03-26
+### Changed
+- **Upscaler prompt/source UX**: Prompt field now defaults blank with shorter helper text (**"Empty prompt: Only clean-up and upscaling will occur..."**). Prompt text enables edit-guided runs; blank prompt keeps cleanup/upscale-only mode. Source image is no longer restored after app relaunch.
+- **README**: Updated release/version references and documented latest Z-Image Pro Upscaler behavior and capabilities.
+
 ## [4.5.9] - 2026-03-26
 ### Changed
 - **Upscaler prompt behavior**: Prompt placeholder now explains blank-prompt mode. When prompt is empty, runs do cleanup/upscale only; adding prompt text enables edit-driven guidance.
