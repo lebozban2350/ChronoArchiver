@@ -2,7 +2,11 @@
 
 ## [Unreleased]
 
+## [4.7.4] - 2026-03-27
+
 ### Changed
+- **Status bar**: **WEIGHTS** pre-req (Real-ESRGAN x2+x4 checkpoints for AI Video Upscaler) shown between **UPSCALER MODELS** and **READY**; startup sequence includes **CHECKING WEIGHTS…**.
+- **AI Video Upscaler**: Replaced the **`?`** modal guide with the same **red border pulse** onboarding as other panels (PyTorch → weights **Download** → **Browse…** → **Run video upscale** when ready).
 - **Release workflow**: Repo **`AGENTS.md`** documents the push-update checklist (AUR push via **`git push aur HEAD:master`** from a detached worktree; Bazzite step removed).
 
 ## [4.7.3] - 2026-03-27

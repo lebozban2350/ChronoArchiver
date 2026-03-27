@@ -56,6 +56,7 @@ from core.app_paths import (
 from core.logger import setup_logger
 from core.ml_runtime import check_ml_runtime
 from core.model_manager import ZImageModelManager
+from core.realesrgan_models import RealESRGANModelManager
 
 # Font stack: Inter if bundled, else Windows-native for readability
 _FONT_SANS = "'Inter', 'Segoe UI', 'Lucida Grande', sans-serif" if platform.system() == "Windows" else "'Inter', 'Ubuntu', sans-serif"
@@ -725,7 +726,7 @@ class ChronoArchiverApp(QMainWindow):
         self.logger.info(msg)
 
     def _check_prereqs(self):
-        """Run pre-req checks (order matches footer): PySide6, FFmpeg, OpenCV, PyTorch, scanner models, upscaler models, then footer + idle."""
+        """Run pre-req checks (order matches footer): PySide6, FFmpeg, OpenCV, PyTorch, scanner models, upscaler models, video Real-ESRGAN weights, then footer + idle."""
         def step_opencv():
             self.lbl_status.setText("CHECKING OPENCV…")
             QTimer.singleShot(400, step_pytorch)
@@ -740,6 +741,10 @@ class ChronoArchiverApp(QMainWindow):
 
         def step_upscaler_models():
             self.lbl_status.setText("CHECKING UPSCALER MODELS…")
+            QTimer.singleShot(400, step_weights)
+
+        def step_weights():
+            self.lbl_status.setText("CHECKING WEIGHTS…")
             QTimer.singleShot(350, step_finalize)
 
         def step_finalize():
@@ -831,7 +836,7 @@ class ChronoArchiverApp(QMainWindow):
         step_pyside()
 
     def _refresh_footer(self):
-        """Update footer pre-req status: PySide6, FFmpeg, OpenCV, PyTorch, scanner models, upscaler models, READY."""
+        """Update footer pre-req status: PySide6, FFmpeg, OpenCV, PyTorch, scanner models, upscaler models, video weights (Real-ESRGAN), READY."""
         ok_sym = '<span style="color:#10b981">✓</span>'
         fail_sym = '<span style="color:#ef4444">✗</span>'
         skip_sym = '<span style="color:#eab308">—</span>'
@@ -842,6 +847,9 @@ class ChronoArchiverApp(QMainWindow):
             pytorch_ok, pytorch_reason = check_ml_runtime()
             z_root = _app_settings_dir() / "z_image_pro_upscaler" / "models"
             upscaler_models_ready = ZImageModelManager(z_root).is_up_to_date()
+            esr_root = _app_settings_dir() / "ai_video_upscaler" / "models"
+            esr = RealESRGANModelManager(esr_root)
+            video_weights_ready = esr.is_ready(2) and esr.is_ready(4)
             parts = [
                 f"PYSIDE6 {ok_sym}",
                 f"FFMPEG {ok_sym if ffmpeg_ok else fail_sym}",
@@ -849,10 +857,15 @@ class ChronoArchiverApp(QMainWindow):
                 f"PYTORCH {ok_sym if pytorch_ok else skip_sym}",
                 f"SCANNER MODELS {ok_sym if models_ready else skip_sym}",
                 f"UPSCALER MODELS {ok_sym if upscaler_models_ready else skip_sym}",
+                f"WEIGHTS {ok_sym if video_weights_ready else skip_sym}",
             ]
+            self.lbl_prereq.setToolTip(
+                "Pre-requisites: PYSIDE6, FFMPEG, OPENCV, PYTORCH, scanner + Z-Image models, "
+                "Real-ESRGAN weights (AI Video Upscaler). — = optional / not installed yet."
+            )
             debug(
                 UTILITY_APP,
-                "Pre-reqs: FFmpeg=%s, OpenCV=%s, PyTorch=%s (%s), Scanner models=%s, Upscaler models=%s, PySide6=ok"
+                "Pre-reqs: FFmpeg=%s, OpenCV=%s, PyTorch=%s (%s), Scanner models=%s, Upscaler models=%s, Video weights=%s, PySide6=ok"
                 % (
                     "ok" if ffmpeg_ok else "missing",
                     "ok" if opencv_ok else "missing",
@@ -860,6 +873,7 @@ class ChronoArchiverApp(QMainWindow):
                     pytorch_reason,
                     "ok" if models_ready else "missing",
                     "ok" if upscaler_models_ready else "missing",
+                    "ok" if video_weights_ready else "missing",
                 ),
             )
             status = "  ·  ".join(parts)

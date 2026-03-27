@@ -31,7 +31,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSpinBox,
     QTextEdit,
-    QToolButton,
     QVBoxLayout,
     QWidget,
     QSizePolicy,
@@ -45,6 +44,7 @@ from ui.panel_widgets import (
     field_label,
     fmt_bytes,
     format_net_speed,
+    path_browse_btn_qss,
     pytorch_installer_vram_guidance,
 )
 
@@ -64,6 +64,28 @@ from core.restart import restart_application
 from core.venv_manager import get_ml_torch_install_label
 
 from ui.panels.upscaler_panel import EngineSetupDialog
+
+
+def _run_video_btn_stylesheet(*, pulse: bool = False) -> str:
+    """Run video upscale (#btnStart): fixed size; guide pulse only swaps border (red ↔ green)."""
+    bd = "#ef4444" if pulse else "#10b981"
+    return (
+        "QPushButton#btnStart {"
+        "background-color:#10b981; color:#064e3b; "
+        f"border:2px solid {bd}; "
+        "font-size:9px; font-weight:900; "
+        "min-width:128px; max-width:128px; min-height:28px; max-height:28px; padding:0px; "
+        "}"
+        "QPushButton#btnStart:hover:enabled {"
+        "background-color:#34d399; color:#064e3b; "
+        f"border:2px solid {bd}; "
+        "}"
+        "QPushButton#btnStart:disabled {"
+        "background-color:#1a1a1a; color:#6b7280; border:2px solid #262626; "
+        "font-size:9px; font-weight:900; "
+        "min-width:128px; max-width:128px; min-height:28px; max-height:28px; padding:0px; "
+        "}"
+    )
 
 
 def _ffmpeg_exe() -> str | None:
@@ -188,60 +210,6 @@ class RealESRGANDownloadDialog(QDialog):
         self._net_b = downloaded
 
 
-_VIDEO_UPSCALER_GUIDE_HTML = """\
-<h3 style="color:#10b981;margin-top:0;">AI Video Upscaler</h3>
-<p style="color:#e5e7eb;font-size:11px;line-height:1.45;">
-Upscale video with <b>Real-ESRGAN</b> (official x2plus / x4plus weights), then optional color and sharpening.
-Processing runs locally; nothing is uploaded.
-</p>
-<p style="color:#94a3b8;font-size:10px;line-height:1.5;"><b>1. Engine</b><br>
-Install <b>PyTorch</b> here or from <b>AI Image Upscaler</b> (same stack). After install, restart the app if prompted.
-</p>
-<p style="color:#94a3b8;font-size:10px;line-height:1.5;"><b>2. Weights</b><br>
-Tap <b>Download</b> when status shows <b>MISSING</b>. <b>2×</b> scale uses the x2 checkpoint; <b>3×</b> and <b>4×</b> use the
-x4 checkpoint (3× is resized after inference). Switching scale may require the other file — download again if needed.
-</p>
-<p style="color:#94a3b8;font-size:10px;line-height:1.5;"><b>3. Source &amp; preview</b><br>
-<b>Browse…</b> to pick a video. <b>Refresh preview</b> runs the pipeline on a <b>sample frame</b> (~10% into the clip);
-left = original, right = AI preview. Tuning matches the full export.
-</p>
-<p style="color:#94a3b8;font-size:10px;line-height:1.5;"><b>4. Parameters</b><br>
-<b>Max edge</b> caps the longest side (e.g. 3840 for 4K-class output). <b>Tile</b> lowers GPU memory use
-(try 256–512 if you hit OOM; 0 = whole frame). <b>Sat / Bright / Contrast / Sharp</b> apply after upscaling.
-</p>
-<p style="color:#94a3b8;font-size:10px;line-height:1.5;"><b>5. Export</b><br>
-<b>Run video upscale</b> asks for an output path, encodes H.264 with FFmpeg, and copies audio when possible.
-Ensure <b>FFmpeg</b> is available and OpenCV can read your file.
-</p>
-"""
-
-
-class VideoUpscalerGuideDialog(QDialog):
-    """Modal guide: does not change main panel geometry."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("AI Video Upscaler — guide")
-        self.setModal(True)
-        self.resize(440, 420)
-        v = QVBoxLayout(self)
-        v.setContentsMargins(12, 12, 12, 10)
-        te = QTextEdit()
-        te.setReadOnly(True)
-        te.setHtml(_VIDEO_UPSCALER_GUIDE_HTML)
-        te.setStyleSheet(
-            "QTextEdit { background:#121212; color:#e5e7eb; border:1px solid #262626; font-size:11px; }"
-        )
-        v.addWidget(te)
-        row = QHBoxLayout()
-        row.addStretch(1)
-        btn = QPushButton("Close")
-        btn.clicked.connect(self.accept)
-        row.addWidget(btn)
-        v.addLayout(row)
-        self.setStyleSheet("QDialog { background: #0d0d0d; }")
-
-
 class VideoUpscalerPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -279,8 +247,16 @@ class VideoUpscalerPanel(QWidget):
         _strip_eng = 84
         _ew, _eh = 82, 22
         self._eng_btn_w, self._eng_btn_h = _ew, _eh
+        self._path_bar_h = _ctrl_h
+        self._browse_btn_w = 64
         _combo_style = COMBO_BOX_PANEL_QSS
         _spin_style = SPIN_BOX_COMPACT_QSS
+
+        self._guide_pulse_timer = QTimer(self)
+        self._guide_pulse_timer.setInterval(550)
+        self._guide_pulse_timer.timeout.connect(self._pulse_guide)
+        self._guide_glow_phase = 0
+        self._guide_target = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(8, 5, 8, 4)
@@ -307,7 +283,8 @@ class VideoUpscalerPanel(QWidget):
         self._edit_video.textChanged.connect(self._update_buttons)
         h_vid.addWidget(self._edit_video, 1)
         self._btn_browse = QPushButton("Browse…")
-        self._btn_browse.setFixedSize(64, _ctrl_h)
+        self._btn_browse.setObjectName("browseBtn")
+        self._btn_browse.setFixedSize(self._browse_btn_w, _ctrl_h)
         self._btn_browse.clicked.connect(self._browse_video)
         h_vid.addWidget(self._btn_browse, 0, Qt.AlignmentFlag.AlignVCenter)
         vs.addLayout(h_vid)
@@ -470,16 +447,6 @@ class VideoUpscalerPanel(QWidget):
         h_params.addWidget(field_label("Sharp", 34))
         h_params.addWidget(self._sharp)
         h_params.addStretch(1)
-        self._btn_guide = QToolButton()
-        self._btn_guide.setText("?")
-        self._btn_guide.setToolTip("Open guide (does not resize this panel)")
-        self._btn_guide.setFixedSize(22, 22)
-        self._btn_guide.setStyleSheet(
-            "QToolButton { font-size:11px; font-weight:800; color:#10b981; "
-            "background:#181818; border:1px solid #2a2a2a; border-radius:3px; }"
-        )
-        self._btn_guide.clicked.connect(self._show_guide)
-        h_params.addWidget(self._btn_guide, 0, Qt.AlignmentFlag.AlignVCenter)
 
         h_actions = QHBoxLayout()
         h_actions.setSpacing(8)
@@ -493,12 +460,7 @@ class VideoUpscalerPanel(QWidget):
         self._btn_run = QPushButton("Run video upscale")
         self._btn_run.setObjectName("btnStart")
         self._btn_run.setFixedSize(128, 28)
-        self._btn_run.setStyleSheet(
-            "QPushButton#btnStart { background-color:#10b981; color:#064e3b; border:2px solid #10b981; "
-            "font-size:9px; font-weight:900; padding:0px; }"
-            "QPushButton#btnStart:hover:enabled { background-color:#34d399; }"
-            "QPushButton#btnStart:disabled { background-color:#1a1a1a; color:#6b7280; border:2px solid #262626; }"
-        )
+        self._btn_run.setStyleSheet(_run_video_btn_stylesheet(pulse=False))
         self._btn_run.clicked.connect(self._run_full_job)
         h_actions.addWidget(self._btn_run)
 
@@ -583,17 +545,6 @@ class VideoUpscalerPanel(QWidget):
         self._log_edit.insertHtml(message_to_html(str(msg)))
         self._log_edit.insertPlainText("\n")
 
-    def _show_guide(self):
-        VideoUpscalerGuideDialog(self).exec()
-
-    def _torch_ok(self) -> bool:
-        try:
-            import torch  # noqa: F401
-        except ImportError:
-            return False
-        ok, _ = check_ml_runtime()
-        return ok
-
     def _refresh_engine_labels(self):
         ok, reason = check_ml_runtime()
         if self._engine_just_installed:
@@ -672,6 +623,81 @@ class VideoUpscalerPanel(QWidget):
         self._btn_rm_weights.setEnabled(not busy and w_ok)
         self._btn_inst_torch.setEnabled(not busy or self._engine_just_installed)
         self._btn_rm_torch.setEnabled(not busy and t_ok and not self._engine_just_installed)
+        self._sync_guide_pulse()
+
+    def _sync_guide_pulse(self) -> None:
+        busy = self._setup_in_progress or self._job_in_progress
+        if busy:
+            self._guide_pulse_timer.stop()
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = None
+            return
+        self._guide_glow_phase = 0
+        self._guide_pulse_timer.start()
+
+    def _get_guide_target(self):
+        if self._setup_in_progress or self._job_in_progress:
+            return None
+        if self._engine_just_installed:
+            return self._btn_inst_torch
+        t_ok, _ = check_ml_runtime()
+        if not t_ok:
+            return self._btn_inst_torch
+        ns = net_scale_for_user_scale(_user_scale_from_index(self._combo_scale.currentIndex()))
+        if not self._model_mgr.is_ready(ns):
+            return self._btn_dl_weights
+        path = self._edit_video.text().strip()
+        if not path or not os.path.isfile(path):
+            return self._btn_browse
+        return self._btn_run
+
+    def _clear_guide_glow(self, w):
+        if not w:
+            return
+        ew, eh = self._eng_btn_w, self._eng_btn_h
+        if w == self._btn_run:
+            w.setStyleSheet(_run_video_btn_stylesheet(pulse=False))
+        elif w == self._btn_browse:
+            w.setStyleSheet("")
+        elif w == self._btn_inst_torch:
+            if self._engine_just_installed:
+                w.setStyleSheet(eng_row_btn_qss(ew, eh, "#064e3b", "#064e3b", "#10b981"))
+            elif not check_ml_runtime()[0]:
+                w.setStyleSheet(eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
+            else:
+                w.setStyleSheet(eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
+        elif w == self._btn_dl_weights:
+            w.setStyleSheet(eng_row_btn_qss(ew, eh, "#aaa", "#262626"))
+
+    def _pulse_guide(self):
+        target = self._get_guide_target()
+        if target == self._btn_run and not self._btn_run.isEnabled():
+            target = None
+        if target != self._guide_target:
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = target
+        if not target:
+            self._guide_pulse_timer.stop()
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = None
+            return
+        self._guide_glow_phase = 1 - self._guide_glow_phase
+        ew, eh = self._eng_btn_w, self._eng_btn_h
+        if self._guide_glow_phase:
+            if target == self._btn_run and target.isEnabled():
+                target.setStyleSheet(_run_video_btn_stylesheet(pulse=True))
+            elif target == self._btn_browse:
+                target.setStyleSheet(
+                    path_browse_btn_qss(
+                        self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444", border_px=1
+                    )
+                )
+            elif target == self._btn_inst_torch and self._engine_just_installed:
+                target.setStyleSheet(eng_row_btn_qss(ew, eh, "#064e3b", "#34d399", "#10b981"))
+            elif target in (self._btn_inst_torch, self._btn_dl_weights):
+                target.setStyleSheet(eng_row_btn_qss(ew, eh, "#ef4444", "#ef4444", "transparent"))
+        else:
+            self._clear_guide_glow(target)
 
     def _browse_video(self):
         p, _ = QFileDialog.getOpenFileName(
