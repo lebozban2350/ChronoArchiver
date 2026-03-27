@@ -15,7 +15,7 @@ repo_root = os.path.normpath(os.path.join(_spec_dir, ".."))
 src_dir = os.path.join(repo_root, "src")
 
 # Embed version at build time
-_version = os.environ.get("CHRONOARCHIVER_VERSION", "4.5.7")
+_version = os.environ.get("CHRONOARCHIVER_VERSION", "4.5.8")
 _version_txt = os.path.join(_spec_dir, "_setup_version.txt")
 with open(_version_txt, "w") as f:
     f.write(_version)

@@ -573,47 +573,11 @@ class ZImageProUpscalerPanel(QWidget):
         fr_o.setObjectName("previewCard")
         fr_o.setFrameShape(QFrame.Shape.NoFrame)
         vo = QVBoxLayout(fr_o)
-        vo.setContentsMargins(8, 7, 8, 8)
-        vo.setSpacing(5)
+        vo.setContentsMargins(2, 2, 2, 2)
+        vo.setSpacing(2)
         pt_o = QLabel("Original")
         pt_o.setObjectName("previewTitle")
         vo.addWidget(pt_o)
-        h_orig_tools = QHBoxLayout()
-        h_orig_tools.setSpacing(6)
-        h_orig_tools.addStretch(1)
-        self._orig_rot_left = _mk_tool_btn(
-            QStyle.StandardPixmap.SP_ArrowBack, "Rotate left 90°", self._rotate_left, None
-        )
-        self._orig_rot_right = _mk_tool_btn(
-            QStyle.StandardPixmap.SP_ArrowForward, "Rotate right 90°", self._rotate_right, None
-        )
-        self._orig_flip_h = _mk_tool_btn(
-            QStyle.StandardPixmap.SP_BrowserReload, "Flip horizontal", self._flip_horizontal, None
-        )
-        self._orig_flip_v = _mk_tool_btn(
-            QStyle.StandardPixmap.SP_BrowserStop, "Flip vertical", self._flip_vertical, None
-        )
-        self._orig_zoom_out = _mk_tool_btn(
-            QStyle.StandardPixmap.SP_MediaSeekBackward, "Zoom out (preview)", self._zoom_out_preview, None
-        )
-        self._orig_zoom_in = _mk_tool_btn(
-            QStyle.StandardPixmap.SP_MediaSeekForward, "Zoom in (preview)", self._zoom_in_preview, None
-        )
-        self._orig_crop = _mk_tool_btn(
-            QStyle.StandardPixmap.SP_FileDialogDetailedView, "Center crop (basic)", self._crop_center, None
-        )
-        for _b in (
-            self._orig_rot_left,
-            self._orig_rot_right,
-            self._orig_flip_h,
-            self._orig_flip_v,
-            self._orig_zoom_out,
-            self._orig_zoom_in,
-            self._orig_crop,
-        ):
-            h_orig_tools.addWidget(_b)
-        h_orig_tools.addStretch(1)
-        vo.addLayout(h_orig_tools)
         self._lbl_orig = QLabel("No image")
         self._lbl_orig.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lbl_orig.setMinimumSize(280, 280)
@@ -630,8 +594,8 @@ class ZImageProUpscalerPanel(QWidget):
         fr_u.setObjectName("previewCard")
         fr_u.setFrameShape(QFrame.Shape.NoFrame)
         vu = QVBoxLayout(fr_u)
-        vu.setContentsMargins(8, 7, 8, 8)
-        vu.setSpacing(5)
+        vu.setContentsMargins(2, 2, 2, 2)
+        vu.setSpacing(2)
         pt_u = QLabel("Upscaled + AI")
         pt_u.setObjectName("previewTitle")
         vu.addWidget(pt_u)

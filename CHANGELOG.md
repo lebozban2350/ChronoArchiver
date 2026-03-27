@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [4.5.8] - 2026-03-26
+### Changed
+- **Upscaler preview layout**: Removed in-preview edit buttons so photos use the full preview card area with tight inner padding; realtime edits remain controlled from **Source Photo Adjustment Tools** only.
+
 ## [4.5.7] - 2026-03-26
 ### Fixed
 - **Z-Image Pro Upscaler**: Panel no longer fails at startup when restoring saved source path — removed invalid **`reset_edits`** keyword passed to **`_apply_source_path`**.
