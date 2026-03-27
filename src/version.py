@@ -1,2 +1,2 @@
-__version__ = "4.6.2"
+__version__ = "4.7.0"
 APP_NAME = "ChronoArchiver"

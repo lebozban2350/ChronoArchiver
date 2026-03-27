@@ -36,7 +36,8 @@ from version import __version__
 from ui.panels.organizer_panel import MediaOrganizerPanel
 from ui.panels.encoder_panel import AV1EncoderPanel
 from ui.panels.scanner_panel import AIScannerPanel
-from ui.panels.upscaler_panel import ZImageProUpscalerPanel
+from ui.panels.upscaler_panel import AIImageUpscalerPanel
+from ui.panels.video_upscaler_panel import VideoUpscalerPanel
 from core.updater import ApplicationUpdater
 from core.subprocess_tee import (
     set_subprocess_tee_callback,
@@ -487,7 +488,7 @@ class ChronoArchiverApp(QMainWindow):
         super().__init__()
         init_log()
         self.setWindowTitle(f"ChronoArchiver v{__version__}")
-        self.setFixedSize(940, 680)
+        self.setFixedSize(1000, 680)
         self.setStyleSheet(QSS)
         _icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
         if os.path.isfile(_icon_path):
@@ -524,9 +525,10 @@ class ChronoArchiverApp(QMainWindow):
         self.btn_org = self._create_nav_btn("MEDIA ORGANIZER", 0)
         self.btn_enc = self._create_nav_btn("MASS AV1 ENCODER", 1)
         self.btn_scn = self._create_nav_btn("AI MEDIA SCANNER", 2)
-        self.btn_upz = self._create_nav_btn("Z-IMAGE PRO UPSCALER", 3)
-        
-        self.nav_btns = [self.btn_org, self.btn_enc, self.btn_scn, self.btn_upz]
+        self.btn_upz = self._create_nav_btn("AI IMAGE UPSCALER", 3)
+        self.btn_vup = self._create_nav_btn("AI VIDEO UPSCALER", 4)
+
+        self.nav_btns = [self.btn_org, self.btn_enc, self.btn_scn, self.btn_upz, self.btn_vup]
         
         self.nav_layout.addStretch()
 
@@ -550,16 +552,21 @@ class ChronoArchiverApp(QMainWindow):
         self.panel_org = MediaOrganizerPanel(log_callback=self._log, status_callback=self._set_activity)
         self.panel_enc = AV1EncoderPanel(log_callback=self._log, metrics_callback=self._on_encoder_metrics, status_callback=self._set_activity)
         self.panel_scn = AIScannerPanel(log_callback=self._log, status_callback=self._set_activity)
-        self.panel_upz = self._make_zimage_pro_panel()
+        self.panel_upz = self._make_ai_image_panel()
+        self.panel_vup = self._make_video_upscaler_panel()
 
         self.stack.addWidget(self.panel_org)
         self.stack.addWidget(self.panel_enc)
         self.stack.addWidget(self.panel_scn)
         self.stack.addWidget(self.panel_upz)
+        self.stack.addWidget(self.panel_vup)
         self.panel_scn._sig.prereqs_changed.connect(self._refresh_footer)
         _upz_sig = getattr(self.panel_upz, "_sig", None)
         if _upz_sig is not None and hasattr(_upz_sig, "setup_complete"):
             _upz_sig.setup_complete.connect(lambda *_: QTimer.singleShot(0, self._refresh_footer))
+        _vup_sig = getattr(self.panel_vup, "_sig", None)
+        if _vup_sig is not None and hasattr(_vup_sig, "setup_complete"):
+            _vup_sig.setup_complete.connect(lambda *_: QTimer.singleShot(0, self._refresh_footer))
 
         def _tee_cb(channel: str, line: str):
             QTimer.singleShot(0, lambda: self._route_subprocess_line(channel, line))
@@ -653,7 +660,13 @@ class ChronoArchiverApp(QMainWindow):
             btn.setChecked(i == index)
             btn.setStyle(btn.style())  # Refresh style
         self.lbl_metrics.setVisible(True)
-        panels = ["Media Organizer", "Mass AV1 Encoder", "AI Media Scanner", "Z-Image Pro Upscaler"]
+        panels = [
+            "Media Organizer",
+            "Mass AV1 Encoder",
+            "AI Media Scanner",
+            "AI Image Upscaler",
+            "AI Video Upscaler",
+        ]
         debug(UTILITY_APP, f"Panel switch: {panels[index]}")
         panel = self.stack.currentWidget()
         if hasattr(panel, "get_activity"):
@@ -685,14 +698,25 @@ class ChronoArchiverApp(QMainWindow):
         self.lbl_status.setText(f"{base}{dots}")
         self._activity_dot += 1
 
-    def _make_zimage_pro_panel(self) -> QWidget:
-        """Create the vendored Z-Image Pro Upscaler panel (same package as AUR / release installs)."""
+    def _make_ai_image_panel(self) -> QWidget:
+        """Vendored AI Image Upscaler (Z-Image-Turbo) panel."""
         try:
-            return ZImageProUpscalerPanel()
+            return AIImageUpscalerPanel()
         except Exception as e:
-            debug(UTILITY_APP, f"Z-Image panel load failed: {e}")
+            debug(UTILITY_APP, f"AI Image Upscaler panel load failed: {e}")
             w = QWidget()
-            lbl = QLabel("Z-Image Pro Upscaler failed to load. See debug log.", w)
+            lbl = QLabel("AI Image Upscaler failed to load. See debug log.", w)
+            lbl.setWordWrap(True)
+            lbl.setStyleSheet("color:#e5e7eb; padding:20px;")
+            return w
+
+    def _make_video_upscaler_panel(self) -> QWidget:
+        try:
+            return VideoUpscalerPanel()
+        except Exception as e:
+            debug(UTILITY_APP, f"AI Video Upscaler panel load failed: {e}")
+            w = QWidget()
+            lbl = QLabel("AI Video Upscaler failed to load. See debug log.", w)
             lbl.setWordWrap(True)
             lbl.setStyleSheet("color:#e5e7eb; padding:20px;")
             return w

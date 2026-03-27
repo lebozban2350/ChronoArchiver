@@ -1,4 +1,4 @@
-"""Relaunch ChronoArchiver after installing packages (e.g. Z-Image Pro Upscaler PyTorch stack)."""
+"""Relaunch ChronoArchiver after installing packages (e.g. AI Image Upscaler PyTorch stack)."""
 
 from __future__ import annotations
 

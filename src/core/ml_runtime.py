@@ -1,4 +1,4 @@
-"""Install / remove PyTorch + diffusers stack via pip (used by Z-Image Pro Upscaler)."""
+"""Install / remove PyTorch + diffusers stack via pip (used by AI Image Upscaler; satisfies PyTorch for AI Video Upscaler)."""
 
 from __future__ import annotations
 

@@ -7,7 +7,7 @@
 ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application. Built on PySide6 with an app-private Python environment; no system-wide package installation required.
 </div>
 
-[![Version](https://img.shields.io/badge/version-4.6.2-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-4.7.0-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
 
@@ -15,14 +15,15 @@ ChronoArchiver consolidates date-based file organization, AI-driven image analys
 
 ## Overview
 
-ChronoArchiver provides four core pillars for managing large media libraries:
+ChronoArchiver provides five core pillars for managing large media libraries:
 
 | Module | Purpose |
 |--------|---------|
 | **Media Organizer** | Sorts photos and videos into date-based folder hierarchies using EXIF, filename, or metadata. |
 | **Mass AV1 Encoder** | Batch-transcodes video to AV1 with optional hardware acceleration. |
 | **AI Media Scanner** | Classifies images by subject presence (faces, animals) for bulk triage and archival. |
-| **Z-Image Pro Upscaler** | GPU-accelerated AI refinement upscaling (optional PyTorch/diffusers stack and HF models). |
+| **AI Image Upscaler** | Z-Image-Turbo–style refinement (optional PyTorch/diffusers + HF models). |
+| **AI Video Upscaler** | Real-ESRGAN (x2/x4+) frame upscaling with color tuning, original vs sample-frame preview, FFmpeg export (optional PyTorch + weight download). |
 
 Configuration is stored in the platform user-data directory. Each panel validates prerequisites before enabling execution; Start remains disabled until all required inputs (paths, models, etc.) are satisfied.
 
@@ -30,16 +31,16 @@ Configuration is stored in the platform user-data directory. Each panel validate
 
 ## Installation
 
-Release **4.6.2** — installers and AUR `pkgver` are aligned on this version.
+Release **4.7.0** — installers and AUR `pkgver` are aligned on this version.
 
 ### GitHub (Windows / macOS installers)
 
-Download from [**Releases**](https://github.com/UnDadFeated/ChronoArchiver/releases) (**tag `v4.6.2`**):
+Download from [**Releases**](https://github.com/UnDadFeated/ChronoArchiver/releases) (**tag `v4.7.0`**):
 
 | Platform | Asset |
 |----------|--------|
-| Windows x64 | `ChronoArchiver-Setup-4.6.2-win64.exe` |
-| macOS | `ChronoArchiver-Setup-4.6.2-mac64.zip` |
+| Windows x64 | `ChronoArchiver-Setup-4.7.0-win64.exe` |
+| macOS | `ChronoArchiver-Setup-4.7.0-mac64.zip` |
 
 The setup is small; first run may download Python-related components. **Python 3.11+** must be installed for this install path. Data: `%LOCALAPPDATA%\ChronoArchiver` (Windows) or `~/Library/Application Support/ChronoArchiver` (macOS).
 
@@ -57,7 +58,7 @@ First launch creates an app-private venv (e.g. `~/.local/share/ChronoArchiver/ve
 
 ### Arch Linux (AUR)
 
-Package **[chronoarchiver](https://aur.archlinux.org/packages/chronoarchiver)** at **4.6.2**:
+Package **[chronoarchiver](https://aur.archlinux.org/packages/chronoarchiver)** at **4.7.0**:
 
 ```bash
 paru -S chronoarchiver
@@ -81,7 +82,8 @@ Run [from git](#git-clone-linux-windows-macos) in toolbox/distrobox, or use an A
 | **Media Organizer** | Date-based folders (nested or flat); EXIF, video metadata, filename, mtime; move / copy / symlink; duplicates and dry-run |
 | **AI Media Scanner** | OpenCV YuNet + optional YOLO ONNX; keep/move lists; models under user data (`Setup Models` / `Install OpenCV` in-app) |
 | **Mass AV1 Encoder** | Queue with folder structure preserved; **SVT-AV1**, **NVENC** (e.g. RTX 40+), **VAAPI** / **AMF** where available; pause/resume |
-| **Z-Image Pro Upscaler** | LANCZOS + img2img refinement; realtime source edit tools; prompt-aware mode (**blank = cleanup/upscale only**, text = edit-driven guidance); in-app PyTorch/model setup with progress/speed telemetry |
+| **AI Image Upscaler** | LANCZOS + Z-Image-Turbo img2img; realtime source edits; prompt-aware mode (**blank = cleanup/upscale only**); in-app PyTorch/model setup with progress/speed telemetry |
+| **AI Video Upscaler** | Official **Real-ESRGAN** RRDB weights (2× / 4× nets, 3× via resize); HSV saturation + brightness/contrast + optional unsharp; **Original** vs **AI preview** on a sample frame; H.264 export via FFmpeg with optional audio copy |
 | **Requirements** | **GPU optional** — hardware AV1/NVENC when supported; full software path otherwise |
 
 **Privacy note (AI Media Scanner):** analysis runs locally on your machine. Selected images are processed on-device using OpenCV/ONNX and are not uploaded to any server.

@@ -1,4 +1,4 @@
-"""Persistent Z-Image upscaler panel options under Settings/z_image_pro_upscaler/ (same tree as models)."""
+"""Persistent AI Image Upscaler (Z-Image) panel options under Settings/z_image_pro_upscaler/ (same tree as models)."""
 
 from __future__ import annotations
 

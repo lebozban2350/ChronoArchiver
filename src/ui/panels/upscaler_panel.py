@@ -1,5 +1,5 @@
 """
-Z-Image Pro Upscaler panel for ChronoArchiver (PyTorch row + models row, engine setup, model download).
+AI Image Upscaler panel for ChronoArchiver (Z-Image-Turbo; PyTorch row + models row, engine setup).
 """
 
 from __future__ import annotations
@@ -320,7 +320,9 @@ class ZImageModelSetupDialog(QDialog):
         self._bar.setValue(min(100, pct))
 
 
-class ZImageProUpscalerPanel(QWidget):
+class AIImageUpscalerPanel(QWidget):
+    """Formerly named ``ZImageProUpscalerPanel`` — AI image refinement upscaler."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._sig = _Signals()
@@ -1547,3 +1549,7 @@ class ZImageProUpscalerPanel(QWidget):
 
     def append_external_line(self, msg: str):
         self._add_log(msg)
+
+
+# Backward-compatible import name
+ZImageProUpscalerPanel = AIImageUpscalerPanel

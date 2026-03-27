@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [4.7.0] - 2026-03-27
+### Added
+- **AI Video Upscaler** panel: **Real-ESRGAN** (`RealESRGAN_x2plus` / `RealESRGAN_x4plus` weights), 2×/3×/4× target scale (3× uses the 4× network then Lanczos to size), per-frame color controls (saturation, brightness, contrast, sharpness), max long-edge cap (up to **4K / 3840**), tiled inference for VRAM, **Original** vs **AI preview** on a sample frame, and FFmpeg **libx264** export with optional audio mux.
+- Core modules: `rrdbnet`, `realesrgan_runner`, `realesrgan_models`, `video_upscaler_settings`.
+
+### Changed
+- **Naming**: **Z-Image Pro Upscaler** → **AI Image Upscaler** in the UI and docs; panel class **`AIImageUpscalerPanel`** (alias **`ZImageProUpscalerPanel`** retained for compatibility). Main window width **1000px** to fit the fifth nav tab.
+
 ## [4.6.2] - 2026-03-26
 ### Changed
 - **Upscaler defaults**: Updated defaults to **strength 0.30**, **steps 4**, **CFG 7.0**.
