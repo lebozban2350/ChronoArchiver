@@ -57,7 +57,12 @@ from core.ml_runtime import (
     uninstall_ml_runtime,
     estimate_ml_runtime_components,
 )
-from core.realesrgan_models import RealESRGANModelManager, net_scale_for_user_scale
+from core.realesrgan_models import (
+    RealESRGANModelManager,
+    expected_bytes,
+    model_filename_for_net_scale,
+    net_scale_for_user_scale,
+)
 from core.realesrgan_runner import RealESRGANRunner
 from core.video_upscaler_settings import VideoUpscalerPanelSettings
 from core.restart import restart_application
@@ -175,6 +180,8 @@ class _Signals(QObject):
 
 
 class RealESRGANDownloadDialog(QDialog):
+    """Progress for one or sequential Real-ESRGAN .pth downloads (filename, bytes done, total)."""
+
     progress_update = Signal(str, int, int)
 
     def __init__(self, parent=None):
@@ -185,7 +192,7 @@ class RealESRGANDownloadDialog(QDialog):
         v = QVBoxLayout(self)
         v.setSpacing(8)
         v.setContentsMargins(12, 12, 12, 12)
-        self._lbl = QLabel("Downloading…")
+        self._lbl = QLabel("Preparing…")
         self._lbl.setStyleSheet("font-size: 10px; font-weight: 600; color: #10b981;")
         v.addWidget(self._lbl)
         self._lbl_detail = QLabel("")
@@ -202,8 +209,8 @@ class RealESRGANDownloadDialog(QDialog):
         self._net_t: float | None = None
         self._net_b: int = 0
 
-    def _on_prog(self, url: str, downloaded: int, total: int):
-        self._lbl.setText("Downloading Real-ESRGAN weights…")
+    def _on_prog(self, filename: str, downloaded: int, total: int):
+        self._lbl.setText(f"Downloading {filename}…")
         now = time.monotonic()
         spd = ""
         if downloaded == 0 or (self._net_b and downloaded < self._net_b):
@@ -1087,18 +1094,61 @@ class VideoUpscalerPanel(QWidget):
         threading.Thread(target=task, daemon=True).start()
 
     def _on_download_weights(self):
-        ns = net_scale_for_user_scale(_user_scale_from_index(self._combo_scale.currentIndex()))
+        missing: list[tuple[str, int]] = []
+        t_dl = 0
+        for ns in (2, 4):
+            if self._model_mgr.is_ready(ns):
+                continue
+            fn = model_filename_for_net_scale(ns)
+            sz = expected_bytes(ns)
+            missing.append((fn, sz))
+            t_dl += sz
+        if not missing:
+            self._refresh_engine_labels()
+            self._update_buttons()
+            return
+
+        lines = [
+            "Download Real-ESRGAN checkpoints to:",
+            str(self._model_mgr._root),
+            "",
+            "Files to fetch:",
+        ]
+        for fn, sz in missing:
+            lines.append(f"  • {fn} (~{fmt_bytes(sz)})")
+        lines.extend(
+            [
+                "",
+                f"Estimated data: ~{fmt_bytes(t_dl)}",
+                "",
+                "2× scale needs x2plus; 3× / 4× need x4plus. Both are required for full app pre-reqs.",
+                "",
+                "Proceed with download?",
+            ]
+        )
+        if (
+            QMessageBox.question(
+                self,
+                "Download Real-ESRGAN weights",
+                "\n".join(lines),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            != QMessageBox.StandardButton.Yes
+        ):
+            return
+
         self._setup_in_progress = True
         self._update_buttons()
         dlg = RealESRGANDownloadDialog(self)
         self._active_dl_dialog = dlg
 
-        def prog(url, downloaded, total):
-            dlg.progress_update.emit(url, downloaded, total)
+        def prog(filename: str, downloaded: int, total: int):
+            dlg.progress_update.emit(filename, downloaded, total)
 
         def task():
-            ok = self._model_mgr.download(ns, prog)
-            self._sig.setup_complete.emit(("weights", ok))
+            ok, err = self._model_mgr.ensure_weights((2, 4), prog)
+            self._sig.setup_complete.emit(("weights", ok, err))
 
         dlg.show()
         threading.Thread(target=task, daemon=True).start()
@@ -1148,9 +1198,17 @@ class VideoUpscalerPanel(QWidget):
             self._runner_key = None
             self._add_log("PyTorch stack removed.")
         elif isinstance(payload, tuple) and payload and payload[0] == "weights":
-            if payload[1]:
-                self._add_log("Real-ESRGAN weights ready.")
+            ok = bool(payload[1])
+            err = str(payload[2]).strip() if len(payload) > 2 and payload[2] else ""
+            if ok:
+                self._add_log("Real-ESRGAN weights ready (x2plus / x4plus as needed).")
             else:
-                self._add_log("Weight download failed or cancelled.")
+                self._add_log(f"Weight download failed: {err or 'unknown error'}")
+                QMessageBox.warning(
+                    self,
+                    "Real-ESRGAN weights",
+                    f"Download did not finish successfully.\n\n{err or 'Unknown error.'}\n\n"
+                    "Check your network, firewall, and that GitHub is reachable.",
+                )
         self._refresh_engine_labels()
         self._update_buttons()

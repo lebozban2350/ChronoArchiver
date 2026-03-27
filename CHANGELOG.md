@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [4.7.6] - 2026-03-27
+
+### Fixed
+- **AI Video Upscaler / Real-ESRGAN**: Weight download now **confirms size and paths**, fetches **all missing** checkpoints (**x2plus** and **x4plus**), uses **longer HTTP timeout**, **Content-Length** when available, clear **HTTP/network error** messages, rejects **undersized** files, and shows a **warning** if the download fails (fixes silent failure / footer still **MISSING**).
+
 ## [4.7.5] - 2026-03-27
 
 ### Changed
