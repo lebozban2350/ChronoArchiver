@@ -1,6 +1,8 @@
-# Build small setup launcher (~6MB) for Windows and macOS.
-# Setup downloads Python source zip on first run; app runs via pythonw (.pyw).
-# Release: ChronoArchiver-Setup-*.exe, ChronoArchiver-Setup-*.zip, ChronoArchiver-*-src.zip
+# Build minimal PyInstaller setup launcher for Windows + macOS; attach only three assets to the tag release:
+#   ChronoArchiver-Setup-<ver>-win64.exe
+#   ChronoArchiver-Setup-<ver>-mac64.zip
+#   ChronoArchiver-<ver>-src.zip  (src + chronoarchiver.pyw + requirements.txt [+ CHANGELOG])
+# Do not upload unrelated files. Re-run overwrites same-named assets (overwrite_files).
 
 name: Release Installers
 
@@ -121,7 +123,7 @@ jobs:
             echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create source zip
+      - name: Create source zip (runtime files only)
         run: |
           mkdir -p release
           mkdir -p staging/ChronoArchiver
@@ -130,35 +132,29 @@ jobs:
           cd staging && zip -r "../release/ChronoArchiver-${{ steps.ver.outputs.VERSION }}-src.zip" ChronoArchiver \
             -x "*.pyc" -x "*__pycache__*" -x "*.git*" -x "ChronoArchiver/src/core/models/*" -x "*.onnx"
           cd ..
+          rm -rf staging
 
       - name: Flatten and rename artifacts
         run: |
           cp artifacts/ChronoArchiver-win64/ChronoArchiver-Setup.exe "release/ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-win64.exe"
           cp artifacts/ChronoArchiver-mac64/*.zip release/
           ls -la release/
+          echo "Only these files upload to the release:"
+          ls -1 release/
 
-      - name: Delete existing GitHub release (no orphan / stale assets)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          TAG="v${{ steps.ver.outputs.VERSION }}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Deleting existing release $TAG before upload"
-            gh release delete "$TAG" --yes
-          else
-            echo "No existing release for $TAG"
-          fi
-
-      - name: Create Release
+      - name: Create or update release (three assets only)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}
           name: ChronoArchiver ${{ steps.ver.outputs.VERSION }}
           draft: false
           prerelease: false
-          replace_artifacts: true
-          files: release/*
+          fail_on_unmatched_files: true
+          overwrite_files: true
+          files: |
+            release/ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-win64.exe
+            release/ChronoArchiver-Setup-${{ steps.ver.outputs.VERSION }}-mac64.zip
+            release/ChronoArchiver-${{ steps.ver.outputs.VERSION }}-src.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

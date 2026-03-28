@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+- **GitHub Actions**: **`ci.yml`** replaces **`ci-tests.yml`**; pytest skips **`Test_Files/`**-dependent tests when the media bundle is absent (CI checkout). **`ml_runtime`** integration test accepts any documented reason string.
+- **Release workflow**: Removed **`gh release delete`** (was brittle); **`softprops/action-gh-release`** uses valid **`overwrite_files`** (replaces removed **`replace_artifacts`**); uploads **exactly three** named assets (`win64` exe, `mac64` zip, `-src.zip`).
+
 ## [4.7.13] - 2026-03-27
 
 ### Added

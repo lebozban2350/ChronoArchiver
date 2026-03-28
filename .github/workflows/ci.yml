@@ -1,5 +1,5 @@
-# Run pytest on push/PR (Ubuntu + ffmpeg + headless Qt + optional OpenCV).
-name: Tests
+# Fast CI: pytest on Ubuntu (ffmpeg, headless Qt). No Test_Files bundle — integration tests skip.
+name: CI
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  pytest:
+  tests:
     runs-on: ubuntu-latest
     env:
       QT_QPA_PLATFORM: offscreen

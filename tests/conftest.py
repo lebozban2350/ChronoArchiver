@@ -20,8 +20,13 @@ def repo_root() -> Path:
 
 @pytest.fixture(scope="session")
 def test_files_dir(repo_root: Path) -> Path:
-    """Read-only workspace fixtures (do not delete or modify)."""
-    return repo_root / "Test_Files"
+    """Read-only workspace fixtures (do not delete or modify). Skips on CI when ``Test_Files/`` is absent."""
+    p = repo_root / "Test_Files"
+    if not p.is_dir():
+        pytest.skip(
+            "Test_Files/ not in checkout (optional local media; clone with media or run integration tests locally)"
+        )
+    return p
 
 
 @pytest.fixture(scope="session")
@@ -32,7 +37,7 @@ def sample_photo_jpg(test_files_dir: Path) -> Path:
         found = list(photos.glob(pat))
         if found:
             return found[0]
-    pytest.fail("No .jpg under Test_Files/Test_Photos")
+    pytest.skip("No .jpg under Test_Files/Test_Photos")
 
 
 @pytest.fixture(scope="session")
@@ -43,4 +48,4 @@ def sample_video_path(test_files_dir: Path) -> Path:
         found = list(vdir.glob(pat))
         if found:
             return found[0]
-    pytest.fail("No video under Test_Files/Test_Videos")
+    pytest.skip("No video under Test_Files/Test_Videos")
