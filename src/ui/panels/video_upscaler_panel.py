@@ -68,9 +68,6 @@ from core.venv_manager import get_ml_torch_install_label
 
 from ui.panels.upscaler_panel import EngineSetupDialog
 
-_VUP_RUN_W = 108
-_VUP_RUN_H = 28
-
 # User only selects scale (2×/3×/4×); rest is fixed “best effort” defaults.
 VUP_MAX_EDGE = 3840
 VUP_TILE = 400
@@ -113,15 +110,15 @@ def _denoise_bgr_one_step(bgr):
     return cv2.bilateralFilter(bgr, d=7, sigmaColor=72, sigmaSpace=72)
 
 
-def _run_video_btn_stylesheet(*, pulse: bool = False) -> str:
-    """Video UPSCALE (#btnStart): same geometry as image upscaler; guide pulse swaps border."""
+def _run_video_btn_stylesheet(*, pulse: bool = False, w: int, h: int) -> str:
+    """UPSCALE (#btnStart): fixed box (matches Browse); guide pulse swaps border."""
     bd = "#ef4444" if pulse else "#10b981"
-    w, h = _VUP_RUN_W, _VUP_RUN_H
+    fs = 8 if w <= 72 else 10
     return (
         "QPushButton#btnStart {"
         "background-color:#10b981; color:#064e3b; "
         f"border:2px solid {bd}; "
-        "font-size:10px; font-weight:900; "
+        f"font-size:{fs}px; font-weight:900; "
         f"min-width:{w}px; max-width:{w}px; min-height:{h}px; max-height:{h}px; padding:0px; "
         "}"
         "QPushButton#btnStart:hover:enabled {"
@@ -130,7 +127,7 @@ def _run_video_btn_stylesheet(*, pulse: bool = False) -> str:
         "}"
         "QPushButton#btnStart:disabled {"
         "background-color:#1a1a1a; color:#6b7280; border:2px solid #262626; "
-        "font-size:10px; font-weight:900; "
+        f"font-size:{fs}px; font-weight:900; "
         f"min-width:{w}px; max-width:{w}px; min-height:{h}px; max-height:{h}px; padding:0px; "
         "}"
     )
@@ -258,9 +255,16 @@ class RealESRGANDownloadDialog(QDialog):
         self._net_b = downloaded
 
 
+# progress_frames(total): total > 0 = known frame count; total == 0 = unknown count (indeterminate);
+# total == -1 = rawvideo → AV1 encode; total == -2 = optional audio mux to output.
+_VUP_PROG_FFMPEG_PHASE = -1
+_VUP_PROG_MUX_PHASE = -2
+
+
 class VideoUpscalerPanel(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, status_callback=None):
         super().__init__(parent)
+        self._status_cb = status_callback
         self._sig = _Signals()
         # QueuedConnection: emissions from threading.Thread must run slots on the GUI thread
         # or labels/buttons may not repaint (weights/engine row stuck until restart).
@@ -314,11 +318,20 @@ class VideoUpscalerPanel(QWidget):
         grp_src = QGroupBox("SOURCE")
         grp_src.setFixedHeight(_strip_eng)
         grp_src.setToolTip(
-            "Pick a video; scale and UPSCALE live under Browse. Export uses fixed Real-ESRGAN + AV1 pipeline."
+            "Pick a video and scale here. Browse sets the path. UPSCALE sits below the preview next to the progress bar."
         )
         vs = QVBoxLayout(grp_src)
         vs.setContentsMargins(9, 2, 9, 2)
-        vs.setSpacing(4)
+        vs.setSpacing(0)
+        vs.addStretch(1)
+
+        h_core = QHBoxLayout()
+        h_core.setSpacing(8)
+        h_core.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        left_col = QVBoxLayout()
+        left_col.setSpacing(4)
+        left_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         h_vid = QHBoxLayout()
         h_vid.setSpacing(8)
         h_vid.setAlignment(Qt.AlignmentFlag.AlignVCenter)
@@ -329,15 +342,7 @@ class VideoUpscalerPanel(QWidget):
         self._edit_video.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._edit_video.textChanged.connect(self._update_buttons)
         h_vid.addWidget(self._edit_video, 1)
-        self._btn_browse = QPushButton("Browse…")
-        self._btn_browse.setObjectName("browseBtn")
-        self._btn_browse.setFixedSize(self._browse_btn_w, _ctrl_h)
-        self._btn_browse.setStyleSheet(
-            upscaler_browse_btn_idle_qss(self._path_bar_h, self._browse_btn_w)
-        )
-        self._btn_browse.clicked.connect(self._browse_video)
-        h_vid.addWidget(self._btn_browse, 0, Qt.AlignmentFlag.AlignVCenter)
-        vs.addLayout(h_vid)
+        left_col.addLayout(h_vid)
 
         self._combo_scale = QComboBox()
         self._combo_scale.addItem("2×", 0)
@@ -345,25 +350,46 @@ class VideoUpscalerPanel(QWidget):
         self._combo_scale.addItem("4×", 2)
         self._combo_scale.setCurrentIndex(2)
         self._combo_scale.setStyleSheet(_combo_style)
-        self._combo_scale.setFixedSize(52, 22)
+        self._combo_scale.setFixedSize(52, _ctrl_h)
         self._combo_scale.setToolTip("Output size vs source (2×, 3×, or 4× on the long edge).")
         self._combo_scale.currentIndexChanged.connect(lambda *_: (self._refresh_engine_labels(), self._update_buttons()))
 
+        h_scale_row = QHBoxLayout()
+        h_scale_row.setSpacing(6)
+        h_scale_row.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        h_scale_row.addWidget(field_label("Scale", 40), 0, Qt.AlignmentFlag.AlignVCenter)
+        h_scale_row.addWidget(self._combo_scale, 0, Qt.AlignmentFlag.AlignVCenter)
+        h_scale_row.addStretch(1)
+        left_col.addLayout(h_scale_row)
+
+        h_core.addLayout(left_col, 1)
+
+        self._vup_upscale_btn_w = int(self._browse_btn_w)
+        self._vup_upscale_btn_h = int(_ctrl_h)
+        self._btn_browse = QPushButton("Browse…")
+        self._btn_browse.setObjectName("browseBtn")
+        self._btn_browse.setFixedSize(self._browse_btn_w, _ctrl_h)
+        self._btn_browse.setStyleSheet(
+            upscaler_browse_btn_idle_qss(self._path_bar_h, self._browse_btn_w)
+        )
+        self._btn_browse.clicked.connect(self._browse_video)
+
         self._btn_run = QPushButton("UPSCALE")
         self._btn_run.setObjectName("btnStart")
-        self._btn_run.setFixedSize(_VUP_RUN_W, _VUP_RUN_H)
-        self._btn_run.setStyleSheet(_run_video_btn_stylesheet(pulse=False))
+        self._btn_run.setFixedSize(self._vup_upscale_btn_w, self._vup_upscale_btn_h)
+        self._btn_run.setStyleSheet(
+            _run_video_btn_stylesheet(pulse=False, w=self._vup_upscale_btn_w, h=self._vup_upscale_btn_h)
+        )
         self._btn_run.setToolTip("Export AV1 video at the same frame rate as the source (optional audio mux).")
         self._btn_run.clicked.connect(self._run_full_job)
 
-        h_scale_row = QHBoxLayout()
-        h_scale_row.setSpacing(6)
-        h_scale_row.addStretch(1)
-        h_scale_row.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        h_scale_row.addWidget(field_label("Scale", 40), 0, Qt.AlignmentFlag.AlignVCenter)
-        h_scale_row.addWidget(self._combo_scale, 0, Qt.AlignmentFlag.AlignVCenter)
-        h_scale_row.addWidget(self._btn_run, 0, Qt.AlignmentFlag.AlignVCenter)
-        vs.addLayout(h_scale_row)
+        right_col = QVBoxLayout()
+        right_col.setSpacing(4)
+        right_col.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        right_col.addWidget(self._btn_browse, 0, Qt.AlignmentFlag.AlignHCenter)
+        h_core.addLayout(right_col, 0)
+
+        vs.addLayout(h_core)
         vs.addStretch(1)
 
         grp_eng = QGroupBox("Engine Status")
@@ -452,10 +478,11 @@ class VideoUpscalerPanel(QWidget):
         self._lbl_prev.setStyleSheet("color:#3f3f46; font-size:10px;")
         vp.addWidget(self._lbl_prev, 1)
         hp.addWidget(fr_p, 1)
-        # Preview vs console: bias slack to console (removed separate Upscale row).
+        # Preview vs console: bias slack to console; UPSCALE aligns right on the progress row.
         root.addWidget(grp_prev, 2)
 
         h_bar = QHBoxLayout()
+        h_bar.setSpacing(8)
         self._bar = QProgressBar()
         self._bar.setFixedHeight(14)
         self._bar.setRange(0, 100)
@@ -463,6 +490,9 @@ class VideoUpscalerPanel(QWidget):
         self._bar.setFormat("Ready")
         self._bar.setVisible(False)
         h_bar.addWidget(self._bar, 1)
+        h_bar.addWidget(
+            self._btn_run, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
         root.addLayout(h_bar)
 
         grp_log = QGroupBox("Console")
@@ -502,6 +532,10 @@ class VideoUpscalerPanel(QWidget):
 
     def get_activity(self) -> str:
         return "upscaling" if self._job_in_progress else "idle"
+
+    def _notify_activity(self, activity: str) -> None:
+        if self._status_cb:
+            self._status_cb(activity)
 
     def _add_log(self, msg: str):
         self._log_edit.moveCursor(self._log_edit.textCursor().End)
@@ -610,7 +644,11 @@ class VideoUpscalerPanel(QWidget):
             return
         ew, eh = self._eng_btn_w, self._eng_btn_h
         if w == self._btn_run:
-            w.setStyleSheet(_run_video_btn_stylesheet(pulse=False))
+            w.setStyleSheet(
+                _run_video_btn_stylesheet(
+                    pulse=False, w=self._vup_upscale_btn_w, h=self._vup_upscale_btn_h
+                )
+            )
         elif w == self._btn_browse:
             w.setStyleSheet(
                 upscaler_browse_btn_idle_qss(self._path_bar_h, self._browse_btn_w)
@@ -627,7 +665,9 @@ class VideoUpscalerPanel(QWidget):
 
     def _pulse_guide(self):
         target = self._get_guide_target()
-        if target == self._btn_run and not self._btn_run.isEnabled():
+        # Do not pulse disabled controls (e.g. UPSCALE without FFmpeg). Skip isVisible() so the
+        # guide still runs when this panel is on a stacked page that is not the current tab.
+        if target is not None and not target.isEnabled():
             target = None
         if target != self._guide_target:
             self._clear_guide_glow(self._guide_target)
@@ -641,7 +681,11 @@ class VideoUpscalerPanel(QWidget):
         ew, eh = self._eng_btn_w, self._eng_btn_h
         if self._guide_glow_phase:
             if target == self._btn_run and target.isEnabled():
-                target.setStyleSheet(_run_video_btn_stylesheet(pulse=True))
+                target.setStyleSheet(
+                    _run_video_btn_stylesheet(
+                        pulse=True, w=self._vup_upscale_btn_w, h=self._vup_upscale_btn_h
+                    )
+                )
             elif target == self._btn_browse:
                 target.setStyleSheet(
                     path_browse_btn_qss(
@@ -688,11 +732,21 @@ class VideoUpscalerPanel(QWidget):
         self._lbl_prev.setPixmap(QPixmap())
 
     def _on_frame_progress(self, cur: int, total: int):
-        if total <= 0:
-            return
         self._bar.setVisible(True)
+        if total == _VUP_PROG_FFMPEG_PHASE:
+            self._bar.setRange(0, 0)
+            self._bar.setFormat("Encoding AV1…")
+            return
+        if total == _VUP_PROG_MUX_PHASE:
+            self._bar.setRange(0, 0)
+            self._bar.setFormat("Muxing output…")
+            return
+        if total <= 0:
+            self._bar.setRange(0, 0)
+            self._bar.setFormat(f"{cur} frames · AI upscale…")
+            return
         self._bar.setRange(0, 100)
-        self._bar.setValue(int(100 * cur / total))
+        self._bar.setValue(int(100 * min(1.0, cur / total)))
         self._bar.setFormat(f"{cur} / {total} frames")
 
     def _run_full_job(self):
@@ -715,8 +769,11 @@ class VideoUpscalerPanel(QWidget):
         self._cancel_job.clear()
         self._job_in_progress = True
         self._bar.setVisible(True)
+        self._bar.setRange(0, 100)
         self._bar.setValue(0)
+        self._bar.setFormat("Starting…")
         self._update_buttons()
+        self._notify_activity("upscaling")
         self._add_log(f"Starting upscale → {dest}")
         ns = net_scale_for_user_scale(_user_scale_from_index(self._combo_scale.currentIndex()))
         user_sc = _user_scale_from_index(self._combo_scale.currentIndex())
@@ -725,8 +782,10 @@ class VideoUpscalerPanel(QWidget):
             runner = self._get_runner(ns)
         except Exception as e:
             self._job_in_progress = False
+            self._bar.setRange(0, 100)
             self._bar.setVisible(False)
             self._update_buttons()
+            self._notify_activity("idle")
             self._add_log(f"ERROR: {e}")
             return
 
@@ -792,6 +851,8 @@ class VideoUpscalerPanel(QWidget):
                 done = 1
                 if n > 0:
                     self._sig.progress_frames.emit(done, n)
+                else:
+                    self._sig.progress_frames.emit(done, 0)
                 while not self._cancel_job.is_set():
                     ok, fr = cap.read()
                     if not ok:
@@ -801,8 +862,11 @@ class VideoUpscalerPanel(QWidget):
                     done += 1
                     if n > 0:
                         self._sig.progress_frames.emit(done, n)
+                    else:
+                        self._sig.progress_frames.emit(done, 0)
                 cap.release()
                 proc.stdin.close()
+                self._sig.progress_frames.emit(0, _VUP_PROG_FFMPEG_PHASE)
                 proc.wait(timeout=3600)
                 if proc.returncode != 0:
                     self._sig.log_msg.emit(
@@ -811,6 +875,7 @@ class VideoUpscalerPanel(QWidget):
                     return
 
                 # Optional audio copy
+                self._sig.progress_frames.emit(0, _VUP_PROG_MUX_PHASE)
                 try:
                     subprocess.run(
                         [
@@ -856,10 +921,12 @@ class VideoUpscalerPanel(QWidget):
 
     def _finish_job_ui(self):
         self._job_in_progress = False
+        self._bar.setRange(0, 100)
         self._bar.setFormat("Ready")
         self._bar.setValue(0)
         self._bar.setVisible(False)
         self._update_buttons()
+        self._notify_activity("idle")
 
     def _on_install_torch(self):
         if self._engine_just_installed:

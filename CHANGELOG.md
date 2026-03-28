@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [4.7.12] - 2026-03-27
+
+### Changed
+- **AI Video Upscaler**: **UPSCALE** sits on the **progress row** under the preview (**right-aligned**); **Scale** stays in **SOURCE** with **Browse** only in the source strip.
+- **Main window**: **AI Video Upscaler** reports **UPSCALING** in the **footer** while a job runs (**`status_callback`**, same pattern as other panels).
+
+### Fixed
+- **AI Video Upscaler**: **Progress bar** advances when the container reports **unknown/zero frame count** (indeterminate **AI upscale** phase), shows **Encoding AV1…** after the frame pipe, and **Muxing output…** during the final mux — so a run no longer looks stuck after choosing a save path.
+
 ## [4.7.11] - 2026-03-28
 
 ### Changed

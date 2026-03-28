@@ -718,7 +718,7 @@ class ChronoArchiverApp(QMainWindow):
 
     def _make_video_upscaler_panel(self) -> QWidget:
         try:
-            return VideoUpscalerPanel()
+            return VideoUpscalerPanel(status_callback=self._set_activity)
         except Exception as e:
             debug(UTILITY_APP, f"AI Video Upscaler panel load failed: {e}")
             w = QWidget()
