@@ -787,7 +787,8 @@ class AIImageUpscalerPanel(QWidget):
         self._edited_path = None
         self._undo_stack.clear()
         try:
-            self._work_pil = ImageOps.exif_transpose(Image.open(p)).convert("RGB")
+            with Image.open(p) as im:
+                self._work_pil = ImageOps.exif_transpose(im).convert("RGB")
         except Exception:
             self._work_pil = None
         self._show_original_preview(p)
@@ -1297,7 +1298,8 @@ class AIImageUpscalerPanel(QWidget):
         if not path or not os.path.isfile(path):
             return None
         try:
-            self._work_pil = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
+            with Image.open(path) as im:
+                self._work_pil = ImageOps.exif_transpose(im).convert("RGB")
         except Exception:
             self._work_pil = None
         return self._work_pil
@@ -1401,7 +1403,8 @@ class AIImageUpscalerPanel(QWidget):
         self._preview_zoom = 1.0
         self._edited_path = None
         try:
-            self._work_pil = ImageOps.exif_transpose(Image.open(self._source_path)).convert("RGB")
+            with Image.open(self._source_path) as im:
+                self._work_pil = ImageOps.exif_transpose(im).convert("RGB")
         except Exception:
             self._work_pil = None
         self._clear_upscaled_preview()
@@ -1444,7 +1447,8 @@ class AIImageUpscalerPanel(QWidget):
 
         beautify = self._chk_beautify.isChecked()
         try:
-            ow, oh = Image.open(path).size
+            with Image.open(path) as im:
+                ow, oh = im.size
         except Exception:
             self._upscale_in_progress = False
             self._bar.setVisible(False)

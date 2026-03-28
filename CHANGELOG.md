@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [4.8.0] - 2026-03-28
+
+### Fixed
+- **AI Image Upscaler**: Use **`with Image.open(...)`** when reading dimensions and when loading the working PIL image so session logs no longer report **`ResourceWarning: unclosed file`** for the source JPEG/PNG.
+
 ## [4.7.14] - 2026-03-27
 
 ### Added
