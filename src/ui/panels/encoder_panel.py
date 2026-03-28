@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QSizePolicy, QDialog, QTextEdit,
 )
 from PySide6.QtCore import Qt, Signal, QObject, QTimer
-from PySide6.QtGui import QTextCursor
+from PySide6.QtGui import QCloseEvent, QShowEvent, QTextCursor
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -28,7 +28,12 @@ from core.av1_engine import AV1EncoderEngine, EncodingProgress
 from ui.console_style import message_to_html, PANEL_CONSOLE_TEXTEDIT_STYLE
 from ui.panel_widgets import COMBO_BOX_PANEL_QSS, path_browse_btn_qss
 from core.av1_settings import AV1Settings
-from core.debug_logger import debug, UTILITY_MASS_AV1_ENCODER
+from core.debug_logger import (
+    INSTALLER_APP_MASS_AV1_ENCODER,
+    debug,
+    log_installer_popup,
+    UTILITY_MASS_AV1_ENCODER,
+)
 
 
 class _Signals(QObject):
@@ -64,6 +69,16 @@ class ScanProgressDialog(QDialog):
         self._bar.setFixedHeight(12)
         v.addWidget(self._bar)
         self.setStyleSheet("QDialog { background: #0d0d0d; }")
+        self._last_scan_log_ts = 0.0
+        self._last_scan_count = 0
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        log_installer_popup(INSTALLER_APP_MASS_AV1_ENCODER, "ScanProgressDialog", "opened")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        log_installer_popup(INSTALLER_APP_MASS_AV1_ENCODER, "ScanProgressDialog", "closed")
+        super().closeEvent(event)
 
     def update_progress(self, count: int, total_bytes: int):
         self._lbl_files.setText(f"Files: {count}")
@@ -77,6 +92,16 @@ class ScanProgressDialog(QDialog):
         else:
             sz = f"{total_bytes} B"
         self._lbl_size.setText(f"Total size: {sz}")
+        now = time.monotonic()
+        if count >= self._last_scan_count + 200 or (now - self._last_scan_log_ts) >= 3.0:
+            self._last_scan_log_ts = now
+            self._last_scan_count = count
+            log_installer_popup(
+                INSTALLER_APP_MASS_AV1_ENCODER,
+                "ScanProgressDialog",
+                "progress",
+                f"files={count} total_bytes={total_bytes}",
+            )
 
 
 class AV1EncoderPanel(QWidget):

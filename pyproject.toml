@@ -1,9 +1,23 @@
 [project]
 name = "chronoarchiver"
-version = "4.7.12"
+version = "4.7.13"
 description = "Unified media management: organizer, AV1 encoder, AI scanner"
 readme = "README.md"
 requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+markers = [
+    "integration: uses FFmpeg, OpenCV, or Test_Files media (optional system deps)",
+    "qt: requires PySide6 (offscreen platform)",
+]
 
 [tool.ruff]
 target-version = "py310"

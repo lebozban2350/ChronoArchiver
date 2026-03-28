@@ -1,0 +1,35 @@
+# Run pytest on push/PR (Ubuntu + ffmpeg + headless Qt + optional OpenCV).
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest opencv-python-headless
+          pip install -r requirements.txt
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Pytest
+        working-directory: ${{ github.workspace }}
+        run: python -m pytest tests/ -v --tb=short

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from pathlib import Path
 
@@ -11,9 +12,13 @@ import torch.nn.functional as F
 
 from core.rrdbnet import RRDBNet
 
+_log = logging.getLogger("ChronoArchiver.realesrgan")
 
-def _load_weights(model: torch.nn.Module, model_path: str | Path) -> None:
-    loadnet = torch.load(str(model_path), map_location=torch.device("cpu"))
+
+def _extract_state_dict(model_path: str | Path) -> dict:
+    """Load checkpoint dict (params / params_ema / raw) from a .pth file."""
+    p = str(model_path)
+    loadnet = torch.load(p, map_location=torch.device("cpu"))
     if isinstance(loadnet, dict):
         if "params_ema" in loadnet:
             state = loadnet["params_ema"]
@@ -23,6 +28,99 @@ def _load_weights(model: torch.nn.Module, model_path: str | Path) -> None:
             state = loadnet
     else:
         state = loadnet
+    if not isinstance(state, dict):
+        raise ValueError(f"Unsupported checkpoint format in {p}")
+    return state
+
+
+def _find_conv_first_weight(state: dict):
+    """Return tensor for first conv weights (official keys use conv_first.weight)."""
+    if "conv_first.weight" in state:
+        return state["conv_first.weight"]
+    for k, v in state.items():
+        if k.endswith("conv_first.weight") and hasattr(v, "shape"):
+            return v
+    return None
+
+
+def _infer_scale_from_state(state: dict) -> int:
+    """Infer x2 vs x4 from conv_first input channels (BasicSR: x2 uses 12 after unshuffle, x4 uses 3)."""
+    w = _find_conv_first_weight(state)
+    if w is None:
+        return 4
+    if len(w.shape) < 2:
+        return 4
+    in_ch = int(w.shape[1])
+    if in_ch == 12:
+        return 2
+    if in_ch == 3:
+        return 4
+    return 4
+
+
+def _validate_rrdb_rgb_checkpoint(state: dict, model_path: str | Path) -> None:
+    """Real-ESRGAN x2plus uses conv_first with 12 ch (3×4 unshuffle); x4plus uses 3 ch RGB."""
+    w = _find_conv_first_weight(state)
+    if w is None:
+        raise ValueError(
+            f"No conv_first weights found in {model_path!s}. "
+            "Use official RealESRGAN_x2plus.pth / RealESRGAN_x4plus.pth or re-download from the app."
+        )
+    if len(w.shape) < 2:
+        raise ValueError(f"Invalid conv_first tensor in {model_path!s}.")
+    in_ch = int(w.shape[1])
+    if in_ch not in (3, 12):
+        raise ValueError(
+            f"This file is not a supported Real-ESRGAN RRDB checkpoint (conv_first in_ch={in_ch}; "
+            f"expected 3 for x4plus or 12 for x2plus). Remove {model_path!s} and use Download Weights."
+        )
+
+
+# (mtime, size, ok, err, should_quarantine)
+_rrdb_checkpoint_cache: dict[str, tuple[float, int, bool, str, bool]] = {}
+
+
+def invalidate_rrdb_checkpoint_cache(model_path: str | Path) -> None:
+    """Drop cached validation for a path (e.g. after rename/remove)."""
+    _rrdb_checkpoint_cache.pop(str(Path(model_path).resolve()), None)
+
+
+def validate_rrdb_rgb_checkpoint_file(model_path: str | Path) -> tuple[bool, str, bool]:
+    """Load minimal state and check official RGB RRDB format.
+
+    Returns ``(ok, message, should_quarantine)``. When ``should_quarantine`` is true and the file
+    still exists, callers may rename it aside so a fresh download can replace it.
+    """
+    p = Path(model_path)
+    try:
+        st = p.stat()
+    except OSError as e:
+        return False, str(e), False
+    key = str(p.resolve())
+    ent = _rrdb_checkpoint_cache.get(key)
+    if ent and ent[0] == st.st_mtime and ent[1] == st.st_size:
+        return ent[2], ent[3], ent[4]
+
+    try:
+        state = _extract_state_dict(p)
+        _validate_rrdb_rgb_checkpoint(state, p)
+        _rrdb_checkpoint_cache[key] = (st.st_mtime, st.st_size, True, "", False)
+        return True, "", False
+    except ValueError as e:
+        err = str(e)
+        _rrdb_checkpoint_cache[key] = (st.st_mtime, st.st_size, False, err, True)
+        return False, err, True
+    except OSError as e:
+        err = str(e)
+        _rrdb_checkpoint_cache[key] = (st.st_mtime, st.st_size, False, err, False)
+        return False, err, False
+    except Exception as e:
+        err = str(e)
+        _rrdb_checkpoint_cache[key] = (st.st_mtime, st.st_size, False, err, True)
+        return False, err, True
+
+
+def _load_weights(model: torch.nn.Module, state: dict) -> None:
     model.load_state_dict(state, strict=True)
 
 
@@ -42,7 +140,6 @@ class RealESRGANRunner:
     ) -> None:
         if net_scale not in (2, 4):
             raise ValueError("net_scale must be 2 or 4")
-        self.net_scale = net_scale
         self.tile_size = tile
         self.tile_pad = tile_pad
         self.pre_pad = pre_pad
@@ -52,8 +149,27 @@ class RealESRGANRunner:
         self.half = half and torch.cuda.is_available()
 
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=net_scale)
-        _load_weights(model, model_path)
+        state = _extract_state_dict(model_path)
+        _validate_rrdb_rgb_checkpoint(state, model_path)
+        infer_scale = _infer_scale_from_state(state)
+        if infer_scale != net_scale:
+            _log.warning(
+                "Checkpoint %s contains a %sx network but caller requested net_scale=%s; using %sx from file.",
+                model_path,
+                infer_scale,
+                net_scale,
+                infer_scale,
+            )
+        self.net_scale = infer_scale
+        model = RRDBNet(
+            num_in_ch=3,
+            num_out_ch=3,
+            num_feat=64,
+            num_block=23,
+            num_grow_ch=32,
+            scale=self.net_scale,
+        )
+        _load_weights(model, state)
         model.eval()
         self.model = model.to(self.device)
         if self.half:

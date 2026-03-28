@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
     QDialog, QTextEdit, QDialogButtonBox,
 )
 from PySide6.QtCore import Qt, QTimer, Signal, QSettings, QCoreApplication
-from PySide6.QtGui import QIcon, QFontDatabase
+from PySide6.QtGui import QCloseEvent, QIcon, QFontDatabase, QShowEvent
 
 from version import __version__
 from ui.panels.organizer_panel import MediaOrganizerPanel
@@ -44,7 +44,16 @@ from core.subprocess_tee import (
     set_subprocess_channel,
     win_hide_kw,
 )
-from core.debug_logger import init_log, get_log_path, debug, UTILITY_APP, UTILITY_INSTALLER_POPUP
+from core.debug_logger import (
+    INSTALLER_APP_MAIN,
+    get_log_path,
+    debug,
+    init_log,
+    install_global_exception_hooks,
+    install_qt_message_handler,
+    log_installer_popup,
+    UTILITY_APP,
+)
 from core.app_paths import (
     APP_NAME,
     APP_AUTHOR,
@@ -303,10 +312,34 @@ class PreReqDialog(QDialog):
         self.setStyleSheet("QDialog { background: #0d0d0d; }")
         self._downloading = False
 
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        log_installer_popup(INSTALLER_APP_MAIN, "PreReqDialog", "opened")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        log_installer_popup(INSTALLER_APP_MAIN, "PreReqDialog", "closed")
+        super().closeEvent(event)
+
     def _on_download(self):
         if self._downloading:
             return
+        try:
+            from core.network_status import NO_NETWORK_MESSAGE, is_network_reachable
+
+            if not is_network_reachable():
+                self._lbl_phase.setText(NO_NETWORK_MESSAGE)
+                self._lbl_phase.setStyleSheet("font-size: 10px; font-weight: 700; color: #ff0000;")
+                self._lbl_phase.show()
+                QMessageBox.warning(
+                    self,
+                    NO_NETWORK_MESSAGE,
+                    "Cannot download FFmpeg without an internet connection.",
+                )
+                return
+        except Exception:
+            pass
         self._downloading = True
+        log_installer_popup(INSTALLER_APP_MAIN, "PreReqDialog", "download_started")
         self._btn_download.setEnabled(False)
         self._lbl_phase.setText("Preparing...")
         self._lbl_phase.show()
@@ -316,9 +349,11 @@ class PreReqDialog(QDialog):
         ffmpeg_queue = queue.Queue()
 
         def _on_progress(phase: str, pct: int, detail: str):
-            debug(
-                UTILITY_INSTALLER_POPUP,
-                f"FFmpeg prereq popup: phase={phase!r} pct={pct}% detail={(detail or '')[:220]}",
+            log_installer_popup(
+                INSTALLER_APP_MAIN,
+                "PreReqDialog",
+                "progress",
+                f"phase={phase!r} pct={pct}% detail={(detail or '')[:220]}",
             )
             try:
                 ffmpeg_queue.put_nowait((phase, pct, detail))
@@ -343,6 +378,7 @@ class PreReqDialog(QDialog):
                         self._lbl_phase.hide()
                         self._lbl_detail.hide()
                         self._bar.hide()
+                        log_installer_popup(INSTALLER_APP_MAIN, "PreReqDialog", "download_complete")
                         self.download_complete.emit()
                         return
             except queue.Empty:
@@ -351,6 +387,7 @@ class PreReqDialog(QDialog):
         def _worker():
             ok = ensure_bundled_ffmpeg(_on_progress)
             if not ok:
+                log_installer_popup(INSTALLER_APP_MAIN, "PreReqDialog", "download_failed")
                 self._lbl_ffmpeg_status.setText("Failed")
                 self._lbl_phase.setText("Install failed. Check debug log.")
                 self._btn_download.setEnabled(True)
@@ -400,6 +437,14 @@ class UpdateDownloadDialog(QDialog):
         self._dest_path = None
         self._download_ok = False
 
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        log_installer_popup(INSTALLER_APP_MAIN, "UpdateDownloadDialog", "opened")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        log_installer_popup(INSTALLER_APP_MAIN, "UpdateDownloadDialog", "closed")
+        super().closeEvent(event)
+
     def run_download(self, updater, version: str, changelog_text: str) -> bool:
         """
         Fetch asset info, download with progress, then launch installer. Returns True if
@@ -411,6 +456,12 @@ class UpdateDownloadDialog(QDialog):
             return False
         url, size_bytes, filename = info
         size_mb = size_bytes / (1024 * 1024)
+        log_installer_popup(
+            INSTALLER_APP_MAIN,
+            "UpdateDownloadDialog",
+            "run_download",
+            f"version={version!r} file={filename!r} size_mb={size_mb:.2f} url={url[:120]!r}",
+        )
         self._lbl_intro.setText(f"Downloading ChronoArchiver v{version}")
         self._lbl_file.setText(f"File: {filename}")
         self._lbl_size.setText(f"Size: {size_mb:.1f} MB total")
@@ -425,9 +476,11 @@ class UpdateDownloadDialog(QDialog):
         self._dest_path = dest
 
         def _on_progress(downloaded, total, pct, mbps):
-            debug(
-                UTILITY_INSTALLER_POPUP,
-                f"App update download popup: bytes={downloaded}/{total} pct={pct:.1f} mbps={(mbps or 0):.4f}",
+            log_installer_popup(
+                INSTALLER_APP_MAIN,
+                "UpdateDownloadDialog",
+                "progress",
+                f"bytes={downloaded}/{total} pct={pct:.1f} mbps={(mbps or 0):.4f}",
             )
             try:
                 self._progress_queue.put_nowait((downloaded, total, pct, mbps))
@@ -441,9 +494,11 @@ class UpdateDownloadDialog(QDialog):
                     if msg[0] == "done":
                         self._download_ok = bool(msg[1])
                         self._poll_timer.stop()
-                        debug(
-                            UTILITY_INSTALLER_POPUP,
-                            f"App update download popup: done ok={self._download_ok} version={version}",
+                        log_installer_popup(
+                            INSTALLER_APP_MAIN,
+                            "UpdateDownloadDialog",
+                            "download_finished",
+                            f"ok={self._download_ok} version={version}",
                         )
                         if self._download_ok:
                             self.accept()
@@ -487,7 +542,6 @@ class UpdateDownloadDialog(QDialog):
 class ChronoArchiverApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        init_log()
         self.setWindowTitle(f"ChronoArchiver v{__version__}")
         self.setFixedSize(1040, 680)
         self.setStyleSheet(QSS)
@@ -496,8 +550,10 @@ class ChronoArchiverApp(QMainWindow):
             self.setWindowIcon(QIcon(_icon_path))
 
         self.logger = setup_logger()
+        install_qt_message_handler()
         self.updater = ApplicationUpdater()
         self._update_result_queue = queue.Queue()
+        self._update_check_user_initiated = False
         self._update_poll_timer = None
         self._component_sync_started = False
         self._metrics_gpu_cache = "  N/A"
@@ -649,7 +705,7 @@ class ChronoArchiverApp(QMainWindow):
         self._metrics_timer = QTimer(self)
         self._metrics_timer.timeout.connect(self._poll_metrics)
         self._metrics_timer.start(2000)
-        QTimer.singleShot(2000, self._run_updater)
+        QTimer.singleShot(2000, lambda: self._run_updater(user_initiated=False))
 
     def _create_nav_btn(self, text, index):
         btn = QPushButton(text)
@@ -864,10 +920,22 @@ class ChronoArchiverApp(QMainWindow):
                 f"UPSCALER MODELS {ok_sym if upscaler_models_ready else skip_sym}",
                 f"WEIGHTS {ok_sym if video_weights_ready else skip_sym}",
             ]
-            self.lbl_prereq.setToolTip(
+            try:
+                from core.network_status import is_network_reachable
+
+                net_ok = is_network_reachable()
+            except Exception:
+                net_ok = True
+            tip = (
                 "Pre-requisites: PYSIDE6, FFMPEG, OPENCV, PYTORCH, scanner + Z-Image models, "
                 "Real-ESRGAN weights (AI Video Upscaler). — = optional / not installed yet."
             )
+            if not net_ok:
+                tip += (
+                    " Network: offline — panels show NO NETWORK! (red) for installs that need internet; "
+                    "the rest of the app still works with what is already installed."
+                )
+            self.lbl_prereq.setToolTip(tip)
             debug(
                 UTILITY_APP,
                 "Pre-reqs: FFmpeg=%s, OpenCV=%s, PyTorch=%s (%s), Scanner models=%s, Upscaler models=%s, Video weights=%s, PySide6=ok"
@@ -1020,11 +1088,12 @@ class ChronoArchiverApp(QMainWindow):
         except Exception:
             pass
 
-    def _run_updater(self):
+    def _run_updater(self, *, user_initiated: bool = True):
         # If update available and user clicks, perform update
         if self.updater.is_update_available():
             self._confirm_and_perform_update()
             return
+        self._update_check_user_initiated = user_initiated
         self._update_pulse_timer.stop()
         self.btn_update.setText("CHECKING...")
         self._update_result_queue = queue.Queue()
@@ -1052,8 +1121,16 @@ class ChronoArchiverApp(QMainWindow):
             self._pulse_update_button()
         elif latest is None:
             self._update_pulse_timer.stop()
-            self.btn_update.setText("UPDATE CHECK UNAVAILABLE")
-            self.btn_update.setStyleSheet("font-size: 9px; color: #4b5563; border:none; background:transparent;")
+            from core.network_status import NO_NETWORK_MESSAGE, is_network_reachable
+
+            manual = getattr(self, "_update_check_user_initiated", False)
+            if manual and not is_network_reachable(force_refresh=True):
+                self._flash_no_network_on_update_button()
+            else:
+                self.btn_update.setText("UPDATE CHECK UNAVAILABLE")
+                self.btn_update.setStyleSheet(
+                    "font-size: 9px; color: #4b5563; border:none; background:transparent;"
+                )
         else:
             self._update_pulse_timer.stop()
             self.btn_update.setText("CHRONOARCHIVER IS UP TO DATE")
@@ -1091,6 +1168,35 @@ class ChronoArchiverApp(QMainWindow):
             self.btn_update.setStyleSheet(f"{base} color: #10b981;")
         else:
             self.btn_update.setStyleSheet(f"{base} color: #4b5563;")
+
+    def _flash_no_network_on_update_button(self):
+        """Manual update check while offline: bright red NO NETWORK! briefly."""
+        from core.network_status import NO_NETWORK_MESSAGE
+
+        self._update_btn_saved_text = self.btn_update.text()
+        self._update_btn_saved_style = self.btn_update.styleSheet()
+        self.btn_update.setText(NO_NETWORK_MESSAGE)
+        self.btn_update.setStyleSheet(
+            "font-size: 9px; font-weight: bold; color: #ff0000; border:none; background:transparent;"
+        )
+        QTimer.singleShot(4000, self._restore_update_button_after_no_network)
+
+    def _restore_update_button_after_no_network(self):
+        if getattr(self, "_update_btn_saved_text", None):
+            self.btn_update.setText(self._update_btn_saved_text)
+        else:
+            self.btn_update.setText("CHECKING FOR UPDATES...")
+        self.btn_update.setStyleSheet(
+            getattr(
+                self,
+                "_update_btn_saved_style",
+                "font-size: 9px; color: #4b5563; border:none; background:transparent;",
+            )
+        )
+        if self.updater.is_update_available():
+            self._update_pulse_phase = 0
+            self._update_pulse_timer.start()
+            self._pulse_update_button()
 
     def _confirm_and_perform_update(self):
         latest = self.updater.get_latest_version()
@@ -1191,6 +1297,9 @@ class ChronoArchiverApp(QMainWindow):
 
 if __name__ == "__main__":
     from core.single_instance import ensure_single_instance, release_single_instance
+
+    init_log()
+    install_global_exception_hooks()
 
     # Qt: org/app + QSettings path must be set before any QApplication (see QSettings.setPath docs).
     QCoreApplication.setOrganizationName(APP_AUTHOR)

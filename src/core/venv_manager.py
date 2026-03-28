@@ -57,10 +57,92 @@ VENV_PYTHON_MAX_LINUX_WIN = (3, 14)
 VENV_PYTHON_MAX_DARWIN = (3, 14)
 
 
+def _vendor_rank(v: str) -> int:
+    """NVIDIA > AMD > Intel (matches OpenCV / PyTorch install precedence)."""
+    return {"nvidia": 3, "amd": 2, "intel": 1}.get(v, 0)
+
+
+def _linux_lspci_gpu_candidates() -> list[tuple[str, bool]]:
+    """
+    Parse lspci display controllers: list of (vendor_key, is_integrated_heuristic).
+    Used on Linux for discrete-before-integrated ordering.
+    """
+    cand: list[tuple[str, bool]] = []
+    try:
+        r = subprocess.run(
+            ["lspci", "-nn"],
+            capture_output=True,
+            text=True,
+            timeout=6,
+            **win_hide_kw(),
+        )
+        if r.returncode != 0:
+            return []
+        for line in (r.stdout or "").splitlines():
+            if not re.search(
+                r"VGA compatible controller|3D controller|Display controller",
+                line,
+                re.I,
+            ):
+                continue
+            lc = line.lower()
+            vendor = ""
+            if re.search(r"\b10de:|\[10de:|\bnvidia\b", line, re.I):
+                vendor = "nvidia"
+            elif re.search(r"\b1002:|\[1002:|\bamd\b|\bradeon\b|\bati technologies\b", line, re.I):
+                vendor = "amd"
+            elif re.search(r"\b8086:|\[8086:|\bintel\b", line, re.I):
+                vendor = "intel"
+            if not vendor:
+                continue
+            if vendor == "nvidia":
+                integrated = "integrated" in lc
+            elif vendor == "amd":
+                integrated = "integrated" in lc
+            else:
+                discrete_intel = any(
+                    x in lc
+                    for x in (
+                        "arc",
+                        "dg2",
+                        "a770",
+                        "a750",
+                        "a730",
+                        "a580",
+                        "a380",
+                        "a310",
+                        "iris xe max",
+                    )
+                )
+                integrated = not discrete_intel
+            cand.append((vendor, integrated))
+    except Exception:
+        pass
+    return cand
+
+
+def _pick_vendor_prefer_discrete(candidates: list[tuple[str, bool]]) -> str:
+    """
+    Prefer discrete (non-integrated) adapters, then vendor: NVIDIA > AMD > Intel.
+    """
+    if not candidates:
+        return ""
+    non_i = [c for c in candidates if not c[1]]
+    pool = non_i if non_i else candidates
+    best = max(pool, key=lambda c: (_vendor_rank(c[0]),))
+    return best[0]
+
+
 def detect_gpu() -> str:
     """
     Return 'nvidia', 'amd', 'intel', or ''.
-    Prefer discrete GPU when both iGPU + dGPU exist (hybrid laptops / APU + NVIDIA).
+
+    Precedence (same idea as AI Image Upscaler engine hints):
+    - **API stack**: CUDA (NVIDIA) > OpenCL (AMD/Intel) for OpenCV; PyTorch uses CUDA only on NVIDIA.
+    - **Vendor**: NVIDIA > AMD > Intel when choosing among adapters.
+    - **Role**: discrete GPU before integrated when both are visible (Windows WMI; Linux lspci).
+
+    Linux: prefer `lspci` classification with discrete-first pick, then sysfs / lspci fallbacks.
     """
     found = {"nvidia": False, "amd": False, "intel": False}
 
@@ -113,9 +195,6 @@ def detect_gpu() -> str:
                         return "intel"
                     return ""
 
-                def _vendor_rank(v: str) -> int:
-                    return {"nvidia": 3, "amd": 2, "intel": 1}.get(v, 0)
-
                 candidates: list[tuple[int, bool, str]] = []  # (adapterRAM, integrated, vendor)
                 for e in entries:
                     name = e.get("Name") or ""
@@ -157,6 +236,24 @@ def detect_gpu() -> str:
                 found["nvidia"] = True
     except Exception:
         pass
+
+    if found["nvidia"]:
+        return "nvidia"
+
+    # Linux: structured lspci list — discrete before integrated; NVIDIA > AMD > Intel
+    if platform.system() == "Linux":
+        cand = _linux_lspci_gpu_candidates()
+        if cand:
+            picked = _pick_vendor_prefer_discrete(cand)
+            if picked:
+                try:
+                    debug(
+                        UTILITY_OPENCV_INSTALL,
+                        f"detect_gpu: lspci pick={picked} candidates={cand}",
+                    )
+                except Exception:
+                    pass
+                return picked
 
     # 2) sysfs scan: /sys/class/drm/card*/device/vendor
     try:
@@ -246,14 +343,41 @@ def get_ml_torch_install_label() -> str:
     return "PyTorch (CPU)"
 
 
+def format_pytorch_ready_line() -> tuple[str, str]:
+    """
+    Shared PyTorch **READY** line for AI Image Upscaler and AI Video Upscaler.
+    Uses the same rules as runtime: CUDA when `torch.cuda.is_available()`, else CPU.
+    Returns (label, tooltip).
+    """
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            name = torch.cuda.get_device_name(0)
+            suf = name[:28] + "…" if len(name) > 28 else name
+            return (f"READY · CUDA · {suf}" if suf else "READY · CUDA"), ""
+        tip = (
+            "PyTorch on CPU (typical for AMD/Intel, macOS, or no NVIDIA CUDA). "
+            "Runs are slower than on NVIDIA CUDA."
+        )
+        return "READY · CPU", tip
+    except Exception:
+        tip = (
+            "PyTorch on CPU (typical for AMD/Intel, macOS, or no NVIDIA CUDA). "
+            "Runs are slower than on NVIDIA CUDA."
+        )
+        return "READY · CPU", tip
+
+
 def get_opencv_variant() -> str:
     """
-    Variant for **AI Scanner → Install OpenCV** only (not installed by setup/bootstrap):
-    - 'cuda': NVIDIA (dGPU or any GPU reported by nvidia-smi / WMI GeForce-RTX-style) → CUDA wheel + pip CUDA stack
-    - 'opencl_amd': AMD as primary adapter → PyPI opencv-python (OpenCL)
-    - 'opencl_intel': Intel (integrated or discrete Arc, etc.) → PyPI opencv-python (OpenCL)
+    Variant for **AI Scanner → Install OpenCV** only (not installed by setup/bootstrap).
+    **GPU precedence** (same as `detect_gpu`): discrete before integrated; **NVIDIA > AMD > Intel**;
+    **CUDA** (NVIDIA) before **OpenCL** (AMD/Intel) for this OpenCV wheel choice.
+    - 'cuda': NVIDIA → CUDA wheel + pip CUDA stack
+    - 'opencl_amd': AMD primary → opencv-python (OpenCL)
+    - 'opencl_intel': Intel primary → opencv-python (OpenCL)
     - 'opencl': fallback when no vendor detected
-    Hybrid systems: **NVIDIA is preferred** when an NVIDIA GPU is present (before VRAM-only WMI tie-breaks).
     """
     gpu = detect_gpu()
     if gpu == "nvidia":

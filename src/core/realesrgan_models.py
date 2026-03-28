@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from core.realesrgan_runner import (
+    invalidate_rrdb_checkpoint_cache,
+    validate_rrdb_rgb_checkpoint_file,
+)
 
 # Official release assets (xinntao/Real-ESRGAN)
 X2PLUS_NAME = "RealESRGAN_x2plus.pth"
@@ -19,6 +25,8 @@ APPROX_X4_BYTES = 67 * 1024 * 1024
 
 _MIN_VALID_BYTES = 8 * 1024 * 1024
 _DOWNLOAD_TIMEOUT_SEC = 360
+
+_log = logging.getLogger("ChronoArchiver.realesrgan")
 
 
 def net_scale_for_user_scale(user_scale: float | int) -> int:
@@ -56,7 +64,33 @@ class RealESRGANModelManager:
         p = self.path_for_net_scale(net_scale)
         if not p.is_file():
             return False
-        return p.stat().st_size > _MIN_VALID_BYTES
+        if p.stat().st_size <= _MIN_VALID_BYTES:
+            return False
+        ok, err, quarantine = validate_rrdb_rgb_checkpoint_file(p)
+        if ok:
+            return True
+        if quarantine:
+            invalidate_rrdb_checkpoint_cache(p)
+            bad = p.with_name(p.name + ".bad")
+            try:
+                if bad.is_file():
+                    bad.unlink()
+                p.rename(bad)
+                _log.warning(
+                    "Moved invalid Real-ESRGAN checkpoint aside (%s): %s",
+                    bad,
+                    err,
+                )
+            except OSError as e:
+                _log.warning(
+                    "Invalid Real-ESRGAN checkpoint but could not quarantine %s: %s (%s)",
+                    p,
+                    err,
+                    e,
+                )
+        else:
+            _log.warning("Real-ESRGAN checkpoint check failed (not quarantining): %s: %s", p, err)
+        return False
 
     def download(
         self,

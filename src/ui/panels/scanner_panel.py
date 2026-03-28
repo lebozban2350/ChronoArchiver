@@ -31,7 +31,7 @@ from PySide6.QtCore import Qt, Signal, QObject, QTimer
 _QUEUED_SINGLESHOT = Qt.ConnectionType(
     Qt.ConnectionType.QueuedConnection.value | Qt.ConnectionType.SingleShotConnection.value
 )
-from PySide6.QtGui import QShowEvent, QPixmap, QTextCursor
+from PySide6.QtGui import QCloseEvent, QPixmap, QShowEvent, QTextCursor
 
 import pathlib
 
@@ -48,7 +48,9 @@ from core.venv_manager import (
     check_opencv_in_venv,
 )
 from core.debug_logger import (
+    INSTALLER_APP_AI_MEDIA_SCANNER,
     debug,
+    log_installer_popup,
     UTILITY_AI_MEDIA_SCANNER,
     UTILITY_OPENCV_INSTALL,
     UTILITY_MODEL_SETUP,
@@ -114,6 +116,16 @@ class OpenCVSetupDialog(QDialog):
         v.addStretch()
         self.setStyleSheet("QDialog { background: #0d0d0d; }")
         self.phase_update.connect(self._on_phase_update)
+        self._last_logged_phase: str | None = None
+        self._last_progress_log_ts = 0.0
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        log_installer_popup(INSTALLER_APP_AI_MEDIA_SCANNER, "OpenCVSetupDialog", "opened")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        log_installer_popup(INSTALLER_APP_AI_MEDIA_SCANNER, "OpenCVSetupDialog", "closed")
+        super().closeEvent(event)
 
     def _on_phase_update(self, phase: str, detail: str, downloaded: int, total: int):
         self._lbl_phase.setText(phase)
@@ -131,6 +143,16 @@ class OpenCVSetupDialog(QDialog):
                 self._lbl_detail.setText(detail[:120] if detail else "")
         else:
             self._lbl_detail.setText(detail[:120] if detail else "")
+        now = time.monotonic()
+        if phase != self._last_logged_phase or (now - self._last_progress_log_ts) >= 2.0:
+            self._last_logged_phase = phase
+            self._last_progress_log_ts = now
+            log_installer_popup(
+                INSTALLER_APP_AI_MEDIA_SCANNER,
+                "OpenCVSetupDialog",
+                "progress",
+                f"phase={phase!r} downloaded={downloaded} total={total} detail={(detail or '')[:120]!r}",
+            )
 
 
 class ModelSetupDialog(QDialog):
@@ -178,8 +200,19 @@ class ModelSetupDialog(QDialog):
 
         self.setStyleSheet("QDialog { background: #0d0d0d; }")
         self.progress_update.connect(self.update_progress)
+        self._last_model_log_key: str | None = None
+        self._last_model_log_ts = 0.0
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        log_installer_popup(INSTALLER_APP_AI_MEDIA_SCANNER, "ModelSetupDialog", "opened")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        log_installer_popup(INSTALLER_APP_AI_MEDIA_SCANNER, "ModelSetupDialog", "closed")
+        super().closeEvent(event)
 
     def _on_cancel(self):
+        log_installer_popup(INSTALLER_APP_AI_MEDIA_SCANNER, "ModelSetupDialog", "cancel_requested")
         self._model_mgr.cancel()
         self._btn_cancel.setEnabled(False)
         self._lbl_model.setText("Cancelling...")
@@ -206,6 +239,17 @@ class ModelSetupDialog(QDialog):
                 self._lbl_detail.setText(f"{kb_d:.1f} / {kb_t:.1f} KB")
         else:
             self._lbl_detail.setText(f"{downloaded:,} bytes")
+        now = time.monotonic()
+        log_key = f"{label}|{filename}|{pct}"
+        if log_key != self._last_model_log_key or (now - self._last_model_log_ts) >= 2.0:
+            self._last_model_log_key = log_key
+            self._last_model_log_ts = now
+            log_installer_popup(
+                INSTALLER_APP_AI_MEDIA_SCANNER,
+                "ModelSetupDialog",
+                "progress",
+                f"label={label!r} file={filename[:100]!r} pct={pct} overall={overall:.4f}",
+            )
 
 
 class AIScannerPanel(QWidget):
@@ -520,6 +564,16 @@ class AIScannerPanel(QWidget):
             self._cached_cv_ok = cv_ok
             debug(UTILITY_AI_MEDIA_SCANNER, f"_check_models: cv_ok={cv_ok} _opencv_just_installed={self._opencv_just_installed}")
             self._models_check_in_progress = False
+            try:
+                from core.network_status import (
+                    NO_NETWORK_LABEL_STYLE,
+                    NO_NETWORK_MESSAGE,
+                    is_network_reachable,
+                )
+
+                net_ok = is_network_reachable()
+            except Exception:
+                net_ok = True
             if self._opencv_just_installed:
                 self._lbl_opencv.setText("RESTART REQUIRED")
                 self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#10b981;")
@@ -529,13 +583,22 @@ class AIScannerPanel(QWidget):
                 self._btn_install_cv.show()
                 self._btn_uninstall_cv.hide()
             elif not cv_ok:
-                self._lbl_opencv.setText("NOT INSTALLED")
-                self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
-                self._btn_install_cv.setText("Install OpenCV")
-                self._btn_install_cv.setFixedSize(self._eng_btn_w, self._eng_btn_h)
-                self._btn_install_cv.setToolTip(get_opencv_variant_label())
-                self._btn_install_cv.show()
-                self._btn_uninstall_cv.hide()
+                if not net_ok:
+                    self._lbl_opencv.setText(NO_NETWORK_MESSAGE)
+                    self._lbl_opencv.setStyleSheet(NO_NETWORK_LABEL_STYLE)
+                    self._btn_install_cv.setText("Install OpenCV")
+                    self._btn_install_cv.setFixedSize(self._eng_btn_w, self._eng_btn_h)
+                    self._btn_install_cv.setToolTip("Internet required to install OpenCV.")
+                    self._btn_install_cv.show()
+                    self._btn_uninstall_cv.hide()
+                else:
+                    self._lbl_opencv.setText("NOT INSTALLED")
+                    self._lbl_opencv.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
+                    self._btn_install_cv.setText("Install OpenCV")
+                    self._btn_install_cv.setFixedSize(self._eng_btn_w, self._eng_btn_h)
+                    self._btn_install_cv.setToolTip(get_opencv_variant_label())
+                    self._btn_install_cv.show()
+                    self._btn_uninstall_cv.hide()
             else:
                 v = get_opencv_variant()
                 suf = " (CUDA)" if v == "cuda" else " (OpenCL)"
@@ -558,8 +621,14 @@ class AIScannerPanel(QWidget):
                 self._btn_update.setVisible(update_avail)
                 self._start_version_check()
             else:
-                self._lbl_model.setText("MISSING")
-                self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
+                if not net_ok:
+                    self._lbl_model.setText(NO_NETWORK_MESSAGE)
+                    self._lbl_model.setStyleSheet(NO_NETWORK_LABEL_STYLE)
+                    self._btn_setup.setToolTip("Internet required to download scanner models.")
+                else:
+                    self._lbl_model.setText("MISSING")
+                    self._lbl_model.setStyleSheet("font-size:8px; font-weight:700; color:#ef4444;")
+                    self._btn_setup.setToolTip("")
                 self._btn_setup.show()
                 self._btn_uninstall_models.hide()
                 self._btn_update.hide()
@@ -664,7 +733,16 @@ class AIScannerPanel(QWidget):
         self._btn_start.setEnabled(can)
         busy = self._setup_in_progress or self._is_running
         self._btn_uninstall_models.setEnabled(not busy and models_ready)
-        self._btn_install_cv.setEnabled(not busy)
+        try:
+            from core.network_status import is_network_reachable
+
+            net_ok = is_network_reachable()
+        except Exception:
+            net_ok = True
+        need_cv_install = not cv_ok and not self._opencv_just_installed
+        need_models_install = not models_ready
+        self._btn_install_cv.setEnabled(not busy and (not need_cv_install or net_ok or self._opencv_just_installed))
+        self._btn_setup.setEnabled(not busy and (not need_models_install or net_ok))
         self._btn_uninstall_cv.setEnabled(not busy and cv_ok)
         # While scanning (or installing), do not guide-pulse: it can override disabled styling
         # and make START look active when it should be grey.

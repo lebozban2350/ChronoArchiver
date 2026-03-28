@@ -93,7 +93,8 @@ def pytorch_installer_vram_guidance() -> str:
     if get_ml_torch_install_variant() == "cuda":
         return (
             "Recommended GDDR: ≥ 16 GB on NVIDIA for Z-Image-Turbo class CUDA inference (model guidance); "
-            "8 GB GDDR may work with smaller max resolution — lower it if you hit OOM."
+            "8 GB GDDR may work with smaller max resolution — lower it if you hit OOM. "
+            "Real-ESRGAN (tiled video upscale) often needs ~4+ GB free VRAM at 1080p-class frames; reduce resolution/tile on OOM."
         )
     return (
         "CPU PyTorch: no GDDR. Prefer 32 GB+ system RAM for practical Z-Image runs; CPU is far slower than CUDA."

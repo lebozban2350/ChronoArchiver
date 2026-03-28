@@ -10,6 +10,17 @@ def _make_layer(block: type[nn.Module], n_layers: int) -> nn.Sequential:
     return nn.Sequential(*[block() for _ in range(n_layers)])
 
 
+def pixel_unshuffle(x: torch.Tensor, scale: int) -> torch.Tensor:
+    """Pixel unshuffle (BasicSR / xinntao Real-ESRGAN). Downsample spatially, multiply channels."""
+    b, c, hh, hw = x.size()
+    out_channel = c * (scale**2)
+    assert hh % scale == 0 and hw % scale == 0, "H/W must be divisible by unshuffle scale"
+    h = hh // scale
+    w = hw // scale
+    x_view = x.view(b, c, h, scale, w, scale)
+    return x_view.permute(0, 1, 3, 5, 2, 4).reshape(b, out_channel, h, w)
+
+
 class ResidualDenseBlock_5C(nn.Module):
     """Multi-column dense block used inside RRDB."""
 
@@ -46,7 +57,7 @@ class RRDB(nn.Module):
 
 
 class RRDBNet(nn.Module):
-    """Generator matching RealESRGAN_x2plus / x4plus official weights."""
+    """Generator matching RealESRGAN_x2plus / x4plus official weights (BasicSR RRDBNet layout)."""
 
     def __init__(
         self,
@@ -59,11 +70,13 @@ class RRDBNet(nn.Module):
     ) -> None:
         super().__init__()
         self.scale = scale
-        self.conv_first = nn.Conv2d(num_in_ch, num_feat, 3, 1, 1)
+        # x2 checkpoints use pixel_unshuffle(2) so conv_first expects 4× RGB channels (12); x4 uses 3.
+        eff_in_ch = num_in_ch * 4 if scale == 2 else num_in_ch
+        self.conv_first = nn.Conv2d(eff_in_ch, num_feat, 3, 1, 1)
         self.body = _make_layer(lambda: RRDB(num_feat, num_grow_ch), num_block)
         self.conv_body = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
         self.conv_up1 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
-        self.conv_up2 = nn.Conv2d(num_feat, num_feat, 3, 1, 1) if scale == 4 else None
+        self.conv_up2 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
         self.conv_hr = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
         self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
@@ -71,13 +84,12 @@ class RRDBNet(nn.Module):
         if scale not in (2, 4):
             raise ValueError(f"RRDBNet scale must be 2 or 4, got {scale}")
 
-    def forward(self, x):
-        feat = x
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        feat = pixel_unshuffle(x, 2) if self.scale == 2 else x
         fea = self.conv_first(feat)
         trunk = self.conv_body(self.body(fea))
         fea = fea + trunk
         fea = self.lrelu(self.conv_up1(self.upsample(fea)))
-        if self.scale == 4 and self.conv_up2 is not None:
-            fea = self.lrelu(self.conv_up2(self.upsample(fea)))
+        fea = self.lrelu(self.conv_up2(self.upsample(fea)))
         out = self.conv_last(self.lrelu(self.conv_hr(fea)))
         return out

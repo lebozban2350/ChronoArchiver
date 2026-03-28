@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [4.7.13] - 2026-03-27
+
+### Added
+- **AI Image Upscaler** (Beautify): OpenCV Haar face box + freckle heuristic; optional local **BLIP** (`Salesforce/blip-image-captioning-base`) analyzes the full face (skin, makeup/grooming) and heuristic facial zones (forehead, eyes, nose, cheeks, mouth, chin) before Z-Image img2img; modules **`beautify_visual_analysis`**, **`zimage_beautify_prompts`**, **`zimage_auto_params`**, **`zimage_portrait`**. Freepik Pikaso referenced in tooltips as editorial intent only (no API).
+- **AI Video Upscaler**: **Estimated time remaining** (`HH:MM:SS`) under the **progress bar**; **subject hints** on the first frame (face, pedestrian, hair heuristics). Supporting **`video_subject_detect`**, **`video_target_presets`**, **`gpu_errors`**, **`ai_inference_resources`**.
+- **CI**: `.github/workflows/ci-tests.yml`; **`tests/`** for core utilities.
+
+### Changed
+- **AI Image Upscaler**: **Beautify** beside **UPSCALE**; optional user prompt field removed; **Engine** copy documents Z-Image, OpenCV, and BLIP; panel settings drop **`prompt`** key.
+- **AI Video Upscaler**: Preview vs console stretch **15 : 4** with compact ETA row; footer **UPSCALING** during jobs; progress bar behavior across indeterminate upscale, AV1 encode, and mux phases.
+
+### Fixed
+- **AI Image Upscaler**: Panel failed to load after prompt UI removal (**`_strip_opts`** still referenced by a leftover group box).
+
 ## [4.7.12] - 2026-03-27
 
 ### Changed

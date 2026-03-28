@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from core.zimage_beautify_prompts import BEAUTIFY_NEGATIVE, build_beautify_positive
+
 
 def compute_output_size(ow: int, oh: int, scale: int, max_side: int) -> tuple[int, int]:
     """Integer sizes multiple of 8; cap longest edge to max_side (VRAM)."""
@@ -40,11 +42,14 @@ class ZImageUpscaleEngine:
         image_path: str,
         scale: int,
         max_side: int,
-        prompt: str,
         strength: float,
         num_inference_steps: int,
         cfg: float,
         log,
+        portrait_detected: bool = False,
+        freckle_heavy: bool = False,
+        beautify: bool = False,
+        beautify_analysis: str | None = None,
     ):
         import torch
         from diffusers import ZImageImg2ImgPipeline
@@ -84,26 +89,62 @@ class ZImageUpscaleEngine:
             )
 
         init = img.resize((tw, th), Image.Resampling.LANCZOS)
-        # Empty prompt => cleanup/upscale only. Non-empty prompt => stronger edit mode
-        # (hair/eye/clothing color, skin tone, freckles, background, etc.).
-        use_prompt = bool((prompt or "").strip())
-        cfg_value = max(0.0, min(12.0, float(cfg))) if use_prompt else 0.0
         effective_strength = float(strength)
-        run_prompt = (
-            f"edit photo: {prompt.strip()}, photorealistic, natural skin tones, realistic hair texture, high quality"
-            if use_prompt
-            else "high quality, clean texture, crisp edges, no noise, no blur"
+        apply_beautify = bool(portrait_detected and beautify)
+
+        _faithful_upscale = (
+            "very high detail photorealistic upscale, faithful to the source photograph, minimal change, "
+            "preserve original colors skin tone and texture, sharp fine detail, clean edges, "
+            "subtle denoise only, no beautification, no added redness or color cast, no new spots or freckles"
         )
+
+        if apply_beautify:
+            cfg_value = max(0.0, min(12.0, float(cfg)))
+            run_prompt = build_beautify_positive(
+                freckle_heavy=freckle_heavy,
+                analysis_notes=beautify_analysis,
+            )
+        else:
+            cfg_value = 0.0
+            run_prompt = _faithful_upscale
         log(
             f"Refining {tw}×{th}px with Z-Image-Turbo "
             f"(strength={effective_strength:.2f}, steps={num_inference_steps}, cfg={cfg_value:.1f})…"
         )
-        result = self._pipe(
-            run_prompt,
-            image=init,
-            strength=effective_strength,
-            num_inference_steps=int(num_inference_steps),
-            guidance_scale=cfg_value,
-        ).images[0]
+        try:
+            if apply_beautify:
+                try:
+                    result = self._pipe(
+                        run_prompt,
+                        negative_prompt=BEAUTIFY_NEGATIVE,
+                        image=init,
+                        strength=effective_strength,
+                        num_inference_steps=int(num_inference_steps),
+                        guidance_scale=cfg_value,
+                    ).images[0]
+                except TypeError:
+                    log("Beautify: negative_prompt not supported by this pipeline; using positive prompt only.")
+                    result = self._pipe(
+                        run_prompt,
+                        image=init,
+                        strength=effective_strength,
+                        num_inference_steps=int(num_inference_steps),
+                        guidance_scale=cfg_value,
+                    ).images[0]
+            else:
+                result = self._pipe(
+                    run_prompt,
+                    image=init,
+                    strength=effective_strength,
+                    num_inference_steps=int(num_inference_steps),
+                    guidance_scale=cfg_value,
+                ).images[0]
+        except Exception as e:
+            from core.ai_inference_resources import USER_MSG_CUDA_OOM, ZIMAGE_VRAM_BASELINE_LOG
+            from core.gpu_errors import is_torch_cuda_oom
+
+            if is_torch_cuda_oom(e):
+                raise RuntimeError(f"{USER_MSG_CUDA_OOM} ({ZIMAGE_VRAM_BASELINE_LOG})") from e
+            raise
         return result
 

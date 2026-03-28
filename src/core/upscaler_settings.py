@@ -10,18 +10,10 @@ try:
 except ImportError:
     from core.debug_logger import UTILITY_APP, debug
 
-DEFAULT_PROMPT = ""
-
 DEFAULTS: dict = {
     "source_image": "",
-    "prompt": DEFAULT_PROMPT,
-    # Lower default to preserve source while still allowing prompt edits.
-    "strength": 0.30,
-    "steps": 4,
-    "cfg": 7.0,
-    "scale_index": 0,
-    "max_edge": 2048,
     "save_fmt": "PNG",
+    "beautify": False,
 }
 
 
@@ -29,37 +21,9 @@ def _sanitize(data: dict, defaults: dict) -> dict:
     out = {**defaults, **{k: v for k, v in data.items() if k in defaults}}
     p = str(out.get("source_image", "")).strip()
     out["source_image"] = p
-    # Empty prompt is valid: cleanup/upscale-only mode without prompt-driven edits.
-    out["prompt"] = str(out.get("prompt", defaults["prompt"]) or "").strip()
-    try:
-        st = float(out.get("strength", defaults["strength"]))
-    except (TypeError, ValueError):
-        st = float(defaults["strength"])
-    out["strength"] = max(0.15, min(0.85, st))
-    try:
-        stp = int(out.get("steps", defaults["steps"]))
-    except (TypeError, ValueError):
-        stp = int(defaults["steps"])
-    out["steps"] = max(4, min(16, stp))
-    try:
-        cfg = float(out.get("cfg", defaults["cfg"]))
-    except (TypeError, ValueError):
-        cfg = float(defaults["cfg"])
-    out["cfg"] = max(0.0, min(12.0, cfg))
-    try:
-        si = int(out.get("scale_index", defaults["scale_index"]))
-    except (TypeError, ValueError):
-        si = int(defaults["scale_index"])
-    out["scale_index"] = max(0, min(2, si))
-    try:
-        me = int(out.get("max_edge", defaults["max_edge"]))
-    except (TypeError, ValueError):
-        me = int(defaults["max_edge"])
-    out["max_edge"] = max(512, min(8192, me))
-    # snap to 64 per spinbox
-    out["max_edge"] = max(512, min(8192, (out["max_edge"] // 64) * 64))
     sf = str(out.get("save_fmt", "PNG")).strip().upper()
     out["save_fmt"] = sf if sf in ("PNG", "JPG") else "PNG"
+    out["beautify"] = bool(out.get("beautify", DEFAULTS["beautify"]))
     return out
 
 

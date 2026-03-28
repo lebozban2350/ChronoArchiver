@@ -13,13 +13,12 @@ from pathlib import Path
 from collections import deque
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal, QSize
-from PySide6.QtGui import QIcon, QImage, QPixmap, QTextCursor
+from PySide6.QtGui import QCloseEvent, QIcon, QImage, QPixmap, QShowEvent, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QInputDialog,
     QDialog,
-    QDoubleSpinBox,
     QFileDialog,
     QFrame,
     QGroupBox,
@@ -29,19 +28,18 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QWidget,
     QSizePolicy,
     QStyle,
     QToolButton,
+    QCheckBox,
 )
 
 from ui.console_style import PANEL_CONSOLE_TEXTEDIT_STYLE, message_to_html
 from ui.panel_widgets import (
     COMBO_BOX_PANEL_QSS,
-    SPIN_BOX_COMPACT_QSS,
     eng_row_btn_qss,
     field_label,
     fmt_bytes,
@@ -56,9 +54,16 @@ from PIL import Image, ImageOps
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from core.app_paths import settings_dir
-from core.debug_logger import debug as _debug_installer, UTILITY_INSTALLER_POPUP
+from core.debug_logger import (
+    INSTALLER_APP_AI_IMAGE_UPSCALER,
+    UTILITY_APP,
+    log_exception,
+    log_installer_popup,
+    debug as _debug_installer,
+    UTILITY_INSTALLER_POPUP,
+)
 from core.upscaler_settings import UpscalerPanelSettings
-from core.venv_manager import get_ml_torch_install_label
+from core.venv_manager import format_pytorch_ready_line, get_ml_torch_install_label
 from core.ml_runtime import (
     check_ml_runtime,
     install_ml_runtime,
@@ -66,8 +71,17 @@ from core.ml_runtime import (
     estimate_ml_runtime_components,
 )
 from core.model_manager import REPO_ID, ZImageModelManager
+from core.network_status import (
+    NO_NETWORK_LABEL_STYLE_9,
+    NO_NETWORK_MESSAGE,
+    is_network_reachable,
+)
 from core.restart import restart_application
 from core.zimage_engine import ZImageUpscaleEngine
+from core.zimage_auto_params import infer_zimage_params
+from core.zimage_beautify_prompts import PIKASO_HIGH_END_SKIN_SPACE_URL
+from core.beautify_visual_analysis import analyze_beautify_imperfections
+from core.zimage_portrait import portrait_signals_from_path_detailed
 
 
 def _run_upscale_btn_stylesheet(*, pulse: bool = False) -> str:
@@ -104,8 +118,11 @@ class EngineSetupDialog(QDialog):
 
     phase_update = Signal(str, str, int, int)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, app_label: str = INSTALLER_APP_AI_IMAGE_UPSCALER):
         super().__init__(parent)
+        self._app_label = app_label
+        self._last_logged_phase: str | None = None
+        self._last_progress_log_ts = 0.0
         self.setWindowTitle("PyTorch & diffusers setup")
         self.setModal(False)
         self.setFixedSize(460, 248)
@@ -133,6 +150,14 @@ class EngineSetupDialog(QDialog):
         self.phase_update.connect(self._on_phase_update)
         self._net_spd_t: float | None = None
         self._net_spd_b: int = 0
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        log_installer_popup(self._app_label, "EngineSetupDialog", "opened")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        log_installer_popup(self._app_label, "EngineSetupDialog", "closed")
+        super().closeEvent(event)
 
     def _on_phase_update(self, phase: str, detail: str, downloaded: int, total: int):
         self._lbl_phase.setText(phase)
@@ -165,6 +190,16 @@ class EngineSetupDialog(QDialog):
             self._lbl_detail.setText(tail)
         else:
             self._lbl_detail.setText(detail[:120] if detail else "")
+        now = time.monotonic()
+        if phase != self._last_logged_phase or (now - self._last_progress_log_ts) >= 2.0:
+            self._last_logged_phase = phase
+            self._last_progress_log_ts = now
+            log_installer_popup(
+                self._app_label,
+                "EngineSetupDialog",
+                "progress",
+                f"phase={phase!r} downloaded={downloaded} total={total} detail={(detail or '')[:120]!r}",
+            )
 
 
 class ZImageModelSetupDialog(QDialog):
@@ -216,8 +251,19 @@ class ZImageModelSetupDialog(QDialog):
         self._net_spd_key = ""
         self._net_spd_t: float | None = None
         self._net_spd_b: int = 0
+        self._last_zimage_log_key: str | None = None
+        self._last_zimage_log_ts = 0.0
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        log_installer_popup(INSTALLER_APP_AI_IMAGE_UPSCALER, "ZImageModelSetupDialog", "opened")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        log_installer_popup(INSTALLER_APP_AI_IMAGE_UPSCALER, "ZImageModelSetupDialog", "closed")
+        super().closeEvent(event)
 
     def _on_cancel(self):
+        log_installer_popup(INSTALLER_APP_AI_IMAGE_UPSCALER, "ZImageModelSetupDialog", "cancel_requested")
         self._model_mgr.cancel()
         self._btn_cancel.setEnabled(False)
         self._lbl_model.setText("Cancelling...")
@@ -264,6 +310,17 @@ class ZImageModelSetupDialog(QDialog):
 
         pct = int(overall * 100)
         self._bar.setValue(min(100, pct))
+        now = time.monotonic()
+        log_key = f"{label}|{filename}|{pct}"
+        if log_key != self._last_zimage_log_key or (now - self._last_zimage_log_ts) >= 2.0:
+            self._last_zimage_log_key = log_key
+            self._last_zimage_log_ts = now
+            log_installer_popup(
+                INSTALLER_APP_AI_IMAGE_UPSCALER,
+                "ZImageModelSetupDialog",
+                "progress",
+                f"label={label!r} file={filename[:100]!r} pct={pct} overall={overall:.4f}",
+            )
 
 
 class AIImageUpscalerPanel(QWidget):
@@ -316,8 +373,8 @@ class AIImageUpscalerPanel(QWidget):
         # Undo stack (pixel edits only) — keep last 10 steps.
         self._undo_stack: deque[Image.Image] = deque(maxlen=10)
 
-        _strip_opts = 42
-        _strip_eng = 84
+        # Taller strip fits Engine Status hint line (local components: Z-Image + OpenCV).
+        _strip_eng = 98
         _ctrl_h = 24
         _ew, _eh = 82, 22
         self._eng_btn_w, self._eng_btn_h = _ew, _eh
@@ -325,7 +382,6 @@ class AIImageUpscalerPanel(QWidget):
         self._browse_btn_w = 64
 
         _combo_style = COMBO_BOX_PANEL_QSS
-        _spin_style = SPIN_BOX_COMPACT_QSS
 
         self._guide_pulse_timer = QTimer(self)
         self._guide_pulse_timer.setInterval(550)
@@ -341,7 +397,7 @@ class AIImageUpscalerPanel(QWidget):
         h_strip.setSpacing(8)
 
         grp_opts = QGroupBox("SOURCE")
-        grp_opts.setFixedHeight(_strip_opts)
+        grp_opts.setFixedHeight(_strip_eng)
         grp_opts.setToolTip(
             "LANCZOS resize to target resolution, then Z-Image-Turbo img2img for cleanup and detail."
         )
@@ -375,20 +431,30 @@ class AIImageUpscalerPanel(QWidget):
         grp_mod = QGroupBox("Engine Status")
         grp_mod.setFixedHeight(_strip_eng)
         grp_mod.setMinimumWidth(248)
+        grp_mod.setToolTip(
+            "All inference is local.\n\n"
+            "• Z-Image-Turbo (Setup Models) — one HF snapshot for upscale, cleanup, and Beautify "
+            "(same weights; Beautify uses built-in retouch text + auto parameters).\n"
+            "• OpenCV — face region for Beautify crops.\n"
+            "• BLIP (image-captioning-base) — full face + split facial regions (heuristic zones) before img2img; "
+            "first run downloads ~1 GB into the Hugging Face cache.\n\n"
+            "No Freepik/cloud APIs. Beautify analysis uses local BLIP (separate HF download, ~1 GB once)."
+        )
         v_mod = QVBoxLayout(grp_mod)
-        v_mod.setContentsMargins(4, 2, 4, 0)
+        v_mod.setContentsMargins(4, 2, 4, 2)
         v_mod.setSpacing(2)
 
         h_pt = QHBoxLayout()
-        h_pt.setSpacing(6)
+        h_pt.setSpacing(2)
         self._lbl_pytorch = QLabel("CHECKING…")
         self._lbl_pytorch.setStyleSheet("font-size:9px; font-weight:700; color:#10b981;")
-        self._lbl_pytorch.setFixedWidth(106)
+        self._lbl_pytorch.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._lbl_pytorch.setWordWrap(False)
         lbl_pt = QLabel("PyTorch:", styleSheet="font-size:8px; color:#888;")
         lbl_pt.setFixedWidth(44)
         h_pt.addWidget(lbl_pt)
-        h_pt.addWidget(self._lbl_pytorch)
-        h_pt.addSpacing(4)
+        h_pt.addWidget(self._lbl_pytorch, 1)
+        h_pt.addSpacing(2)
         self._btn_install_engine = QPushButton("Install PyTorch")
         self._btn_install_engine.setFixedSize(_ew, _eh)
         self._btn_install_engine.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#aaa", "#262626"))
@@ -402,15 +468,20 @@ class AIImageUpscalerPanel(QWidget):
         v_mod.addLayout(h_pt)
 
         h_md = QHBoxLayout()
-        h_md.setSpacing(6)
+        h_md.setSpacing(2)
         self._lbl_model = QLabel("CHECKING…")
         self._lbl_model.setStyleSheet("font-size:9px; font-weight:700; color:#10b981;")
-        self._lbl_model.setFixedWidth(106)
+        self._lbl_model.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._lbl_model.setWordWrap(False)
         lbl_md = QLabel("Models:", styleSheet="font-size:8px; color:#888;")
         lbl_md.setFixedWidth(44)
+        lbl_md.setToolTip(
+            "Z-Image-Turbo weights cover upscale and Beautify (same download). "
+            "OpenCV is bundled for face/freckle hints — no extra model files."
+        )
         h_md.addWidget(lbl_md)
-        h_md.addWidget(self._lbl_model)
-        h_md.addSpacing(4)
+        h_md.addWidget(self._lbl_model, 1)
+        h_md.addSpacing(2)
         self._btn_update_models = QPushButton("Update!")
         self._btn_update_models.setFixedSize(_ew, _eh)
         self._btn_update_models.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#eab308", "#eab308"))
@@ -423,75 +494,30 @@ class AIImageUpscalerPanel(QWidget):
         self._btn_uninstall_models = QPushButton("Uninstall Models")
         self._btn_uninstall_models.setFixedSize(_ew, _eh)
         self._btn_uninstall_models.setStyleSheet(eng_row_btn_qss(_ew, _eh, "#6b7280", "#262626"))
-        self._btn_uninstall_models.setToolTip("Remove Z-Image weight files only")
+        self._btn_uninstall_models.setToolTip(
+            "Remove Z-Image-Turbo snapshot only (upscale + Beautify). OpenCV is not removed."
+        )
         self._btn_uninstall_models.clicked.connect(self._on_remove_models)
         h_md.addWidget(self._btn_update_models)
         h_md.addWidget(self._btn_setup_models)
         h_md.addWidget(self._btn_uninstall_models)
         v_mod.addLayout(h_md)
-        grp_tune = QGroupBox("AI refinement · Z-Image-Turbo img2img")
-        grp_tune.setFixedHeight(_strip_eng - _strip_opts)
-        v_tune = QVBoxLayout(grp_tune)
-        v_tune.setContentsMargins(6, 1, 6, 3)
-        v_tune.setSpacing(0)
-        v_tune.addStretch(1)
-        h_tune = QHBoxLayout()
-        h_tune.setSpacing(6)
-        h_tune.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        self._edit_prompt = QLineEdit()
-        self._edit_prompt.setPlaceholderText(
-            "Empty prompt: Only clean-up and upscaling will occur..."
+        self._lbl_engine_local = QLabel(
+            "Local: Z-Image = upscale + Beautify · OpenCV = face box · BLIP = multi-zone face analysis (HF cache)"
         )
-        self._edit_prompt.setFixedHeight(_ctrl_h)
-        self._edit_prompt.setMaximumWidth(16777215)
-        self._edit_prompt.setReadOnly(False)
-        self._edit_prompt.setEnabled(True)
-        h_tune.addWidget(self._edit_prompt, 1)
-        h_tune.addWidget(field_label("Strength", 54))
-        self._spin_strength = QDoubleSpinBox()
-        self._spin_strength.setRange(0.15, 0.85)
-        self._spin_strength.setSingleStep(0.05)
-        self._spin_strength.setValue(0.30)
-        self._spin_strength.setDecimals(2)
-        self._spin_strength.setStyleSheet(_spin_style)
-        self._spin_strength.setFixedSize(44, 18)
-        self._spin_strength.setToolTip(
-            "Img2img denoise/edits: ~0.30–0.45 keeps source closer while allowing prompt-driven changes; "
-            "higher applies stronger restyle/editing."
+        self._lbl_engine_local.setStyleSheet("font-size:7px; color:#71717a;")
+        self._lbl_engine_local.setWordWrap(True)
+        self._lbl_engine_local.setToolTip(
+            "Beautify uses Z-Image for the actual edit. OpenCV finds the face; BLIP (optional, ~1 GB first download) "
+            "captions skin and makeup/grooming cues from the crop, then Z-Image runs. If BLIP fails, built-in retouch text is used."
         )
-        h_tune.addWidget(self._spin_strength, 0, Qt.AlignmentFlag.AlignVCenter)
-        h_tune.addWidget(field_label("Steps", 40))
-        self._spin_steps = QSpinBox()
-        self._spin_steps.setRange(4, 16)
-        self._spin_steps.setValue(4)
-        self._spin_steps.setStyleSheet(_spin_style)
-        self._spin_steps.setFixedSize(44, 18)
-        self._spin_steps.setToolTip(
-            "Lower default for faster runs; raise steps for stronger detail reconstruction."
-        )
-        h_tune.addWidget(self._spin_steps, 0, Qt.AlignmentFlag.AlignVCenter)
-        h_tune.addWidget(field_label("CFG", 30))
-        self._spin_cfg = QDoubleSpinBox()
-        self._spin_cfg.setRange(0.0, 12.0)
-        self._spin_cfg.setSingleStep(0.5)
-        self._spin_cfg.setValue(7.0)
-        self._spin_cfg.setDecimals(1)
-        self._spin_cfg.setStyleSheet(_spin_style)
-        self._spin_cfg.setFixedSize(48, 18)
-        self._spin_cfg.setToolTip(
-            "Prompt guidance scale: higher makes prompt edits stronger. "
-            "Ignored when prompt is empty (cleanup/upscale-only mode)."
-        )
-        h_tune.addWidget(self._spin_cfg, 0, Qt.AlignmentFlag.AlignVCenter)
-        v_tune.addLayout(h_tune)
-        v_tune.addStretch(1)
+        v_mod.addWidget(self._lbl_engine_local)
         left_strip_col = QWidget()
         left_strip_col.setFixedHeight(_strip_eng)
         v_left_strip = QVBoxLayout(left_strip_col)
         v_left_strip.setContentsMargins(0, 0, 0, 0)
         v_left_strip.setSpacing(0)
         v_left_strip.addWidget(grp_opts)
-        v_left_strip.addWidget(grp_tune)
         h_strip.addWidget(left_strip_col, 7)
         h_strip.addWidget(grp_mod, 3)
         root.addLayout(h_strip)
@@ -641,27 +667,18 @@ class AIImageUpscalerPanel(QWidget):
 
         h_out_actions = QHBoxLayout()
         h_out_actions.setSpacing(6)
-        h_out_actions.addWidget(field_label("Scale", 36))
-        self._combo_scale = QComboBox()
-        self._combo_scale.addItem("2×", 2)
-        self._combo_scale.addItem("3×", 3)
-        self._combo_scale.addItem("4×", 4)
-        self._combo_scale.setCurrentIndex(0)
-        self._combo_scale.setStyleSheet(_combo_style)
-        self._combo_scale.setFixedSize(52, 18)
-        h_out_actions.addWidget(self._combo_scale, 0, Qt.AlignmentFlag.AlignVCenter)
-        h_out_actions.addWidget(field_label("Max edge", 54))
-        self._spin_max_edge = QSpinBox()
-        self._spin_max_edge.setRange(512, 8192)
-        self._spin_max_edge.setSingleStep(64)
-        self._spin_max_edge.setValue(2048)
-        self._spin_max_edge.setStyleSheet(_spin_style)
-        self._spin_max_edge.setFixedSize(58, 18)
-        self._spin_max_edge.setToolTip(
-            "Caps longest side after scale-up; Turbo is aimed at ~16 GB class GPUs — raise toward 3072+ if you have headroom."
-        )
-        h_out_actions.addWidget(self._spin_max_edge, 0, Qt.AlignmentFlag.AlignVCenter)
         h_out_actions.addStretch(1)
+
+        self._chk_beautify = QCheckBox("Beautify")
+        self._chk_beautify.setChecked(False)
+        self._chk_beautify.setToolTip(
+            "When a face is detected: built-in retouch text follows Freepik Pikaso “high-end skin retouch & makeup” intent "
+            f"(editorial polish; not a Freepik API). Reference: {PIKASO_HIGH_END_SKIN_SPACE_URL}\n"
+            "Unchecked: high-detail upscale, minimal change."
+        )
+        self._chk_beautify.setStyleSheet("color:#d4d4d8; font-size:9px; font-weight:600;")
+        self._chk_beautify.setFixedHeight(28)
+        h_out_actions.addWidget(self._chk_beautify, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self._btn_run = QPushButton("UPSCALE")
         self._btn_run.setObjectName("btnStart")
@@ -726,43 +743,25 @@ class AIImageUpscalerPanel(QWidget):
         self._loading_panel_prefs = True
         try:
             prefs = self._panel_prefs.load()
-            self._spin_strength.setValue(float(prefs.get("strength", self._spin_strength.value())))
-            self._spin_steps.setValue(int(prefs.get("steps", self._spin_steps.value())))
-            self._spin_cfg.setValue(float(prefs.get("cfg", self._spin_cfg.value())))
-            idx = int(prefs.get("scale_index", 0))
-            self._combo_scale.setCurrentIndex(max(0, min(self._combo_scale.count() - 1, idx)))
-            self._spin_max_edge.setValue(int(prefs.get("max_edge", self._spin_max_edge.value())))
             fmt = str(prefs.get("save_fmt", "PNG")).upper()
             if fmt in ("PNG", "JPG"):
                 self._combo_save_fmt.setCurrentText(fmt)
+            self._chk_beautify.setChecked(bool(prefs.get("beautify", False)))
         finally:
             self._loading_panel_prefs = False
 
         self._edit_image.textChanged.connect(lambda *_: self._persist_panel_prefs())
-        self._edit_prompt.textChanged.connect(lambda *_: self._persist_panel_prefs())
-        self._spin_strength.valueChanged.connect(lambda *_: self._persist_panel_prefs())
-        self._spin_steps.valueChanged.connect(lambda *_: self._persist_panel_prefs())
-        self._spin_cfg.valueChanged.connect(lambda *_: self._persist_panel_prefs())
-        self._combo_scale.currentIndexChanged.connect(lambda *_: self._persist_panel_prefs())
-        self._spin_max_edge.valueChanged.connect(lambda *_: self._persist_panel_prefs())
         self._combo_save_fmt.currentTextChanged.connect(lambda *_: self._persist_panel_prefs())
+        self._chk_beautify.stateChanged.connect(lambda *_: self._persist_panel_prefs())
 
         self._refresh_engine_and_models()
         self._update_buttons()
 
     def _panel_prefs_payload(self) -> dict:
         return {
-            # Do not restore source image across app relaunch.
-            # The in-memory edit/source state still persists while the app remains open.
             "source_image": "",
-            # Prompt should start empty on each relaunch.
-            "prompt": "",
-            "strength": float(self._spin_strength.value()),
-            "steps": int(self._spin_steps.value()),
-            "cfg": float(self._spin_cfg.value()),
-            "scale_index": int(self._combo_scale.currentIndex()),
-            "max_edge": int(self._spin_max_edge.value()),
             "save_fmt": (self._combo_save_fmt.currentText().strip().upper() or "PNG"),
+            "beautify": self._chk_beautify.isChecked(),
         }
 
     def _persist_panel_prefs(self) -> None:
@@ -948,17 +947,6 @@ class AIImageUpscalerPanel(QWidget):
         else:
             self._clear_guide_glow(target)
 
-    def _gpu_suffix(self) -> str:
-        try:
-            import torch
-
-            if torch.cuda.is_available():
-                name = torch.cuda.get_device_name(0)
-                return name[:28] + "…" if len(name) > 28 else name
-        except Exception:
-            pass
-        return ""
-
     def _get_runtime_cached(self, force: bool = False) -> tuple[bool, str]:
         """Cache `check_ml_runtime()` to avoid repeated heavy imports/CUDA checks in timers."""
         now = time.monotonic()
@@ -973,6 +961,10 @@ class AIImageUpscalerPanel(QWidget):
         return self._runtime_cache_ok, self._runtime_cache_reason
 
     def _refresh_engine_and_models(self):
+        try:
+            net_ok = is_network_reachable()
+        except Exception:
+            net_ok = True
         ok, reason = self._get_runtime_cached(force=True)
         if self._engine_just_installed:
             self._lbl_pytorch.setText("RESTART REQUIRED")
@@ -982,39 +974,45 @@ class AIImageUpscalerPanel(QWidget):
             self._btn_install_engine.show()
             self._btn_uninstall_engine.hide()
         elif not ok:
-            if reason == "missing_torch":
+            if not net_ok:
+                self._lbl_pytorch.setText(NO_NETWORK_MESSAGE)
+                self._lbl_pytorch.setStyleSheet(NO_NETWORK_LABEL_STYLE_9)
+                self._btn_install_engine.setText("Install PyTorch")
+                self._btn_install_engine.setToolTip("Internet required to install PyTorch.")
+            elif reason == "missing_torch":
                 txt, col = "NOT INSTALLED", "#ef4444"
+                self._lbl_pytorch.setText(txt)
+                self._lbl_pytorch.setStyleSheet(f"font-size:9px; font-weight:700; color:{col};")
+                self._btn_install_engine.setToolTip(
+                    f"{get_ml_torch_install_label()} + diffusers stack (pip)"
+                )
             elif reason == "missing_diffusers":
                 txt, col = "NO DIFFUSERS", "#ef4444"
+                self._lbl_pytorch.setText(txt)
+                self._lbl_pytorch.setStyleSheet(f"font-size:9px; font-weight:700; color:{col};")
+                self._btn_install_engine.setToolTip(
+                    f"{get_ml_torch_install_label()} + diffusers stack (pip)"
+                )
             elif reason == "no_cuda":
                 txt, col = "NO CUDA GPU", "#eab308"
+                self._lbl_pytorch.setText(txt)
+                self._lbl_pytorch.setStyleSheet(f"font-size:9px; font-weight:700; color:{col};")
+                self._btn_install_engine.setToolTip(
+                    f"{get_ml_torch_install_label()} + diffusers stack (pip)"
+                )
             else:
                 txt, col = "ERROR", "#ef4444"
-            self._lbl_pytorch.setText(txt)
-            self._lbl_pytorch.setStyleSheet(f"font-size:9px; font-weight:700; color:{col};")
-            self._btn_install_engine.setText("Install PyTorch")
-            self._btn_install_engine.setToolTip(
-                f"{get_ml_torch_install_label()} + diffusers stack (pip)"
-            )
+                self._lbl_pytorch.setText(txt)
+                self._lbl_pytorch.setStyleSheet(f"font-size:9px; font-weight:700; color:{col};")
+                self._btn_install_engine.setToolTip(
+                    f"{get_ml_torch_install_label()} + diffusers stack (pip)"
+                )
             self._btn_install_engine.show()
             self._btn_uninstall_engine.hide()
         else:
-            try:
-                import torch
-
-                use_cuda = bool(torch.cuda.is_available())
-            except Exception:
-                use_cuda = False
-            if use_cuda:
-                suf = self._gpu_suffix()
-                self._lbl_pytorch.setText(f"READY · CUDA · {suf}" if suf else "READY · CUDA")
-                self._lbl_pytorch.setToolTip("")
-            else:
-                self._lbl_pytorch.setText("READY · CPU")
-                self._lbl_pytorch.setToolTip(
-                    "PyTorch on CPU (typical for AMD/Intel, macOS, or no NVIDIA CUDA). "
-                    "Runs are slower than on NVIDIA CUDA."
-                )
+            text, tip = format_pytorch_ready_line()
+            self._lbl_pytorch.setText(text)
+            self._lbl_pytorch.setToolTip(tip)
             self._lbl_pytorch.setStyleSheet("font-size:9px; font-weight:700; color:#10b981;")
             self._btn_install_engine.setText("Install PyTorch")
             self._btn_install_engine.setToolTip("")
@@ -1029,8 +1027,18 @@ class AIImageUpscalerPanel(QWidget):
             self._btn_uninstall_models.show()
             self._btn_update_models.hide()
         else:
-            self._lbl_model.setText("MISSING")
-            self._lbl_model.setStyleSheet("font-size:9px; font-weight:700; color:#ef4444;")
+            if not net_ok:
+                self._lbl_model.setText(NO_NETWORK_MESSAGE)
+                self._lbl_model.setStyleSheet(NO_NETWORK_LABEL_STYLE_9)
+                self._btn_setup_models.setToolTip(
+                    "Internet required to download Z-Image-Turbo (one snapshot for upscale + Beautify)."
+                )
+            else:
+                self._lbl_model.setText("MISSING")
+                self._lbl_model.setStyleSheet("font-size:9px; font-weight:700; color:#ef4444;")
+                self._btn_setup_models.setToolTip(
+                    "Download Z-Image-Turbo from Hugging Face (single model — upscale, cleanup, Beautify)."
+                )
             self._btn_setup_models.show()
             self._btn_uninstall_models.hide()
             self._btn_update_models.hide()
@@ -1041,17 +1049,25 @@ class AIImageUpscalerPanel(QWidget):
         models_ok = self._model_mgr.is_up_to_date()
         runtime_ok, _ = self._get_runtime_cached()
         busy = self._setup_in_progress or self._upscale_in_progress
+        try:
+            net_ok = is_network_reachable()
+        except Exception:
+            net_ok = True
+        need_engine_net = not runtime_ok and not self._engine_just_installed
+        need_models_net = not models_ok
 
         can_run = path_ok and models_ok and runtime_ok and not busy
         self._btn_run.setEnabled(can_run)
         self._btn_save.setEnabled(self._last_result is not None and not self._upscale_in_progress)
         self._combo_save_fmt.setEnabled(not self._upscale_in_progress)
 
-        self._btn_install_engine.setEnabled(not busy)
+        self._btn_install_engine.setEnabled(
+            not busy and (not need_engine_net or net_ok or self._engine_just_installed)
+        )
         self._btn_uninstall_engine.setEnabled(
             not busy and not self._engine_just_installed and runtime_ok
         )
-        self._btn_setup_models.setEnabled(not busy)
+        self._btn_setup_models.setEnabled(not busy and (not need_models_net or net_ok))
         self._btn_uninstall_models.setEnabled(not busy and models_ok)
         self._btn_update_models.setEnabled(not busy and models_ok)
 
@@ -1383,7 +1399,6 @@ class AIImageUpscalerPanel(QWidget):
         if not path or not os.path.isfile(path):
             self._add_log("ERROR: Select a valid image file.")
             return
-        scale = int(self._combo_scale.currentData())
         self._upscale_in_progress = True
         self._bar.setVisible(True)
         self._lbl_exec.setVisible(True)
@@ -1396,23 +1411,58 @@ class AIImageUpscalerPanel(QWidget):
         def _log(msg: str):
             self._sig.log_msg.emit(msg)
 
-        max_side = int(self._spin_max_edge.value())
-        prompt = self._edit_prompt.text().strip()
-        strength = float(self._spin_strength.value())
-        steps = int(self._spin_steps.value())
-        cfg = float(self._spin_cfg.value())
+        beautify = self._chk_beautify.isChecked()
+        try:
+            ow, oh = Image.open(path).size
+        except Exception:
+            self._upscale_in_progress = False
+            self._bar.setVisible(False)
+            self._lbl_exec.setVisible(False)
+            self._update_buttons()
+            self._add_log("ERROR: Could not read image dimensions.")
+            return
+        portrait, freckle_heavy, face_bbox = portrait_signals_from_path_detailed(path)
+        auto = infer_zimage_params(
+            ow=ow,
+            oh=oh,
+            portrait_detected=portrait,
+            freckle_heavy=freckle_heavy,
+            beautify=beautify,
+        )
 
         def _work():
             try:
+                _log(auto.summary)
+                beautify_analysis: str | None = None
+                if beautify and portrait and face_bbox:
+                    _log("Beautify: analyzing full face + facial zones with local BLIP…")
+                    notes = analyze_beautify_imperfections(path, face_bbox, _log)
+                    beautify_analysis = notes if notes else None
+                    if beautify_analysis:
+                        _log("Beautify: applying Z-Image img2img using analysis + retouch template.")
+                    else:
+                        _log(
+                            "Beautify: no BLIP notes — using Pikaso-style retouch template "
+                            "(Freepik space reference in Beautify tooltip)."
+                        )
+                    if freckle_heavy:
+                        _log("Freckle-dense heuristic: extra soften line in retouch text.")
+                elif beautify and not portrait:
+                    _log("Beautify checked but no face detected — high-fidelity upscale, minimal change.")
+                else:
+                    _log("Beautify off — high-fidelity upscale, minimal change to the original.")
                 img = self._engine.run(
                     image_path=path,
-                    scale=scale,
-                    max_side=max_side,
-                    prompt=prompt,
-                    strength=strength,
-                    num_inference_steps=steps,
-                    cfg=cfg,
+                    scale=auto.scale,
+                    max_side=auto.max_side,
+                    strength=auto.strength,
+                    num_inference_steps=auto.steps,
+                    cfg=auto.cfg,
                     log=_log,
+                    portrait_detected=portrait,
+                    freckle_heavy=freckle_heavy,
+                    beautify=beautify,
+                    beautify_analysis=beautify_analysis,
                 )
                 self._sig.upscale_done.emit(img)
             except Exception as e:
@@ -1452,6 +1502,20 @@ class AIImageUpscalerPanel(QWidget):
         self._update_buttons()
         self._update_undo_ui()
         self._add_log(f"ERROR: {err}")
+        u = (err or "").lower()
+        if "not enough gpu memory" in u or "out of memory" in u:
+            from core.ai_inference_resources import ZIMAGE_VRAM_BASELINE_LOG
+
+            try:
+                log_exception(
+                    RuntimeError(err),
+                    context="AI Image Upscaler · Z-Image OOM",
+                    utility=UTILITY_APP,
+                    extra=ZIMAGE_VRAM_BASELINE_LOG,
+                )
+            except Exception:
+                pass
+            QMessageBox.warning(self, "GPU memory", (err or "")[:1200])
 
     def _save_result(self):
         if self._last_result is None:
