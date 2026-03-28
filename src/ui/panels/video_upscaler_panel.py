@@ -1,5 +1,5 @@
 """
-AI Video Upscaler — Real-ESRGAN (official x2plus/x4plus weights), color tuning, original vs preview.
+AI Video Upscaler — Real-ESRGAN (x2plus/x4plus), simple 2×/3×/4× choice, fixed cleanup pipeline, AV1 export.
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
-    QDoubleSpinBox,
     QFileDialog,
     QFrame,
     QGroupBox,
@@ -29,7 +28,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -39,7 +37,6 @@ from PySide6.QtWidgets import (
 from ui.console_style import PANEL_CONSOLE_TEXTEDIT_STYLE, message_to_html
 from ui.panel_widgets import (
     COMBO_BOX_PANEL_QSS,
-    SPIN_BOX_COMPACT_QSS,
     eng_row_btn_qss,
     field_label,
     fmt_bytes,
@@ -71,33 +68,49 @@ from core.venv_manager import get_ml_torch_install_label
 
 from ui.panels.upscaler_panel import EngineSetupDialog
 
-# REFRESH: compact; UPSCALE matches image upscaler Run button (108×28).
-_VUP_ACTION_W = 80
-_VUP_ACTION_H = 22
 _VUP_RUN_W = 108
 _VUP_RUN_H = 28
 
+# User only selects scale (2×/3×/4×); rest is fixed “best effort” defaults.
+VUP_MAX_EDGE = 3840
+VUP_TILE = 400
+VUP_UNSHARP_STRENGTH = 0.38  # one mild sharpen pass after upscale + denoise
 
-def _refresh_video_btn_stylesheet(*, pulse: bool = False) -> str:
-    """REFRESH (#vupRefreshBtn): identical geometry for idle vs pulse (no layout warp)."""
-    bd = "#ef4444" if pulse else "#262626"
-    w, h = _VUP_ACTION_W, _VUP_ACTION_H
-    return (
-        "QPushButton#vupRefreshBtn {"
-        "background-color:#1a1a1a; color:#e5e7eb; "
-        f"border:1px solid {bd}; border-radius:4px; "
-        "font-size:9px; font-weight:800; "
-        f"min-width:{w}px; max-width:{w}px; min-height:{h}px; max-height:{h}px; padding:0px; "
-        "}"
-        "QPushButton#vupRefreshBtn:hover:enabled {"
-        "background-color:#262626; color:#fff; "
-        f"border:1px solid {bd}; "
-        "}"
-        "QPushButton#vupRefreshBtn:disabled {"
-        "color:#6b7280; background-color:#1a1a1a; border:1px solid #262626; "
-        f"min-width:{w}px; max-width:{w}px; min-height:{h}px; max-height:{h}px; padding:0px; "
-        "}"
-    )
+_av1_encoder_name: str | None = None
+_av1_encoder_extra: list[str] | None = None
+
+
+def _ffmpeg_av1_encoder(ff: str) -> tuple[str, list[str]]:
+    """Pick libsvtav1 or libaom-av1 from ffmpeg build; cache result."""
+    global _av1_encoder_name, _av1_encoder_extra
+    if _av1_encoder_name is not None and _av1_encoder_extra is not None:
+        return _av1_encoder_name, list(_av1_encoder_extra)
+    name, extra = "libsvtav1", ["-preset", "6", "-crf", "28", "-pix_fmt", "yuv420p"]
+    try:
+        r = subprocess.run(
+            [ff, "-hide_banner", "-encoders"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        blob = f"{r.stdout}\n{r.stderr}"
+        if "libsvtav1" in blob:
+            name, extra = "libsvtav1", ["-preset", "6", "-crf", "28", "-pix_fmt", "yuv420p"]
+        elif "libaom-av1" in blob:
+            name, extra = "libaom-av1", ["-cpu-used", "6", "-crf", "32", "-pix_fmt", "yuv420p"]
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    _av1_encoder_name, _av1_encoder_extra = name, extra
+    return name, list(extra)
+
+
+def _denoise_bgr_one_step(bgr):
+    """Single light noise-reduction pass (bilateral — fast enough per frame for HD/4K)."""
+    import cv2
+
+    if bgr is None or bgr.size == 0:
+        return bgr
+    return cv2.bilateralFilter(bgr, d=7, sigmaColor=72, sigmaSpace=72)
 
 
 def _run_video_btn_stylesheet(*, pulse: bool = False) -> str:
@@ -189,8 +202,6 @@ class _Signals(QObject):
     log_msg = Signal(str)
     setup_complete = Signal(object)
     progress_frames = Signal(int, int)
-    preview_frame = Signal(object)  # dict with keys orig/out/error
-    preview_job_done = Signal()
     full_job_done = Signal()
 
 
@@ -257,8 +268,6 @@ class VideoUpscalerPanel(QWidget):
         self._sig.log_msg.connect(self._add_log, _q)
         self._sig.setup_complete.connect(self._on_setup_complete, _q)
         self._sig.progress_frames.connect(self._on_frame_progress, _q)
-        self._sig.preview_frame.connect(self._on_preview_frame_result, _q)
-        self._sig.preview_job_done.connect(self._on_preview_job_done, _q)
         self._sig.full_job_done.connect(self._finish_job_ui, _q)
 
         self._base = settings_dir() / "ai_video_upscaler"
@@ -279,8 +288,6 @@ class VideoUpscalerPanel(QWidget):
         self._active_dl_dialog: QDialog | None = None
         self._engine_setup_dialog: EngineSetupDialog | None = None
 
-        self._preview_orig_bgr = None
-        self._preview_out_bgr = None
         self._last_output_path: str | None = None
 
         _ctrl_h = 24
@@ -290,7 +297,6 @@ class VideoUpscalerPanel(QWidget):
         self._path_bar_h = _ctrl_h
         self._browse_btn_w = 64
         _combo_style = COMBO_BOX_PANEL_QSS
-        _spin_style = SPIN_BOX_COMPACT_QSS
 
         self._guide_pulse_timer = QTimer(self)
         self._guide_pulse_timer.setInterval(550)
@@ -307,11 +313,12 @@ class VideoUpscalerPanel(QWidget):
 
         grp_src = QGroupBox("SOURCE")
         grp_src.setFixedHeight(_strip_eng)
-        grp_src.setToolTip("Pick a video file; OpenCV must be able to decode it.")
+        grp_src.setToolTip(
+            "Pick a video; scale and UPSCALE live under Browse. Export uses fixed Real-ESRGAN + AV1 pipeline."
+        )
         vs = QVBoxLayout(grp_src)
-        vs.setContentsMargins(9, 1, 9, 3)
-        vs.setSpacing(0)
-        vs.addStretch(1)
+        vs.setContentsMargins(9, 2, 9, 2)
+        vs.setSpacing(4)
         h_vid = QHBoxLayout()
         h_vid.setSpacing(8)
         h_vid.setAlignment(Qt.AlignmentFlag.AlignVCenter)
@@ -331,6 +338,32 @@ class VideoUpscalerPanel(QWidget):
         self._btn_browse.clicked.connect(self._browse_video)
         h_vid.addWidget(self._btn_browse, 0, Qt.AlignmentFlag.AlignVCenter)
         vs.addLayout(h_vid)
+
+        self._combo_scale = QComboBox()
+        self._combo_scale.addItem("2×", 0)
+        self._combo_scale.addItem("3×", 1)
+        self._combo_scale.addItem("4×", 2)
+        self._combo_scale.setCurrentIndex(2)
+        self._combo_scale.setStyleSheet(_combo_style)
+        self._combo_scale.setFixedSize(52, 22)
+        self._combo_scale.setToolTip("Output size vs source (2×, 3×, or 4× on the long edge).")
+        self._combo_scale.currentIndexChanged.connect(lambda *_: (self._refresh_engine_labels(), self._update_buttons()))
+
+        self._btn_run = QPushButton("UPSCALE")
+        self._btn_run.setObjectName("btnStart")
+        self._btn_run.setFixedSize(_VUP_RUN_W, _VUP_RUN_H)
+        self._btn_run.setStyleSheet(_run_video_btn_stylesheet(pulse=False))
+        self._btn_run.setToolTip("Export AV1 video at the same frame rate as the source (optional audio mux).")
+        self._btn_run.clicked.connect(self._run_full_job)
+
+        h_scale_row = QHBoxLayout()
+        h_scale_row.setSpacing(6)
+        h_scale_row.addStretch(1)
+        h_scale_row.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        h_scale_row.addWidget(field_label("Scale", 40), 0, Qt.AlignmentFlag.AlignVCenter)
+        h_scale_row.addWidget(self._combo_scale, 0, Qt.AlignmentFlag.AlignVCenter)
+        h_scale_row.addWidget(self._btn_run, 0, Qt.AlignmentFlag.AlignVCenter)
+        vs.addLayout(h_scale_row)
         vs.addStretch(1)
 
         grp_eng = QGroupBox("Engine Status")
@@ -388,7 +421,7 @@ class VideoUpscalerPanel(QWidget):
         h_strip.addWidget(grp_eng, 3)
         root.addLayout(h_strip)
 
-        grp_prev = QGroupBox("Preview (sample frame — same tuning as full export)")
+        grp_prev = QGroupBox("Preview (sample frame from source)")
         hp = QHBoxLayout(grp_prev)
         hp.setContentsMargins(9, 4, 9, 7)
         fr_o = QFrame()
@@ -419,121 +452,8 @@ class VideoUpscalerPanel(QWidget):
         self._lbl_prev.setStyleSheet("color:#3f3f46; font-size:10px;")
         vp.addWidget(self._lbl_prev, 1)
         hp.addWidget(fr_p, 1)
-        # ~25% less slack to preview vs old 5:0; console gets stretch so it grows with the window.
-        root.addWidget(grp_prev, 3)
-
-        grp_ctrl = QGroupBox("Real-ESRGAN · output & color")
-        vc_ctrl = QVBoxLayout(grp_ctrl)
-        vc_ctrl.setContentsMargins(8, 1, 10, 2)
-        vc_ctrl.setSpacing(0)
-        h_left = QHBoxLayout()
-        h_left.setSpacing(4)
-        h_left.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self._combo_scale = QComboBox()
-        self._combo_scale.addItem("2×", 0)
-        self._combo_scale.addItem("3×", 1)
-        self._combo_scale.addItem("4×", 2)
-        self._combo_scale.setCurrentIndex(2)
-        self._combo_scale.setStyleSheet(_combo_style)
-        self._combo_scale.setFixedSize(52, 22)
-        self._combo_scale.currentIndexChanged.connect(lambda *_: (self._refresh_engine_labels(), self._update_buttons()))
-        h_left.addWidget(field_label("Scale", 40))
-        h_left.addWidget(self._combo_scale)
-        self._spin_max_edge = QSpinBox()
-        self._spin_max_edge.setRange(1280, 3840)
-        self._spin_max_edge.setSingleStep(16)
-        self._spin_max_edge.setValue(3840)
-        self._spin_max_edge.setStyleSheet(_spin_style)
-        self._spin_max_edge.setFixedWidth(68)
-        self._spin_max_edge.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._spin_max_edge.setToolTip("Cap longest side after upscale (4K = 3840 on the long edge).")
-        h_left.addWidget(field_label("Max edge", 64))
-        h_left.addWidget(self._spin_max_edge)
-        self._spin_tile = QSpinBox()
-        self._spin_tile.setRange(0, 512)
-        self._spin_tile.setSingleStep(32)
-        self._spin_tile.setValue(400)
-        self._spin_tile.setStyleSheet(_spin_style)
-        self._spin_tile.setFixedWidth(48)
-        self._spin_tile.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._spin_tile.setToolTip("Tile size for GPU memory; 0 = full frame (needs VRAM). Try 256–512.")
-        h_left.addWidget(field_label("Tile", 32))
-        h_left.addWidget(self._spin_tile)
-
-        self._sat = QDoubleSpinBox()
-        self._sat.setRange(0.0, 2.0)
-        self._sat.setSingleStep(0.05)
-        self._sat.setValue(1.0)
-        self._sat.setDecimals(2)
-        self._sat.setStyleSheet(_spin_style)
-        self._sat.setFixedWidth(48)
-        self._sat.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        h_left.addWidget(field_label("Sat", 28))
-        h_left.addWidget(self._sat)
-        self._bright = QDoubleSpinBox()
-        self._bright.setRange(-80, 80)
-        self._bright.setValue(0)
-        self._bright.setStyleSheet(_spin_style)
-        self._bright.setFixedWidth(48)
-        self._bright.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        h_left.addWidget(field_label("Bright", 38))
-        h_left.addWidget(self._bright)
-        self._contrast = QDoubleSpinBox()
-        self._contrast.setRange(0.2, 2.0)
-        self._contrast.setSingleStep(0.05)
-        self._contrast.setValue(1.0)
-        self._contrast.setDecimals(2)
-        self._contrast.setStyleSheet(_spin_style)
-        self._contrast.setFixedWidth(48)
-        self._contrast.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        h_left.addWidget(field_label("Contrast", 58))
-        h_left.addWidget(self._contrast)
-        self._sharp = QDoubleSpinBox()
-        self._sharp.setRange(0.0, 1.5)
-        self._sharp.setSingleStep(0.05)
-        self._sharp.setValue(0.0)
-        self._sharp.setDecimals(2)
-        self._sharp.setStyleSheet(_spin_style)
-        self._sharp.setFixedWidth(44)
-        self._sharp.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._sharp.setToolTip("Unsharp strength for extra crispness (use lightly; 0 = off).")
-        h_left.addWidget(field_label("Sharp", 34))
-        h_left.addWidget(self._sharp)
-
-        self._btn_refresh_prev = QPushButton("REFRESH")
-        self._btn_refresh_prev.setObjectName("vupRefreshBtn")
-        self._btn_refresh_prev.setFixedSize(_VUP_ACTION_W, _VUP_ACTION_H)
-        self._btn_refresh_prev.setStyleSheet(_refresh_video_btn_stylesheet(pulse=False))
-        self._btn_refresh_prev.setToolTip("Render AI preview on the sample frame")
-        self._btn_refresh_prev.clicked.connect(self._run_preview)
-        h_left.addWidget(self._btn_refresh_prev, 0, Qt.AlignmentFlag.AlignVCenter)
-
-        w_params = QWidget()
-        w_params.setLayout(h_left)
-        w_params.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
-
-        self._btn_run = QPushButton("UPSCALE")
-        self._btn_run.setObjectName("btnStart")
-        self._btn_run.setFixedSize(_VUP_RUN_W, _VUP_RUN_H)
-        self._btn_run.setStyleSheet(_run_video_btn_stylesheet(pulse=False))
-        self._btn_run.setToolTip("Export full video (H.264 + audio when possible)")
-        self._btn_run.clicked.connect(self._run_full_job)
-
-        w_actions = QWidget()
-        h_actions = QHBoxLayout(w_actions)
-        h_actions.setContentsMargins(0, 0, 0, 0)
-        h_actions.setSpacing(0)
-        h_actions.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        h_actions.addWidget(self._btn_run)
-
-        h_row = QHBoxLayout()
-        h_row.setSpacing(8)
-        h_row.addWidget(w_params, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        h_row.addStretch(1)
-        h_row.addWidget(w_actions, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-
-        vc_ctrl.addLayout(h_row)
-        root.addWidget(grp_ctrl)
+        # Preview vs console: bias slack to console (removed separate Upscale row).
+        root.addWidget(grp_prev, 2)
 
         h_bar = QHBoxLayout()
         self._bar = QProgressBar()
@@ -552,26 +472,14 @@ class VideoUpscalerPanel(QWidget):
         v_log.setStyleSheet(PANEL_CONSOLE_TEXTEDIT_STYLE)
         v_log.setReadOnly(True)
         v_log.setAcceptRichText(True)
-        v_log.setMinimumHeight(103)
+        v_log.setMinimumHeight(120)
         vl.addWidget(v_log, 1)
-        root.addWidget(grp_log, 1)
+        root.addWidget(grp_log, 3)
         self._log_edit = v_log
 
         self._load_prefs()
         self._edit_video.textChanged.connect(lambda *_: self._persist())
-        for w in (
-            self._combo_scale,
-            self._spin_max_edge,
-            self._spin_tile,
-            self._sat,
-            self._bright,
-            self._contrast,
-            self._sharp,
-        ):
-            if hasattr(w, "currentIndexChanged"):
-                w.currentIndexChanged.connect(lambda *_: self._persist())
-            else:
-                w.valueChanged.connect(lambda *_: self._persist())
+        self._combo_scale.currentIndexChanged.connect(lambda *_: self._persist())
 
         QTimer.singleShot(0, self._refresh_engine_labels)
         QTimer.singleShot(0, self._update_buttons)
@@ -580,26 +488,15 @@ class VideoUpscalerPanel(QWidget):
 
     def _load_prefs(self):
         p = self._prefs.load()
-        self._edit_video.setText(str(p.get("source_video", "")))
+        # Video path is session-only: survives switching internal panels, not app restart.
+        self._edit_video.setText("")
         self._combo_scale.setCurrentIndex(int(p.get("scale_index", 2)))
-        self._spin_max_edge.setValue(int(p.get("max_edge", 3840)))
-        self._spin_tile.setValue(int(p.get("tile", 400)))
-        self._sat.setValue(float(p.get("saturation", 1.0)))
-        self._bright.setValue(float(p.get("brightness", 0.0)))
-        self._contrast.setValue(float(p.get("contrast", 1.0)))
-        self._sharp.setValue(float(p.get("sharpness", 0.0)))
 
     def _persist(self):
         self._prefs.save(
             {
-                "source_video": self._edit_video.text().strip(),
+                "source_video": "",
                 "scale_index": self._combo_scale.currentIndex(),
-                "max_edge": self._spin_max_edge.value(),
-                "tile": self._spin_tile.value(),
-                "saturation": self._sat.value(),
-                "brightness": self._bright.value(),
-                "contrast": self._contrast.value(),
-                "sharpness": self._sharp.value(),
             }
         )
 
@@ -649,30 +546,22 @@ class VideoUpscalerPanel(QWidget):
             self._btn_dl_weights.show()
             self._btn_rm_weights.hide()
 
-    def _get_runner(self, net_scale: int, tile: int) -> RealESRGANRunner:
-        key = (net_scale, tile)
+    def _get_runner(self, net_scale: int) -> RealESRGANRunner:
+        key = (net_scale, VUP_TILE)
         if self._runner is not None and self._runner_key == key:
             return self._runner
         mp = self._model_mgr.path_for_net_scale(net_scale)
-        self._runner = RealESRGANRunner(mp, net_scale=net_scale, tile=tile, pre_pad=10, half=True)
+        self._runner = RealESRGANRunner(
+            mp, net_scale=net_scale, tile=VUP_TILE, pre_pad=10, half=True
+        )
         self._runner_key = key
         return self._runner
 
-    def _process_bgr(
-        self,
-        bgr,
-        runner: RealESRGANRunner,
-        user_scale: float,
-        max_edge: int,
-        *,
-        bright: float,
-        contrast: float,
-        saturation: float,
-        sharpness: float,
-    ):
+    def _process_frame(self, bgr, runner: RealESRGANRunner, user_scale: float):
         up = runner.enhance(bgr, user_scale=float(user_scale))
-        up = _cap_long_edge_bgr(up, max_edge)
-        up = _post_color_bgr(up, bright, contrast, saturation, sharpness)
+        up = _cap_long_edge_bgr(up, VUP_MAX_EDGE)
+        up = _denoise_bgr_one_step(up)
+        up = _post_color_bgr(up, 0.0, 1.0, 1.0, VUP_UNSHARP_STRENGTH)
         return up
 
     def _update_buttons(self):
@@ -682,7 +571,6 @@ class VideoUpscalerPanel(QWidget):
         w_ok = self._model_mgr.is_ready(ns)
         t_ok, _ = check_ml_runtime()
         busy = self._setup_in_progress or self._job_in_progress
-        self._btn_refresh_prev.setEnabled(path_ok and w_ok and t_ok and not busy)
         self._btn_run.setEnabled(path_ok and w_ok and t_ok and not busy and bool(_ffmpeg_exe()))
         self._btn_browse.setEnabled(not busy)
         self._btn_dl_weights.setEnabled(not busy)
@@ -715,14 +603,6 @@ class VideoUpscalerPanel(QWidget):
         path = self._edit_video.text().strip()
         if not path or not os.path.isfile(path):
             return self._btn_browse
-        # Source OK: suggest preview (REFRESH) before UPSCALE when preview not filled yet.
-        w_ok = self._model_mgr.is_ready(ns)
-        if w_ok and t_ok:
-            pm = self._lbl_prev.pixmap()
-            prev_txt = (self._lbl_prev.text() or "").strip()
-            need_preview = pm is None or pm.isNull() or prev_txt in ("—", "Tap REFRESH", "")
-            if need_preview and self._btn_refresh_prev.isEnabled():
-                return self._btn_refresh_prev
         return self._btn_run
 
     def _clear_guide_glow(self, w):
@@ -731,8 +611,6 @@ class VideoUpscalerPanel(QWidget):
         ew, eh = self._eng_btn_w, self._eng_btn_h
         if w == self._btn_run:
             w.setStyleSheet(_run_video_btn_stylesheet(pulse=False))
-        elif w == self._btn_refresh_prev:
-            w.setStyleSheet(_refresh_video_btn_stylesheet(pulse=False))
         elif w == self._btn_browse:
             w.setStyleSheet(
                 upscaler_browse_btn_idle_qss(self._path_bar_h, self._browse_btn_w)
@@ -751,8 +629,6 @@ class VideoUpscalerPanel(QWidget):
         target = self._get_guide_target()
         if target == self._btn_run and not self._btn_run.isEnabled():
             target = None
-        if target == self._btn_refresh_prev and not self._btn_refresh_prev.isEnabled():
-            target = None
         if target != self._guide_target:
             self._clear_guide_glow(self._guide_target)
             self._guide_target = target
@@ -766,8 +642,6 @@ class VideoUpscalerPanel(QWidget):
         if self._guide_glow_phase:
             if target == self._btn_run and target.isEnabled():
                 target.setStyleSheet(_run_video_btn_stylesheet(pulse=True))
-            elif target == self._btn_refresh_prev and target.isEnabled():
-                target.setStyleSheet(_refresh_video_btn_stylesheet(pulse=True))
             elif target == self._btn_browse:
                 target.setStyleSheet(
                     path_browse_btn_qss(
@@ -805,90 +679,13 @@ class VideoUpscalerPanel(QWidget):
         cap.release()
         idx = max(0, n // 10) if n > 0 else 0
         fr = _read_video_frame(path, idx)
-        self._preview_orig_bgr = fr
         if fr is None:
             self._lbl_orig.setText("Unreadable")
             return
         self._lbl_orig.setPixmap(_pixmap_from_bgr(fr))
         self._lbl_orig.setText("")
-        self._lbl_prev.setText("Tap REFRESH")
+        self._lbl_prev.setText("—")
         self._lbl_prev.setPixmap(QPixmap())
-
-    def _run_preview(self):
-        path = self._edit_video.text().strip()
-        if not path or not os.path.isfile(path):
-            return
-        self._job_in_progress = True
-        self._update_buttons()
-        self._add_log("Rendering preview frame…")
-        ns = net_scale_for_user_scale(_user_scale_from_index(self._combo_scale.currentIndex()))
-        user_sc = _user_scale_from_index(self._combo_scale.currentIndex())
-        tile = self._spin_tile.value()
-        max_edge = self._spin_max_edge.value()
-        c_bright = self._bright.value()
-        c_contrast = self._contrast.value()
-        c_sat = self._sat.value()
-        c_sharp = self._sharp.value()
-        import cv2
-
-        cap = cv2.VideoCapture(path)
-        n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-        cap.release()
-        idx = max(0, n // 10) if n > 0 else 0
-        fr = _read_video_frame(path, idx)
-
-        # Build runner on the GUI thread: PyTorch/CUDA init and self._runner from a worker
-        # thread can deadlock Qt or race; inference alone runs in the worker.
-        try:
-            runner = self._get_runner(ns, tile)
-        except Exception as e:
-            self._job_in_progress = False
-            self._update_buttons()
-            self._add_log(f"Preview error: {e}")
-            return
-
-        def work():
-            try:
-                if fr is None:
-                    self._sig.preview_frame.emit({"error": "no frame"})
-                    return
-                out = self._process_bgr(
-                    fr,
-                    runner,
-                    user_sc,
-                    max_edge,
-                    bright=c_bright,
-                    contrast=c_contrast,
-                    saturation=c_sat,
-                    sharpness=c_sharp,
-                )
-                self._sig.preview_frame.emit({"orig": fr, "out": out})
-            except Exception as e:
-                self._sig.preview_frame.emit({"error": str(e)})
-            finally:
-                self._sig.preview_job_done.emit()
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_preview_job_done(self):
-        self._job_in_progress = False
-        self._update_buttons()
-
-    def _on_preview_frame_result(self, payload: object):
-        if not isinstance(payload, dict):
-            return
-        if payload.get("error"):
-            self._add_log(f"Preview error: {payload['error']}")
-            return
-        fr = payload.get("orig")
-        out = payload.get("out")
-        if fr is not None:
-            self._lbl_orig.setPixmap(_pixmap_from_bgr(fr))
-            self._lbl_orig.setText("")
-        if out is not None:
-            self._lbl_prev.setPixmap(_pixmap_from_bgr(out))
-            self._lbl_prev.setText("")
-        self._preview_out_bgr = out
 
     def _on_frame_progress(self, cur: int, total: int):
         if total <= 0:
@@ -904,10 +701,16 @@ class VideoUpscalerPanel(QWidget):
         if not ff:
             QMessageBox.warning(self, "FFmpeg", "FFmpeg not found in PATH.")
             return
-        dest, _ = QFileDialog.getSaveFileName(self, "Save upscaled video", "", "MP4 (*.mp4);;All files (*)")
+        dest, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save upscaled video (AV1)",
+            "",
+            "MP4 / AV1 (*.mp4);;Matroska / AV1 (*.mkv);;All files (*)",
+        )
         if not dest:
             return
-        if not dest.lower().endswith(".mp4"):
+        low = dest.lower()
+        if not (low.endswith(".mp4") or low.endswith(".mkv")):
             dest += ".mp4"
         self._cancel_job.clear()
         self._job_in_progress = True
@@ -917,15 +720,9 @@ class VideoUpscalerPanel(QWidget):
         self._add_log(f"Starting upscale → {dest}")
         ns = net_scale_for_user_scale(_user_scale_from_index(self._combo_scale.currentIndex()))
         user_sc = _user_scale_from_index(self._combo_scale.currentIndex())
-        tile = self._spin_tile.value()
-        max_edge = self._spin_max_edge.value()
-        c_bright = self._bright.value()
-        c_contrast = self._contrast.value()
-        c_sat = self._sat.value()
-        c_sharp = self._sharp.value()
 
         try:
-            runner = self._get_runner(ns, tile)
+            runner = self._get_runner(ns)
         except Exception as e:
             self._job_in_progress = False
             self._bar.setVisible(False)
@@ -951,18 +748,10 @@ class VideoUpscalerPanel(QWidget):
                     self._sig.log_msg.emit("ERROR: empty video")
                     cap.release()
                     return
-                out0 = self._process_bgr(
-                    fr0,
-                    runner,
-                    user_sc,
-                    max_edge,
-                    bright=c_bright,
-                    contrast=c_contrast,
-                    saturation=c_sat,
-                    sharpness=c_sharp,
-                )
+                out0 = self._process_frame(fr0, runner, user_sc)
                 oh, ow = out0.shape[:2]
-                fd, tmp_vid = tempfile.mkstemp(suffix="_ca_upscaled_noaudio.mp4")
+                vcodec, vargs = _ffmpeg_av1_encoder(ff)
+                fd, tmp_vid = tempfile.mkstemp(suffix="_ca_vup_av1_noaudio.mp4")
                 os.close(fd)
                 cmd = [
                     ff,
@@ -981,11 +770,8 @@ class VideoUpscalerPanel(QWidget):
                     "-",
                     "-an",
                     "-c:v",
-                    "libx264",
-                    "-pix_fmt",
-                    "yuv420p",
-                    "-crf",
-                    "18",
+                    vcodec,
+                    *vargs,
                     tmp_vid,
                 ]
                 proc = subprocess.Popen(
@@ -1010,16 +796,7 @@ class VideoUpscalerPanel(QWidget):
                     ok, fr = cap.read()
                     if not ok:
                         break
-                    out = self._process_bgr(
-                        fr,
-                        runner,
-                        user_sc,
-                        max_edge,
-                        bright=c_bright,
-                        contrast=c_contrast,
-                        saturation=c_sat,
-                        sharpness=c_sharp,
-                    )
+                    out = self._process_frame(fr, runner, user_sc)
                     write_frame(out)
                     done += 1
                     if n > 0:
@@ -1028,7 +805,9 @@ class VideoUpscalerPanel(QWidget):
                 proc.stdin.close()
                 proc.wait(timeout=3600)
                 if proc.returncode != 0:
-                    self._sig.log_msg.emit("ffmpeg encode failed (see stderr if run manually).")
+                    self._sig.log_msg.emit(
+                        f"ffmpeg AV1 encode failed (encoder={vcodec}; need ffmpeg with libsvtav1 or libaom-av1)."
+                    )
                     return
 
                 # Optional audio copy

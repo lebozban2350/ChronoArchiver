@@ -11,14 +11,9 @@ except ImportError:
     from core.debug_logger import UTILITY_APP, debug
 
 DEFAULTS: dict = {
+    # source_video: kept in JSON for migration/sanitize only; panel does not restore or persist path.
     "source_video": "",
-    "scale_index": 2,  # 0=2× 1=3× 2=4×
-    "max_edge": 3840,
-    "saturation": 1.0,
-    "brightness": 0.0,
-    "contrast": 1.0,
-    "sharpness": 0.0,
-    "tile": 400,
+    "scale_index": 2,  # 0=2× 1=3× 2=4× — only user-facing option; pipeline is hardcoded in the panel.
 }
 
 
@@ -30,28 +25,6 @@ def _sanitize(data: dict, defaults: dict) -> dict:
     except (TypeError, ValueError):
         si = int(defaults["scale_index"])
     out["scale_index"] = max(0, min(2, si))
-    try:
-        me = int(out.get("max_edge", defaults["max_edge"]))
-    except (TypeError, ValueError):
-        me = int(defaults["max_edge"])
-    out["max_edge"] = max(720, min(3840, me))
-    out["max_edge"] = max(720, min(3840, (out["max_edge"] // 16) * 16))
-    for key, lo, hi in (
-        ("saturation", 0.0, 2.0),
-        ("brightness", -80.0, 80.0),
-        ("contrast", 0.2, 2.0),
-        ("sharpness", 0.0, 1.5),
-    ):
-        try:
-            v = float(out.get(key, defaults[key]))
-        except (TypeError, ValueError):
-            v = float(defaults[key])
-        out[key] = max(lo, min(hi, v))
-    try:
-        tile = int(out.get("tile", defaults["tile"]))
-    except (TypeError, ValueError):
-        tile = int(defaults["tile"])
-    out["tile"] = max(0, min(1024, tile))
     return out
 
 

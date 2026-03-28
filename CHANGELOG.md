@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [4.7.11] - 2026-03-28
+
+### Changed
+- **AI Video Upscaler**: **Simple mode** — only **2× / 3× / 4×** is user-configurable; **Real-ESRGAN** tile/long-edge/sharp/color controls are **hardcoded** (fixed denoise + mild sharpen, **3840** max edge, tile **400**).
+- **AI Video Upscaler**: Export uses **AV1** (**libsvtav1** or **libaom-av1** via ffmpeg probe), **same FPS** as source, **MP4/MKV** save dialog; intermediate pipe no longer **H.264**.
+- **AI Video Upscaler**: **SOURCE** strip — **Video** row **top-aligned** with **Engine** PyTorch row; **Scale** + **UPSCALE** on a **second row** under **Browse**, **right-aligned**; **Upscale** group box removed; **Console** gets **more vertical stretch** (preview **2** vs console **3**).
+- **AI Video Upscaler**: **REFRESH** / sample-frame AI preview flow **removed**.
+- **AI Video Upscaler**: **Session-only** source path (not written to settings JSON on disk).
+- **Settings** (`video_panel_settings.json`): Persists only **`scale_index`** (plus empty **`source_video`** key for sanitize).
+
 ## [4.7.10] - 2026-03-28
 
 ### Fixed
