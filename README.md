@@ -83,7 +83,7 @@ Run [from git](#git-clone-linux-windows-macos) in toolbox/distrobox, or use an A
 | **AI Media Scanner** | OpenCV YuNet + optional YOLO ONNX; keep/move lists; models under user data (`Setup Models` / `Install OpenCV` in-app) |
 | **Mass AV1 Encoder** | Queue with folder structure preserved; **SVT-AV1**, **NVENC** (e.g. RTX 40+), **VAAPI** / **AMF** where available; pause/resume |
 | **AI Image Upscaler** | LANCZOS + Z-Image-Turbo img2img; real-time source edits; prompt-aware mode (**blank = cleanup/upscale only**); optional Beautify mode (local face analysis + optional BLIP captioning); optional LaMa inpainting for cleanup; in-app PyTorch/model setup with progress/speed telemetry |
-| **AI Video Upscaler** | Official **Real-ESRGAN** RRDB weights (2× / 4× nets, 3× via resize); HSV saturation + brightness/contrast + optional unsharp; **Original** vs **AI preview** on a sample frame; AV1 export via FFmpeg (MP4/MKV) with optional audio copy |
+| **AI Video Upscaler** | Official **Real-ESRGAN** RRDB weights (2× / 4× nets, 3× via resize); HSV saturation + brightness/contrast + optional unsharp; source-frame preview with adjustable color controls; AV1 export via FFmpeg (MP4/MKV) with optional audio copy |
 | **Requirements** | **GPU optional** — hardware AV1/NVENC when supported; full software path otherwise |
 
 **Privacy note (AI Media Scanner):** analysis runs locally on your machine. Selected images are processed on-device using OpenCV/ONNX and are not uploaded to any server.
