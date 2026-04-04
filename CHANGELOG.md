@@ -8,6 +8,7 @@
 - **AI Video Upscaler**: **SOURCE** path row matches **AI Image Upscaler** (28px field, 60×28 **Browse**, shared line-edit styling). **Source video** preview uses a centered **21:9** viewport (letterboxed horizontally when wide); preview vs **Console** layout stretch favors **taller preview** while the console keeps a **minimum height of at least four text lines**.
 - **AI Video Upscaler**: Slightly **larger 21:9** preview viewport; **Console** minimum height reduced by about **two lines** (still at least **four** lines).
 - **AI Image Upscaler / AI Video Upscaler**: **Browse** guide pulse uses the same **1px** border as idle state so the SOURCE row no longer shifts when the red glow toggles.
+- **AI Video Upscaler**: **Console** minimum height reduced by **two more lines**; **Source video** preview stretch and **21:9** frame scale increased slightly.
 
 ## [5.1.3] - 2026-04-04
 

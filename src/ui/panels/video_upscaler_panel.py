@@ -670,7 +670,7 @@ class _Video21x9PreviewHolder(QWidget):
         else:
             w, h = aw, (aw * self._RH) // self._RW
         # Slightly larger than tight fit while staying inside the holder (preserves 21:9).
-        w2 = min(aw, (w * 104) // 100)
+        w2 = min(aw, (w * 106) // 100)
         h2 = (w2 * self._RH) // self._RW
         if h2 > ah:
             h2 = ah
@@ -948,7 +948,7 @@ class VideoUpscalerPanel(QWidget):
         vo.addWidget(self._lbl_orig_info, 0)
         hp.addWidget(fr_o, 1)
         # Preview vs console: tall 21:9 preview; console keeps a minimum line count (see below).
-        root.addWidget(grp_prev, 18)
+        root.addWidget(grp_prev, 20)
 
         h_bar = QHBoxLayout()
         h_bar.setSpacing(10)
@@ -999,12 +999,12 @@ class VideoUpscalerPanel(QWidget):
         v_log.setAcceptRichText(True)
         _fm = v_log.fontMetrics()
         _ls = int(_fm.lineSpacing())
-        _cons_min = max(88, int(_fm.lineSpacing() * 4 + 28)) - _ls * 2
+        _cons_min = max(88, int(_fm.lineSpacing() * 4 + 28)) - _ls * 4
         v_log.setMinimumHeight(max(_ls * 4 + 20, _cons_min))
         v_log.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         vl.setContentsMargins(8, 4, 8, 6)
         vl.addWidget(v_log, 1)
-        root.addWidget(grp_log, 4)
+        root.addWidget(grp_log, 3)
         self._log_edit = v_log
 
         self._load_prefs()
