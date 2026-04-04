@@ -166,7 +166,6 @@ cython_debug/
 *.md
 !/CHANGELOG.md
 !/README.md
-!/tests/README.md
 
 # Cursor/IDE (local only)
 .cursor/
@@ -178,7 +177,7 @@ brain/
 # AUR: regenerate with `makepkg --printsrcinfo` in the AUR package clone (do not commit in main).
 .SRCINFO
 
-# Optional local test media (never push). CI skips tests that need this tree.
+# Optional local test media (never push).
 /Test_Files/
 
 # OS / editor noise

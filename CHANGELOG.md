@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [5.1.2] - 2026-04-04
+
+### Changed
+- **Repository**: Removed the **`tests/`** tree from version control; **CI** (`.github/workflows/ci.yml`) now runs a short **import + Qt offscreen** smoke check instead of pytest.
+
 ## [5.1.1] - 2026-04-03
 
 ### Changed

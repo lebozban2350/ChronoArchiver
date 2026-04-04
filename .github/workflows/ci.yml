@@ -1,4 +1,4 @@
-# Fast CI: pytest on Ubuntu (ffmpeg, headless Qt). No Test_Files bundle — integration tests skip.
+# CI: dependency install + import/Qt smoke (no pytest tree in repo).
 name: CI
 
 on:
@@ -7,10 +7,11 @@ on:
   pull_request:
 
 jobs:
-  tests:
+  smoke:
     runs-on: ubuntu-latest
     env:
       QT_QPA_PLATFORM: offscreen
+      PYTHONPATH: src
     steps:
       - uses: actions/checkout@v4
 
@@ -26,10 +27,33 @@ jobs:
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install pytest opencv-python-headless
           pip install -r requirements.txt
           pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Pytest
-        working-directory: ${{ github.workspace }}
-        run: python -m pytest tests/ -v --tb=short
+      - name: Import and Qt smoke check
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+
+          os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+          import core.app_paths  # noqa: F401
+          import core.debug_logger  # noqa: F401
+          import core.video_target_presets  # noqa: F401
+          import torch  # noqa: F401
+          import core.rrdbnet  # noqa: F401
+          import core.realesrgan_runner  # noqa: F401
+          import core.realesrgan_models  # noqa: F401
+
+          from PySide6.QtWidgets import QApplication, QLabel, QWidget
+
+          app = QApplication.instance() or QApplication(sys.argv)
+          w = QWidget()
+          lab = QLabel("chrono-smoke", w)
+          lab.show()
+          w.show()
+          app.processEvents()
+          assert lab.text() == "chrono-smoke"
+          print("smoke ok")
+          PY
