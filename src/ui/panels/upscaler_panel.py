@@ -46,7 +46,6 @@ from ui.panel_widgets import (
     format_net_speed,
     path_browse_btn_qss,
     pytorch_installer_vram_guidance,
-    upscaler_browse_btn_idle_qss,
 )
 
 from PIL import Image, ImageOps
@@ -382,13 +381,21 @@ class AIImageUpscalerPanel(QWidget):
         # Undo stack (pixel edits only) — keep last 10 steps.
         self._undo_stack: deque[Image.Image] = deque(maxlen=10)
 
-        # Taller strip fits Engine Status hint line (local components: Z-Image + OpenCV).
-        _strip_eng = 98
-        _ctrl_h = 24
+        # SOURCE strip: single path row (28px) + GroupBox chrome — shorter than Engine Status.
+        # Engine Status: PyTorch + Models rows only (no footer hint label).
+        # Source path row: same height as Media Organizer / Encoder / Scanner (_bar_h=28, browse 60×28).
+        _strip_src = 56
+        _strip_eng = 72
+        _bar_h = 28
+        _browse_w, _browse_h = 60, _bar_h
+        _src_edit_ss = (
+            f"color:#fff; font-size:11px; font-weight:500; background:#121212; border:1px solid #1a1a1a; "
+            f"padding:2px 6px; min-height:{_bar_h}px; max-height:{_bar_h}px;"
+        )
         _ew, _eh = 82, 22
         self._eng_btn_w, self._eng_btn_h = _ew, _eh
-        self._path_bar_h = _ctrl_h
-        self._browse_btn_w = 64
+        self._path_bar_h = _bar_h
+        self._browse_btn_w = _browse_w
 
         _combo_style = COMBO_BOX_PANEL_QSS
 
@@ -406,7 +413,7 @@ class AIImageUpscalerPanel(QWidget):
         h_strip.setSpacing(8)
 
         grp_opts = QGroupBox("SOURCE")
-        grp_opts.setFixedHeight(_strip_eng)
+        grp_opts.setFixedHeight(_strip_src)
         grp_opts.setToolTip(
             "Optional artifact cleanup (LaMa or OpenCV Telea) on detected problem regions, then "
             "LANCZOS resize to target resolution, then Z-Image-Turbo img2img for refinement."
@@ -414,29 +421,28 @@ class AIImageUpscalerPanel(QWidget):
         v_opts = QVBoxLayout(grp_opts)
         v_opts.setContentsMargins(9, 2, 9, 3)
         v_opts.setSpacing(0)
-        v_opts.addStretch(1)
 
         h_img = QHBoxLayout()
-        h_img.setSpacing(8)
+        h_img.setSpacing(6)
         h_img.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         h_img.addWidget(field_label("Image", 40))
         self._edit_image = QLineEdit()
         self._edit_image.setPlaceholderText("Path to image…")
-        self._edit_image.setFixedHeight(_ctrl_h)
+        self._edit_image.setStyleSheet(_src_edit_ss)
+        self._edit_image.setFixedHeight(_bar_h)
         self._edit_image.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._edit_image.textChanged.connect(self._update_buttons)
         h_img.addWidget(self._edit_image, 1)
-        self._btn_browse_img = QPushButton("Browse…")
+        self._btn_browse_img = QPushButton("Browse")
         self._btn_browse_img.setObjectName("browseBtn")
-        self._btn_browse_img.setFixedSize(64, _ctrl_h)
+        self._btn_browse_img.setFixedSize(_browse_w, _browse_h)
         self._btn_browse_img.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._btn_browse_img.setStyleSheet(
-            upscaler_browse_btn_idle_qss(self._path_bar_h, self._browse_btn_w)
+            path_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
         )
         self._btn_browse_img.clicked.connect(self._browse_image)
         h_img.addWidget(self._btn_browse_img, 0, Qt.AlignmentFlag.AlignVCenter)
         v_opts.addLayout(h_img)
-        v_opts.addStretch(1)
 
         grp_mod = QGroupBox("Engine Status")
         grp_mod.setFixedHeight(_strip_eng)
@@ -513,18 +519,8 @@ class AIImageUpscalerPanel(QWidget):
         h_md.addWidget(self._btn_setup_models)
         h_md.addWidget(self._btn_uninstall_models)
         v_mod.addLayout(h_md)
-        self._lbl_engine_local = QLabel(
-            "Local: Z-Image = upscale + Beautify · OpenCV = face box · BLIP = multi-zone face analysis (HF cache)"
-        )
-        self._lbl_engine_local.setStyleSheet("font-size:7px; color:#71717a;")
-        self._lbl_engine_local.setWordWrap(True)
-        self._lbl_engine_local.setToolTip(
-            "Beautify uses Z-Image with higher denoise than plain upscale. OpenCV finds the face; BLIP (optional) "
-            "captions scene + skin + grooming; if BLIP fails, built-in movie-star / editorial text is used."
-        )
-        v_mod.addWidget(self._lbl_engine_local)
         left_strip_col = QWidget()
-        left_strip_col.setFixedHeight(_strip_eng)
+        left_strip_col.setFixedHeight(_strip_src)
         v_left_strip = QVBoxLayout(left_strip_col)
         v_left_strip.setContentsMargins(0, 0, 0, 0)
         v_left_strip.setSpacing(0)
@@ -595,7 +591,7 @@ class AIImageUpscalerPanel(QWidget):
         self._lbl_up.setStyleSheet("color:#3f3f46; font-size:10px;")
         vu.addWidget(self._lbl_up, 1)
         h_prev.addWidget(fr_u, 1)
-        root.addWidget(grp_prev, 4)
+        root.addWidget(grp_prev, 3)
 
         h_tools_root = QHBoxLayout()
         h_tools_root.setContentsMargins(0, 0, 0, 0)
@@ -738,7 +734,7 @@ class AIImageUpscalerPanel(QWidget):
         root.addLayout(h_tools_root)
 
         grp_log = QGroupBox("Console")
-        grp_log.setMaximumHeight(102)
+        grp_log.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         v_log = QVBoxLayout(grp_log)
         v_log.setContentsMargins(8, 3, 8, 5)
         v_log.setSpacing(0)
@@ -747,10 +743,13 @@ class AIImageUpscalerPanel(QWidget):
         self._log_edit.setStyleSheet(PANEL_CONSOLE_TEXTEDIT_STYLE)
         self._log_edit.setReadOnly(True)
         self._log_edit.setAcceptRichText(True)
-        self._log_edit.setMaximumHeight(72)
+        self._log_edit.setMinimumHeight(96)
+        self._log_edit.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         self._log_edit.document().setMaximumBlockCount(800)
-        v_log.addWidget(self._log_edit)
-        root.addWidget(grp_log, 0)
+        v_log.addWidget(self._log_edit, 1)
+        root.addWidget(grp_log, 2)
 
         self._loading_panel_prefs = True
         try:
@@ -923,7 +922,7 @@ class AIImageUpscalerPanel(QWidget):
             w.setStyleSheet(_run_upscale_btn_stylesheet(pulse=False))
         elif w == self._btn_browse_img:
             w.setStyleSheet(
-                upscaler_browse_btn_idle_qss(self._path_bar_h, self._browse_btn_w)
+                path_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa")
             )
         elif w == self._btn_install_engine:
             if self._engine_just_installed:

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [5.1.1] - 2026-04-03
+
+### Changed
+- **AI Image Upscaler**: Removed the Engine Status helper line (local Z-Image / OpenCV / BLIP copy); shortened SOURCE and Engine strip heights; console uses vertical stretch and no longer caps height so it gains space below the preview.
+
 ## [5.1.0] - 2026-04-03
 
 ### Added
