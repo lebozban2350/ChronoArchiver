@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [5.1.5] - 2026-04-04
+
+### Added
+- **`tests/test_smoke_imports.py`**: minimal **pytest** import checks; **CI** runs `pytest tests/` after dependencies.
+- **`tools/bump_version.py`**: single command to align **SemVer** across `src/version.py`, `pyproject.toml`, `README.md`, `PKGBUILD`, and installer defaults.
+
+### Changed
+- **Mass AV1 Encoder**: **Busy** dialog when the shared filesystem lock blocks start (aligned with other panels).
+- **AI Video Upscaler**: Clearer **FFmpeg** and **source video** dimension messages when prerequisites fail.
+- **`bootstrap.py`**: **`--reset-venv`** delegates to **`venv_manager.remove_venv()`** (same robust removal as before).
+
+### Removed
+- **`panel_widgets.upscaler_browse_btn_idle_qss`**: redundant with **`path_browse_btn_qss`** (`border_px=1`).
+- **`venv_manager.get_opencv_install_size`**: unused (sizes still come from **`get_opencv_install_components`** where needed).
+- **`zimage_portrait`**: unused **`portrait_signals_from_path`** and **`detect_face_in_image`** (pipeline uses **`portrait_signals_from_path_detailed`** / **`detect_faces_bgr`**).
+
 ## [5.1.4] - 2026-04-04
 
 ### Changed

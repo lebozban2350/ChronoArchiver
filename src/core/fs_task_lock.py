@@ -16,7 +16,7 @@ def try_acquire_fs_heavy() -> bool:
 
 
 def acquire_fs_heavy_blocking() -> None:
-    """Blocking acquire (use sparingly)."""
+    """Blocking acquire (reserved for callers that must wait; most code uses try_acquire_fs_heavy)."""
     _lock.acquire()
 
 

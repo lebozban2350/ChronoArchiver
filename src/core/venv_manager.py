@@ -989,16 +989,6 @@ def ensure_venv(progress_callback=None) -> bool:
     return True
 
 
-def get_opencv_install_size(variant: str | None = None) -> tuple:
-    """Return (size_bytes, human_str) for OpenCV install."""
-    components = get_opencv_install_components(variant)
-    total = sum(s for _, s in components)
-    if total <= 0:
-        total = OPENCV_CUDA_FALLBACK_BYTES if (variant or get_opencv_variant()) == "cuda" else OPENCV_STANDARD_APPROX_BYTES
-    gb, mb = total / (1024**3), total / (1024**2)
-    return total, f"~{gb:.2f} GB" if gb >= 0.1 else f"~{mb:.1f} MB"
-
-
 # Approximate sizes for NVIDIA pip packages (venv install, no sudo)
 NVIDIA_CUDA_RUNTIME_APPROX_BYTES = int(2.2 * 1024 * 1024)   # ~2.2 MB
 NVIDIA_CUBLAS_APPROX_BYTES = int(384 * 1024 * 1024)        # ~384 MB (manylinux x86_64 wheel)
@@ -1441,15 +1431,12 @@ def install_package(pkg: str, progress_callback=None) -> bool:
 
 
 def remove_venv() -> bool:
-    """Remove the app venv. Returns True on success."""
+    """Remove the app venv (ignore_errors=True for partially broken trees). Returns True if gone."""
     venv = get_venv_path()
-    if venv.exists():
-        try:
-            shutil.rmtree(venv)
-            return True
-        except OSError:
-            pass
-    return False
+    if not venv.exists():
+        return True
+    shutil.rmtree(venv, ignore_errors=True)
+    return not venv.exists()
 
 
 def _add_nvidia_libs_to_ld_path():

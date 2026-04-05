@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QCheckBox,
     QProgressBar, QFileDialog, QComboBox, QSlider,
-    QSizePolicy, QDialog, QTextEdit,
+    QSizePolicy, QDialog, QTextEdit, QMessageBox,
 )
 from PySide6.QtCore import Qt, Signal, QObject, QTimer
 from PySide6.QtGui import QCloseEvent, QShowEvent, QTextCursor
@@ -811,10 +811,12 @@ class AV1EncoderPanel(QWidget):
             self._add_log(f"WARNING: Could not check disk space: {e}. Proceeding anyway.")
 
         if not try_acquire_fs_heavy():
-            self._add_log(
-                "ERROR: Another file-heavy task is running (Media Organizer or AI Video Upscaler). "
+            _busy = (
+                "Another file-heavy operation is in progress (Media Organizer or AI Video Upscaler). "
                 "Wait for it to finish."
             )
+            QMessageBox.warning(self, "Busy", _busy)
+            self._add_log(f"ERROR: {_busy}")
             debug(UTILITY_MASS_AV1_ENCODER, "Start blocked: fs_task_lock busy")
             return
         self._fs_heavy_held = True

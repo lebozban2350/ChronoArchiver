@@ -111,20 +111,6 @@ def estimate_freckle_heavy_face(bgr: "np.ndarray", face: tuple[int, int, int, in
     return (frac >= 0.085 and var_s >= 95.0) or (frac >= 0.12 and var_s >= 70.0)
 
 
-def portrait_signals_from_path(
-    image_path: str | Path,
-    *,
-    max_scan_side: int = 960,
-) -> tuple[bool, bool]:
-    """
-    Return (face_detected, freckle_heavy_heuristic) in one read.
-
-    ``freckle_heavy_heuristic`` is False when no face is found.
-    """
-    portrait, heavy, _ = portrait_signals_from_path_detailed(image_path, max_scan_side=max_scan_side)
-    return portrait, heavy
-
-
 def portrait_signals_from_path_detailed(
     image_path: str | Path,
     *,
@@ -151,13 +137,3 @@ def portrait_signals_from_path_detailed(
     face = faces[0]
     heavy = estimate_freckle_heavy_face(bgr, face)
     return True, heavy, face
-
-
-def detect_face_in_image(image_path: str | Path, *, max_scan_side: int = 960) -> bool:
-    """
-    Return True if at least one frontal face is detected (suitable for portrait/beautify heuristics).
-
-    Large images are downscaled for speed; detection is best-effort.
-    """
-    portrait, _ = portrait_signals_from_path(image_path, max_scan_side=max_scan_side)
-    return portrait

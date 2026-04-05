@@ -1713,7 +1713,12 @@ class VideoUpscalerPanel(QWidget):
         path = self._edit_video.text().strip()
         ff = _ffmpeg_exe()
         if not ff:
-            QMessageBox.warning(self, "FFmpeg", "FFmpeg not found in PATH.")
+            QMessageBox.warning(
+                self,
+                "FFmpeg",
+                "FFmpeg not found in PATH.\n\n"
+                "Install FFmpeg for your OS, or ensure a discoverable binary is on PATH, then restart the app.",
+            )
             return
         pr = self._active_preset()
         if pr is None or self._combo_scale.count() <= 0:
@@ -1724,7 +1729,12 @@ class VideoUpscalerPanel(QWidget):
             )
             return
         if self._source_dims is None:
-            QMessageBox.warning(self, "Video", "Could not read source video dimensions.")
+            QMessageBox.warning(
+                self,
+                "Video",
+                "Could not read source video dimensions.\n\n"
+                "Try another file, or check that the container and codec are supported.",
+            )
             return
         sw, sh = self._source_dims
         user_sc = user_scale_for_preset(sw, sh, pr)

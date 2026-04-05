@@ -51,12 +51,6 @@ def path_browse_btn_qss(bar_h: int, btn_w: int, border: str, fg: str, *, border_
     )
 
 
-def upscaler_browse_btn_idle_qss(bar_h: int, btn_w: int) -> str:
-    """AI Image / Video upscaler Browse… at rest — same box as guide pulse (border_px=1) so clearing
-    the pulse does not fall back to global QPushButton padding and resize the row."""
-    return path_browse_btn_qss(bar_h, btn_w, "#262626", "#aaa", border_px=1)
-
-
 def format_net_speed(bytes_per_sec: float) -> str:
     """Human-readable throughput for installer pop-ups (B/s … GB/s)."""
     if bytes_per_sec < 0 or bytes_per_sec != bytes_per_sec:  # NaN

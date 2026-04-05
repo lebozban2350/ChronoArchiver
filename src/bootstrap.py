@@ -5,7 +5,6 @@ Run before main app when venv does not exist.
 import argparse
 import os
 import platform
-import shutil
 import sys
 from pathlib import Path
 
@@ -13,7 +12,14 @@ from pathlib import Path
 _SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_SCRIPT_DIR))
 
-from core.venv_manager import get_venv_path, get_python_exe, ensure_venv, is_venv_runnable, add_venv_to_path
+from core.venv_manager import (
+    add_venv_to_path,
+    ensure_venv,
+    get_python_exe,
+    get_venv_path,
+    is_venv_runnable,
+    remove_venv,
+)
 
 
 def _run_with_ui():
@@ -126,7 +132,7 @@ def main():
     venv_path = get_venv_path()
     if args.reset_venv and venv_path.exists():
         print(f"Removing app venv: {venv_path}", file=sys.stderr)
-        shutil.rmtree(venv_path, ignore_errors=True)
+        remove_venv()
 
     get_venv_path()
     py = _get_gui_python_exe()
