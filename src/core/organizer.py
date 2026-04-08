@@ -513,9 +513,7 @@ class OrganizerEngine:
                 ok = False
                 rotated_ok = False
                 if want_rotate:
-                    ok = self._write_exif_transposed_photo(
-                        full_path, target_path, delete_src_after=(action == "move")
-                    )
+                    ok = self._write_exif_transposed_photo(full_path, target_path, delete_src_after=(action == "move"))
                     rotated_ok = ok
                 if want_rotate and not ok:
                     self.logger(f"[EXIF] Falling back to plain {action} for {file}")
