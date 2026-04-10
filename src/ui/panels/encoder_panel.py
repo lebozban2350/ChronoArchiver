@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QCheckBox,
     QProgressBar,
-    QFileDialog,
     QComboBox,
     QSlider,
     QSizePolicy,
@@ -39,10 +38,12 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from core.av1_engine import AV1EncoderEngine, EncodingProgress
+from core.remote_ssh import REMOTE_FS_UNSUPPORTED_HINT, is_remote_path
 from core.fs_task_lock import release_fs_heavy, try_acquire_fs_heavy
 from ui.panel_start_hint import apply_start_button_hint
 from ui.console_style import message_to_html, PANEL_CONSOLE_TEXTEDIT_STYLE
 from ui.panel_widgets import COMBO_BOX_PANEL_QSS, path_browse_btn_qss
+from ui.local_remote_path_dialog import run_local_remote_path_dialog
 from core.av1_settings import AV1Settings
 from core.debug_logger import (
     INSTALLER_APP_MASS_AV1_ENCODER,
@@ -636,10 +637,12 @@ class AV1EncoderPanel(QWidget):
                 pass
 
     def _browse_src(self):
-        f = QFileDialog.getExistingDirectory(self, "Select Source Folder")
-        if f:
+        picked = run_local_remote_path_dialog(
+            self, "Select Source Folder", self._edit_src.text().strip()
+        )
+        if picked:
             self._edit_src.blockSignals(True)
-            self._edit_src.setText(f)
+            self._edit_src.setText(picked)
             self._edit_src.blockSignals(False)
             self._auto_scan()
 
@@ -653,18 +656,25 @@ class AV1EncoderPanel(QWidget):
             return False
         src = self._edit_src.text().strip()
         dst = self._edit_dst.text().strip()
-        return bool(src and os.path.isdir(src) and dst and os.path.isdir(dst))
+        return bool(
+            src
+            and not is_remote_path(src)
+            and os.path.isdir(src)
+            and dst
+            and not is_remote_path(dst)
+            and os.path.isdir(dst)
+        )
 
     def _get_guide_target(self):
         if self._is_encoding or self._btn_start.text() == "ENCODING COMPLETE":
             return None
         src = self._edit_src.text().strip()
-        if not src or not os.path.isdir(src):
+        if not src or is_remote_path(src) or not os.path.isdir(src):
             return self._btn_browse_src
         if not self._source_scanned:
             return self._btn_browse_src
         dst = self._edit_dst.text().strip()
-        if not dst or not os.path.isdir(dst):
+        if not dst or is_remote_path(dst) or not os.path.isdir(dst):
             return self._btn_browse_dst
         return self._btn_start
 
@@ -684,11 +694,19 @@ class AV1EncoderPanel(QWidget):
         src = self._edit_src.text().strip()
         dst = self._edit_dst.text().strip()
         r = []
-        if not src or not os.path.isdir(src):
+        if not src:
+            r.append("choose a source folder")
+        elif is_remote_path(src):
+            r.append("remote SFTP/SSH is not supported for encoding — use a local or mounted path")
+        elif not os.path.isdir(src):
             r.append("choose a valid source folder")
         elif not self._source_scanned:
             r.append("wait for the source folder scan to finish")
-        if not dst or not os.path.isdir(dst):
+        if not dst:
+            r.append("choose a valid output folder")
+        elif is_remote_path(dst):
+            r.append("remote SFTP/SSH is not supported for output — use a local or mounted path")
+        elif not os.path.isdir(dst):
             r.append("choose a valid output folder")
         return r
 
@@ -815,10 +833,12 @@ class AV1EncoderPanel(QWidget):
         self._update_start_enabled()
 
     def _browse_dst(self):
-        f = QFileDialog.getExistingDirectory(self, "Select Target Folder")
-        if f:
+        picked = run_local_remote_path_dialog(
+            self, "Select Target Folder", self._edit_dst.text().strip()
+        )
+        if picked:
             self._edit_dst.blockSignals(True)
-            self._edit_dst.setText(f)
+            self._edit_dst.setText(picked)
             self._edit_dst.blockSignals(False)
             self._update_start_enabled()
 
@@ -835,6 +855,10 @@ class AV1EncoderPanel(QWidget):
         dst = self._edit_dst.text().strip()
         if not src or not dst:
             self._add_log("ERROR: Please select source and target directories.")
+            return
+        if is_remote_path(src) or is_remote_path(dst):
+            self._add_log(f"ERROR: {REMOTE_FS_UNSUPPORTED_HINT}")
+            debug(UTILITY_MASS_AV1_ENCODER, "Start aborted: remote path")
             return
 
         # FFmpeg check at startup

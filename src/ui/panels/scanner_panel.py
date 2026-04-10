@@ -55,6 +55,7 @@ import pathlib
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from core.scanner import ScannerEngine, OPENCV_AVAILABLE
+from core.remote_ssh import REMOTE_FS_UNSUPPORTED_HINT, is_remote_path
 from ui.console_style import message_to_html, PANEL_CONSOLE_TEXTEDIT_STYLE
 from ui.panel_widgets import eng_row_btn_qss, path_browse_btn_qss
 from core.model_manager import ModelManager
@@ -82,6 +83,7 @@ from core.updater import restart_app
 from core.subprocess_tee import set_subprocess_channel
 from core.fs_task_lock import release_fs_heavy, try_acquire_fs_heavy
 from ui.panel_start_hint import apply_start_button_hint
+from ui.local_remote_path_dialog import run_local_remote_path_dialog
 
 
 def _opencv_installer_vram_guidance(variant: str) -> str:
@@ -746,12 +748,12 @@ class AIScannerPanel(QWidget):
         if not self._model_mgr.is_up_to_date():
             return self._btn_setup
         path = self._edit_path.text().strip()
-        if not path or not os.path.isdir(path):
+        if not path or is_remote_path(path) or not os.path.isdir(path):
             return self._btn_browse
         has_others = self._engine and self._engine.others_list
         if has_others:
             target = self._edit_target.text().strip()
-            if not target or not os.path.isdir(target):
+            if not target or is_remote_path(target) or not os.path.isdir(target):
                 return self._btn_browse_target
             return self._btn_start_move
         return self._btn_start
@@ -765,14 +767,18 @@ class AIScannerPanel(QWidget):
         if not self._model_mgr.is_up_to_date():
             r.append("download AI models (Setup Models)")
         path = self._edit_path.text().strip()
-        if not path or not os.path.isdir(path):
+        if not path:
+            r.append("choose a folder of images to scan")
+        elif is_remote_path(path):
+            r.append("remote SFTP/SSH is not supported for scanning — use a local or mounted path")
+        elif not os.path.isdir(path):
             r.append("choose a folder of images to scan")
         return r
 
     def _update_start_enabled(self):
         models_ready = self._model_mgr.is_up_to_date()
         path = self._edit_path.text().strip()
-        path_ok = bool(path and os.path.isdir(path))
+        path_ok = bool(path and not is_remote_path(path) and os.path.isdir(path))
         cv_ok = self._cached_cv_ok
         can = cv_ok and models_ready and path_ok and not self._is_running
         self._btn_start.setEnabled(can)
@@ -1152,14 +1158,18 @@ class AIScannerPanel(QWidget):
         threading.Thread(target=_task, daemon=True).start()
 
     def _browse(self):
-        f = QFileDialog.getExistingDirectory(self, "Select Library to Scan")
-        if f:
-            self._edit_path.setText(f)
+        picked = run_local_remote_path_dialog(
+            self, "Select Library to Scan", self._edit_path.text().strip()
+        )
+        if picked:
+            self._edit_path.setText(picked)
 
     def _browse_target(self):
-        f = QFileDialog.getExistingDirectory(self, "Select Target Folder")
-        if f:
-            self._edit_target.setText(f)
+        picked = run_local_remote_path_dialog(
+            self, "Select Target Folder", self._edit_target.text().strip()
+        )
+        if picked:
+            self._edit_target.setText(picked)
 
     def _ask_raise_cap(self, list_name: str, current_cap: int) -> int | None:
         """
@@ -1204,6 +1214,10 @@ class AIScannerPanel(QWidget):
 
     def _run_job(self):
         path = self._edit_path.text().strip()
+        if is_remote_path(path):
+            self._add_log(f"ERROR: {REMOTE_FS_UNSUPPORTED_HINT}")
+            debug(UTILITY_AI_MEDIA_SCANNER, f"ERROR: remote scan path: {path[:200]}")
+            return
         if not path or not os.path.isdir(path):
             self._add_log("ERROR: Invalid directory.")
             debug(UTILITY_AI_MEDIA_SCANNER, f"ERROR: Invalid directory: {path or '(empty)'}")
@@ -1404,7 +1418,7 @@ class AIScannerPanel(QWidget):
 
     def _update_move_start(self):
         target = self._edit_target.text().strip()
-        target_ok = bool(target and os.path.isdir(target))
+        target_ok = bool(target and not is_remote_path(target) and os.path.isdir(target))
         has_files = self._engine and self._engine.others_list
         can = target_ok and bool(has_files)
         self._btn_start_move.setEnabled(can)
@@ -1427,6 +1441,10 @@ class AIScannerPanel(QWidget):
                 self._add_log("No files to process. Run a scan first.")
             return
         dest_dir = self._edit_target.text().strip()
+        if is_remote_path(dest_dir):
+            self._add_log(f"ERROR: {REMOTE_FS_UNSUPPORTED_HINT}")
+            debug(UTILITY_AI_MEDIA_SCANNER, f"Apply ERROR: remote target {dest_dir[:200]}")
+            return
         if not dest_dir or not os.path.isdir(dest_dir):
             self._add_log("ERROR: Select a valid target folder.")
             debug(UTILITY_AI_MEDIA_SCANNER, f"Apply ERROR: invalid target {dest_dir}")

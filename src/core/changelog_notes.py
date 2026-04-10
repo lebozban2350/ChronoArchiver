@@ -15,6 +15,11 @@ CHANGELOG_RAW_URL = "https://raw.githubusercontent.com/UnDadFeated/ChronoArchive
 # Shipped with the app so “What’s new” always has text when repo CHANGELOG.md is missing or stale.
 # On each release bump, copy the ## [X.Y.Z] block from CHANGELOG.md (see tools/bump_version.py reminder).
 EMBEDDED_RELEASE_NOTES: dict[str, str] = {
+    "5.5.0": """## [5.5.0] - 2026-04-10
+
+### Added
+- **Browse (Organizer, Mass AV1 Encoder, AI Media Scanner)**: pop-up **Local folder** vs **Remote (SSH / SFTP)** with `sftp://` or `user@host:/path`, optional password (not saved), and **Test SSH**. Remote URIs are stored in the path field; local processing shows a clear error until paths are local or mounted.
+""",
     "5.4.4": """## [5.4.4] - 2026-04-09
 
 ### Changed

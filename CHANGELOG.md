@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [5.5.0] - 2026-04-10
+
+### Added
+- **Browse (Organizer, Mass AV1 Encoder, AI Media Scanner)**: optional pop-up to choose **Local folder** vs **Remote (SSH / SFTP)**; remote mode accepts `sftp://user@host/path` or `user@host:/path`, optional password (not persisted), and **Test SSH** (`echo ok` over OpenSSH). Confirmed remote paths are normalized to `sftp://…/` in the path field. Core processing remains local-only; jobs report a clear error if a remote URI is still selected when starting work.
+- **`core/remote_ssh`**, **`ui/local_remote_path_dialog`**, **`ui/ssh_askpass`**: remote path parsing, dialog, and `SSH_ASKPASS` helper (optional `sshpass` when a password is entered).
+- **`tests/test_remote_ssh`**: parser unit tests.
+
 ## [5.4.4] - 2026-04-09
 
 ### Changed

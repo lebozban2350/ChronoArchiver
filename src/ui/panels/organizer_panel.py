@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QProgressBar,
-    QFileDialog,
     QTextEdit,
     QSizePolicy,
     QMessageBox,
@@ -30,10 +29,12 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from core.organizer import OrganizerEngine, PHOTO_EXTS, VIDEO_EXTS
+from core.remote_ssh import REMOTE_FS_UNSUPPORTED_HINT, is_remote_path
 from core.fs_task_lock import release_fs_heavy, try_acquire_fs_heavy
 from ui.console_style import message_to_html, PANEL_CONSOLE_TEXTEDIT_STYLE
 from core.debug_logger import debug, structured_event, UTILITY_MEDIA_ORGANIZER
 from ui.panel_start_hint import apply_start_button_hint
+from ui.local_remote_path_dialog import run_local_remote_path_dialog
 
 
 class _Signals(QObject):
@@ -374,17 +375,25 @@ class MediaOrganizerPanel(QWidget):
             self._clear_guide_glow(target)
 
     def _browse(self):
-        f = QFileDialog.getExistingDirectory(self, "Select Source Folder")
-        if f:
-            self._edit_path.setText(f)
+        picked = run_local_remote_path_dialog(
+            self, "Select Source Folder", self._edit_path.text().strip()
+        )
+        if picked:
+            self._edit_path.setText(picked)
 
     def _browse_target(self):
-        f = QFileDialog.getExistingDirectory(self, "Select Target Folder (optional)")
-        if f:
-            self._edit_target.setText(f)
+        picked = run_local_remote_path_dialog(
+            self, "Select Target Folder (optional)", self._edit_target.text().strip()
+        )
+        if picked:
+            self._edit_target.setText(picked)
 
     def _run_job(self):
         path = self._edit_path.text().strip()
+        if is_remote_path(path):
+            self._add_log(f"ERROR: {REMOTE_FS_UNSUPPORTED_HINT}")
+            debug(UTILITY_MEDIA_ORGANIZER, f"ERROR: remote source not supported: {path[:200]}")
+            return
         if not path or not os.path.isdir(path):
             self._add_log("ERROR: Invalid source directory.")
             debug(UTILITY_MEDIA_ORGANIZER, f"ERROR: Invalid source directory: {path or '(empty)'}")
@@ -397,6 +406,10 @@ class MediaOrganizerPanel(QWidget):
             return
 
         target = self._edit_target.text().strip() or None
+        if target and is_remote_path(target):
+            self._add_log(f"ERROR: {REMOTE_FS_UNSUPPORTED_HINT}")
+            debug(UTILITY_MEDIA_ORGANIZER, f"ERROR: remote target not supported: {target[:200]}")
+            return
         if target and not os.path.isdir(target):
             self._add_log("ERROR: Target directory does not exist.")
             debug(UTILITY_MEDIA_ORGANIZER, f"ERROR: Target directory does not exist: {target}")
