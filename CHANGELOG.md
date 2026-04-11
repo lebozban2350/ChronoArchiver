@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [5.7.11] - 2026-04-12
+
+### Fixed
+- **Mass AV1 Encoder**: Ignore **stale FFmpeg `progress` / `details`** queued after a job slot is cleared on **finish** (guards on **`job_id in _current_files`**), avoiding overlapping per-thread bar updates with the next file and reducing **SIGSEGV** risk under parallel workers.
+- **Mass AV1 Encoder**: **Master bar**, **I/O**, and **ETA** labels from progress callbacks are **throttled to ~10/s** aggregate (per-job fps/percent lines still update at the engine rate).
+
 ## [5.7.10] - 2026-04-12
 
 ### Fixed

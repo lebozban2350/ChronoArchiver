@@ -246,6 +246,8 @@ class AV1EncoderPanel(QWidget):
         # ``finished`` back-to-back; stacking many QPlainTextEdit / bar updates in one tick risks SIGSEGV.
         self._encode_finish_queue: deque = deque()
         self._encode_finish_drain_scheduled = False
+        # Cap master / I-O / ETA repaints from progress (aggregate widgets); per-thread rows update every tick.
+        self._last_encoder_agg_ui_at = 0.0
 
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
         _slbl = "font-size: 9px; font-weight: 700; color: #aaa;"
@@ -1207,6 +1209,7 @@ class AV1EncoderPanel(QWidget):
         self._is_encoding = True
         self._is_paused = False
         self._batch_start = time.time()
+        self._last_encoder_agg_ui_at = 0.0
         if self._status_cb:
             self._status_cb("encoding")
 
@@ -2096,6 +2099,10 @@ class AV1EncoderPanel(QWidget):
             or job_id >= len(self._job_speeds)
         ):
             return
+        # Queued progress can arrive after ``finished`` cleared this slot — updating bars then risks
+        # inconsistent Qt state and native crashes (SIGSEGV) under parallel workers.
+        if job_id not in self._current_files:
+            return
         fname = p.file_name
         if len(fname) > 28:
             fname = fname[:12] + "..." + fname[-13:]
@@ -2103,6 +2110,11 @@ class AV1EncoderPanel(QWidget):
         self._job_bars[job_id].setValue(int(p.percent))
         self._job_speeds[job_id].setText(f"{p.fps:.1f} fps / {p.speed:.2f}x")
         self._job_progress[job_id] = p.percent
+
+        now = time.monotonic()
+        if (now - self._last_encoder_agg_ui_at) < 0.1:
+            return
+        self._last_encoder_agg_ui_at = now
 
         # I/O throughput
         active_bytes = 0.0
@@ -2135,6 +2147,8 @@ class AV1EncoderPanel(QWidget):
 
     def _on_details(self, job_id, vid, aud):
         if job_id < 0 or job_id >= len(self._job_vid):
+            return
+        if job_id not in self._current_files:
             return
         self._job_vid[job_id].setText(vid)
         self._job_aud[job_id].setText(aud)
