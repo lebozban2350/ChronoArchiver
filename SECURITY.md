@@ -8,7 +8,7 @@ Include: affected version or commit, reproduction steps, and impact assessment.
 
 ## Privacy and data
 
-- ChronoArchiver runs **locally**. Diagnostics (**COPY DEBUG INFO**, **EXPORT DIAGNOSTICS**) write **only to your clipboard or a file you choose**; nothing is uploaded automatically.
+- ChronoArchiver runs **locally**. The **HEALTH** summary stays on-screen; log files remain under the app log directory unless you copy them yourself; nothing is uploaded automatically.
 - Optional **structured JSON logs** (`CHRONOARCHIVER_JSON_LOG=1`) are still **local files** under the app log directory.
 - AI inference and media processing use **on-device** resources unless you explicitly use a feature that calls the network (e.g. model downloads, update checks).
 

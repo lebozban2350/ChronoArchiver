@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [5.7.0] - 2026-04-10
+
+### Added
+- **Mass AV1 Encoder**: When the primary video stream is already **AV1** (ffprobe), the job **passthrough**-copies or **stream-copy** remuxes to the usual `*_av1.mp4` destination instead of re-encoding.
+
+### Changed
+- **Mass AV1 Encoder**: Per-job codec summary uses **ffprobe** before **FFmpeg** (stable under concurrent workers); details/progress signals use **queued** connections to the UI thread.
+- **NVENC / CUDA decode**: After the first FFmpeg exit **183** or **218**, the batch skips CUDA hwaccel decode for remaining files (software decode + **NVENC**); closes **stderr** correctly on nested retry (no **ResourceWarning**).
+- **Browse (remote path)**: Compact vertical layout; window **adjustSize** when switching local vs remote.
+
+### Removed
+- **Main window footer**: **COPY DEBUG INFO**, **SHORTCUTS**, **SECURITY**, **EXPORT DIAGNOSTICS**, associated keyboard shortcuts, **`ui/keyboard_shortcuts_dialog.py`**, and **`core/diagnostics_export.py`**.
+
+### Fixed
+- **Browse dialog**: Reduced clipping/overlap between the password row and dialog buttons.
+
+### Documentation
+- **README**, **SECURITY**, **CONTRIBUTING**: Aligned with the simplified footer and diagnostics story.
+
+## [5.6.4] - 2026-04-10
+
+### Added
+- **Mass AV1 Encoder / network batches**: When the batch queue includes remote `sftp://` (or SSH-style) paths, a **prefetch pipeline** pulls the next source file(s) into local temp while encoder workers run, using a bounded queue for backpressure; after each encode, outputs are uploaded (when remote) and temp files removed. Overlaps network I/O with local **FFmpeg** work so fast GPUs are less likely to sit idle between files.
+
 ## [5.6.3] - 2026-04-10
 
 ### Fixed

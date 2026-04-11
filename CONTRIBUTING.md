@@ -14,10 +14,8 @@ Run tests with `PYTHONPATH=src` or `pytest` (see `pyproject.toml` `pythonpath`).
 - **`mypy src/core`** uses **`[tool.mypy]`** in `pyproject.toml`. CI runs this on **`src/core`** as an **advisory** step until the tree is fully clean.
 - Prefer explicit hints on new or touched public APIs in **`core/`**.
 
-### Keyboard shortcuts (reference)
+### First-run / upgrade UX (reference)
 
-- **Ctrl+/** — open the shortcuts dialog (also **SHORTCUTS** in the footer).
-- **Ctrl+Shift+D** — copy debug info (see README).
 - After a version bump, users may see a **what’s new** dialog once; the last seen version is stored under **Settings** / `last_seen_app_version.txt`. **Do not show** is stored in **Qt** settings. Respect these when testing upgrade flows.
 
 ### Performance profiling (maintainers)

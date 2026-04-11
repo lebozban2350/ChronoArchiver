@@ -392,14 +392,14 @@ class MediaOrganizerPanel(QWidget):
 
     def _browse(self):
         picked, _pw = run_local_remote_path_dialog(
-            self, "Select Source Folder", self._edit_path.text().strip()
+            self, self._edit_path.text().strip(), purpose="source"
         )
         if picked:
             self._edit_path.setText(picked)
 
     def _browse_target(self):
         picked, _pw = run_local_remote_path_dialog(
-            self, "Select Target Folder (optional)", self._edit_target.text().strip()
+            self, self._edit_target.text().strip(), purpose="target_optional"
         )
         if picked:
             self._edit_target.setText(picked)

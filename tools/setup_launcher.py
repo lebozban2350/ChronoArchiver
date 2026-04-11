@@ -41,7 +41,7 @@ def _read_version() -> str:
                 return open(vpath, "r", encoding="utf-8").read().strip()
     except Exception:
         pass
-    return os.environ.get("CHRONOARCHIVER_VERSION", "5.6.3")
+    return os.environ.get("CHRONOARCHIVER_VERSION", "5.7.0")
 
 
 VERSION = _read_version()

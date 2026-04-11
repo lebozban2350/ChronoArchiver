@@ -15,6 +15,22 @@ CHANGELOG_RAW_URL = "https://raw.githubusercontent.com/UnDadFeated/ChronoArchive
 # Shipped with the app so “What’s new” always has text when repo CHANGELOG.md is missing or stale.
 # On each release bump, copy the ## [X.Y.Z] block from CHANGELOG.md (see tools/bump_version.py reminder).
 EMBEDDED_RELEASE_NOTES: dict[str, str] = {
+    "5.7.0": """## [5.7.0] - 2026-04-10
+
+### Added
+- **Mass AV1 Encoder**: Already-**AV1** sources passthrough to `*_av1.mp4` (copy or **ffmpeg -c copy** remux) instead of re-encoding.
+
+### Changed
+- Encoder codec UI via **ffprobe** + queued signals; **NVENC** CUDA-decode skip after first **183/218** per batch; browse dialog layout fixes.
+
+### Removed
+- Footer **COPY DEBUG INFO**, **SHORTCUTS**, **SECURITY**, **EXPORT DIAGNOSTICS** and related modules.
+""",
+    "5.6.4": """## [5.6.4] - 2026-04-10
+
+### Added
+- **Mass AV1 Encoder / network batches**: Prefetch pipeline overlaps **scp** downloads with local **FFmpeg** encoding (bounded queue); cleans temps after upload.
+""",
     "5.6.3": """## [5.6.3] - 2026-04-10
 
 ### Fixed

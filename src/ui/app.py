@@ -44,16 +44,12 @@ from PySide6.QtWidgets import (
     QDialog,
     QTextEdit,
     QDialogButtonBox,
-    QFileDialog,
 )
-from PySide6.QtCore import Qt, QTimer, Signal, QSettings, QCoreApplication, QUrl
+from PySide6.QtCore import Qt, QTimer, Signal, QSettings, QCoreApplication
 from PySide6.QtGui import (
     QCloseEvent,
-    QDesktopServices,
     QFontDatabase,
     QIcon,
-    QKeySequence,
-    QShortcut,
     QShowEvent,
 )
 
@@ -89,11 +85,8 @@ from core.app_paths import (
     remove_empty_windows_legacy_config_nest,
 )
 from core.fs_task_lock import fs_heavy_holder_label
-from core.debug_info import format_debug_bundle
-from core.diagnostics_export import write_diagnostic_zip
 from core.user_error_log_handler import install_user_error_banner_on_logger
-from ui.health_summary_dialog import HealthSummaryDialog, SECURITY_POLICY_URL
-from ui.keyboard_shortcuts_dialog import KeyboardShortcutsDialog
+from ui.health_summary_dialog import HealthSummaryDialog
 from ui.whats_new_dialog import WhatsNewDialog
 from core.logger import setup_logger
 from core.ml_runtime import check_ml_runtime
@@ -755,44 +748,12 @@ class ChronoArchiverApp(QMainWindow):
         self.btn_copy_console.clicked.connect(self._copy_console)
         self.status_layout.addWidget(self.btn_copy_console, 0, Qt.AlignVCenter)
 
-        self.btn_copy_debug_info = QPushButton("COPY DEBUG INFO")
-        self.btn_copy_debug_info.setStyleSheet("font-size: 8px; color: #38bdf8; border:none; background:transparent;")
-        self.btn_copy_debug_info.setToolTip(
-            "Copy app version, OS, Python, venv paths, and FFmpeg resolution for bug reports"
-        )
-        self.btn_copy_debug_info.clicked.connect(self._copy_debug_info)
-        self.btn_copy_debug_info.setAccessibleName("Copy debug info to clipboard")
-        self.status_layout.addWidget(self.btn_copy_debug_info, 0, Qt.AlignVCenter)
-
         self.btn_health = QPushButton("HEALTH")
         self.btn_health.setStyleSheet("font-size: 8px; color: #a78bfa; border:none; background:transparent;")
         self.btn_health.setToolTip("Show environment and disk summary (nothing is uploaded)")
         self.btn_health.setAccessibleName("Health summary")
         self.btn_health.clicked.connect(self._open_health_summary)
         self.status_layout.addWidget(self.btn_health, 0, Qt.AlignVCenter)
-
-        self.btn_shortcuts = QPushButton("SHORTCUTS")
-        self.btn_shortcuts.setStyleSheet("font-size: 8px; color: #fcd34d; border:none; background:transparent;")
-        self.btn_shortcuts.setToolTip("Keyboard shortcuts (Ctrl+/)")
-        self.btn_shortcuts.setAccessibleName("Keyboard shortcuts")
-        self.btn_shortcuts.clicked.connect(self._open_keyboard_shortcuts)
-        self.status_layout.addWidget(self.btn_shortcuts, 0, Qt.AlignVCenter)
-
-        self.btn_security = QPushButton("SECURITY")
-        self.btn_security.setStyleSheet("font-size: 8px; color: #94a3b8; border:none; background:transparent;")
-        self.btn_security.setToolTip("Open security and privacy policy in browser")
-        self.btn_security.setAccessibleName("Security policy")
-        self.btn_security.clicked.connect(self._open_security_policy)
-        self.status_layout.addWidget(self.btn_security, 0, Qt.AlignVCenter)
-
-        self.btn_export_diag = QPushButton("EXPORT DIAGNOSTICS")
-        self.btn_export_diag.setStyleSheet("font-size: 8px; color: #86efac; border:none; background:transparent;")
-        self.btn_export_diag.setToolTip(
-            "Save a local ZIP (environment + log tail) for issue reports. Not sent automatically."
-        )
-        self.btn_export_diag.setAccessibleName("Export diagnostics ZIP file")
-        self.btn_export_diag.clicked.connect(self._export_diagnostics)
-        self.status_layout.addWidget(self.btn_export_diag, 0, Qt.AlignVCenter)
 
         self.btn_debug = QPushButton("DEBUG")
         self.btn_debug.setStyleSheet("font-size: 8px; color: #ef4444; border:none; background:transparent;")
@@ -812,13 +773,6 @@ class ChronoArchiverApp(QMainWindow):
         self.status_layout.addWidget(self.lbl_metrics, 0, Qt.AlignVCenter)
 
         self.layout.addWidget(self.status_bar)
-
-        self._shortcut_copy_debug = QShortcut(QKeySequence("Ctrl+Shift+D"), self)
-        self._shortcut_copy_debug.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self._shortcut_copy_debug.activated.connect(self._copy_debug_info)
-        self._shortcut_shortcuts = QShortcut(QKeySequence("Ctrl+/"), self)
-        self._shortcut_shortcuts.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self._shortcut_shortcuts.activated.connect(self._open_keyboard_shortcuts)
 
         self._user_error_log_handler = install_user_error_banner_on_logger(
             self.logger,
@@ -921,31 +875,6 @@ class ChronoArchiverApp(QMainWindow):
         self.lbl_last_error.clear()
         self.lbl_last_error.hide()
         self.btn_clear_last_error.hide()
-
-    def _open_keyboard_shortcuts(self):
-        KeyboardShortcutsDialog(self).exec()
-
-    def _open_security_policy(self):
-        QDesktopServices.openUrl(QUrl(SECURITY_POLICY_URL))
-
-    def _export_diagnostics(self):
-        from pathlib import Path as Pth
-
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Export diagnostic archive",
-            f"chronoarchiver-diagnostics-{__version__}.zip",
-            "ZIP archive (*.zip)",
-        )
-        if not path:
-            return
-        if not path.lower().endswith(".zip"):
-            path += ".zip"
-        try:
-            write_diagnostic_zip(Pth(path))
-            QMessageBox.information(self, APP_NAME, f"Saved diagnostic archive:\n{path}")
-        except Exception as e:
-            QMessageBox.warning(self, APP_NAME, f"Could not write archive:\n{e}")
 
     def _switch_panel(self, index):
         self.stack.setCurrentIndex(index)
@@ -1238,10 +1167,6 @@ class ChronoArchiverApp(QMainWindow):
         else:
             text = ""
         QApplication.clipboard().setText(text)
-
-    def _copy_debug_info(self):
-        QApplication.clipboard().setText(format_debug_bundle())
-        QMessageBox.information(self, APP_NAME, "Debug info copied to clipboard.")
 
     def _open_debug_folder(self):
         folder = os.path.dirname(get_log_path())

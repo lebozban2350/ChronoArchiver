@@ -7,7 +7,7 @@
 ChronoArchiver consolidates date-based file organization, AI-driven image analysis, and batch AV1 encoding into a single desktop application. Built on PySide6 with an app-private Python environment; no system-wide package installation required.
 </div>
 
-[![Version](https://img.shields.io/badge/version-5.6.3-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
+[![Version](https://img.shields.io/badge/version-5.7.0-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](#system-requirements)
 
@@ -26,7 +26,7 @@ ChronoArchiver helps you clean up and process large photo/video collections in o
 
 ## Quick Start
 
-Release **5.6.3**.
+Release **5.7.0**.
 
 ### Option 1: Download installer (Windows/macOS)
 
@@ -89,7 +89,7 @@ GPU acceleration is optional; CPU paths remain available.
 
 - **App not ready**: wait for **READY** in the footer, then retry.
 - **Model/runtime issues**: use in-app setup/install buttons in each AI panel.
-- **Need diagnostics**: use **COPY DEBUG INFO** or **EXPORT DIAGNOSTICS** in the footer.
+- **Need diagnostics**: use **HEALTH** (environment summary) in the footer, or open the **DEBUG** log folder.
 - **Offline mode**: tasks that need downloads show **NO NETWORK**; local-only tasks still work.
 
 For machine-readable local logs, set `CHRONOARCHIVER_JSON_LOG=1` before launch.

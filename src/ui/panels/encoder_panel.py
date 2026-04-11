@@ -7,6 +7,7 @@ Uses src/core/av1_engine.py and src/core/av1_settings.py unchanged.
 import os
 import platform
 import posixpath
+import queue
 import shutil
 import subprocess
 import tempfile
@@ -40,7 +41,7 @@ import sys
 import logging
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from core.av1_engine import AV1EncoderEngine, EncodingProgress
+from core.av1_engine import AV1EncoderEngine, EncodingProgress, verify_local_media_file_ready
 from core.remote_encode import (
     RemoteEncodeError,
     RemoteFileRef,
@@ -76,6 +77,11 @@ from version import APP_NAME
 
 # mkstemp prefix so STOP / quit can sweep orphans; must match _sweep_chrono_encoder_tempdir.
 _ENCODER_TMP_PREFIX = "chronoarchiver_av1_"
+
+
+def _remote_pipeline_queue_cap(num_workers: int) -> int:
+    """Max prepared remote downloads queued ahead of encode (backpressure for disk + network)."""
+    return min(16, max(4, num_workers * 2 + 2))
 
 
 def _finalize_encoder_temp_files(
@@ -192,8 +198,9 @@ class AV1EncoderPanel(QWidget):
         self._metrics_cb = metrics_callback
         self._status_cb = status_callback
         self._sig = _Signals()
-        self._sig.progress.connect(self._on_progress)
-        self._sig.details.connect(self._on_details)
+        # Workers emit from encoder threads; queue slots on the GUI thread so codec/progress labels update reliably.
+        self._sig.progress.connect(self._on_progress, Qt.ConnectionType.QueuedConnection)
+        self._sig.details.connect(self._on_details, Qt.ConnectionType.QueuedConnection)
         self._sig.finished.connect(self._on_encode_finished)
         self._sig.log_msg.connect(self._add_log)
         self._sig.batch_complete.connect(self._on_batch_complete)
@@ -226,6 +233,9 @@ class AV1EncoderPanel(QWidget):
         self._remote_dst_remote = None
         self._remote_dst_root_posix: str | None = None
         self._remote_src_structure_root_posix: str | None = None
+        self._encode_pipeline_q: queue.Queue | None = None
+        self._pipeline_prefetch_thread: threading.Thread | None = None
+        self._pipeline_prefetch_stop = threading.Event()
 
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
         _slbl = "font-size: 9px; font-weight: 700; color: #aaa;"
@@ -730,7 +740,7 @@ class AV1EncoderPanel(QWidget):
 
     def _browse_src(self):
         picked, dialog_pw = run_local_remote_path_dialog(
-            self, "Select Source Folder", self._edit_src.text().strip()
+            self, self._edit_src.text().strip(), purpose="source"
         )
         if picked:
             self._edit_src.blockSignals(True)
@@ -1021,7 +1031,7 @@ class AV1EncoderPanel(QWidget):
 
     def _browse_dst(self):
         picked, dialog_pw = run_local_remote_path_dialog(
-            self, "Select Target Folder", self._edit_dst.text().strip()
+            self, self._edit_dst.text().strip(), purpose="target"
         )
         if picked:
             self._edit_dst.blockSignals(True)
@@ -1199,16 +1209,23 @@ class AV1EncoderPanel(QWidget):
         # Structure root: common parent of all queued files so we mirror only meaningful subdirs
         # (avoids recreating a top-level "Source" or similar wrapper folder in target)
         structure_root = None
-        refs_in_q = [x[0] for x in self._queue if isinstance(x[0], RemoteFileRef)]
+        # Pipeline mode only when *every* item is remote; a mixed queue must use the legacy worker.
+        use_remote_pipeline = len(self._queue) > 0 and all(
+            isinstance(x[0], RemoteFileRef) for x in self._queue
+        )
         if self._settings.get("maintain_structure") and self._queue:
-            if refs_in_q:
-                self._remote_src_structure_root_posix = common_structure_root_posix(refs_in_q)
+            if use_remote_pipeline:
+                self._remote_src_structure_root_posix = common_structure_root_posix(
+                    [x[0] for x in self._queue]
+                )
                 debug(
                     UTILITY_MASS_AV1_ENCODER,
                     f"Remote structure root (mirror): {self._remote_src_structure_root_posix}",
                 )
             else:
-                all_dirs = [os.path.dirname(p) for p, _ in self._queue]
+                all_dirs = [
+                    os.path.dirname(p) for p, _ in self._queue if not isinstance(p, RemoteFileRef)
+                ]
                 if all_dirs:
                     try:
                         structure_root = os.path.commonpath(all_dirs)
@@ -1224,7 +1241,33 @@ class AV1EncoderPanel(QWidget):
         except (TypeError, ValueError):
             num_workers = 2
         num_workers = max(1, min(8, num_workers))
+        AV1EncoderEngine.reset_nvenc_cuda_hwaccel_for_new_batch()
         self._engine_pool = [AV1EncoderEngine(job_id=i) for i in range(num_workers)]
+        if use_remote_pipeline:
+            cap = _remote_pipeline_queue_cap(num_workers)
+            self._encode_pipeline_q = queue.Queue(maxsize=cap)
+            self._pipeline_prefetch_stop.clear()
+            pl_work = list(self._queue)
+            self._queue.clear()
+            self._pipeline_prefetch_thread = threading.Thread(
+                target=self._pipeline_prefetch_loop,
+                args=(pl_work, src, dst, structure_root, num_workers),
+                daemon=True,
+                name="chronoarchiver-remote-prefetch",
+            )
+            self._pipeline_prefetch_thread.start()
+            self._add_log(
+                "Network pipeline: prefetching upcoming source file(s) while encoding runs "
+                f"(buffer ≤ {cap} on local disk) — keeps the GPU busy."
+            )
+            debug(
+                UTILITY_MASS_AV1_ENCODER,
+                f"Remote prefetch pipeline: cap={cap} jobs={len(pl_work)} (all-remote queue)",
+            )
+        else:
+            self._encode_pipeline_q = None
+            self._pipeline_prefetch_thread = None
+
         for eng in self._engine_pool:
             eng.on_progress = lambda j, p: self._sig.progress.emit(j, p)
             eng.on_details = lambda j, v, a: self._sig.details.emit(j, v, a)
@@ -1235,6 +1278,7 @@ class AV1EncoderPanel(QWidget):
 
     def _stop_encoding(self):
         self._is_encoding = False
+        self._pipeline_prefetch_stop.set()
         self._encode_pw = None
         self._remote_dst_remote = None
         self._remote_dst_root_posix = None
@@ -1253,6 +1297,7 @@ class AV1EncoderPanel(QWidget):
         self._update_start_enabled()
         self._add_log("Encoding stopped.")
         debug(UTILITY_MASS_AV1_ENCODER, "Encoding stopped by user.")
+        self._encode_pipeline_q = None
         QTimer.singleShot(2500, self._sweep_chrono_encoder_tempdir)
 
     def _toggle_pause(self):
@@ -1264,7 +1309,439 @@ class AV1EncoderPanel(QWidget):
                 eng.pause()
         self._btn_pause.setText("PAUSE" if paused else "RESUME")
 
+    def _pipeline_plan_remote_item(
+        self,
+        item,
+        size: int,
+        src: str,
+        dst: str,
+        structure_root,
+        *,
+        dst_remote,
+        dst_root_px: str,
+        rem_struct: str | None,
+    ):
+        """
+        Path planning for one remote source file (no download). Returns:
+        ``("fin", meta_dict)`` for immediate finish (skip / invalid path), or
+        ``("encode", ctx)`` with output path and remote_out_posix; input must be downloaded to ``ctx["tmp_in_slot"]``.
+        """
+        ref = item if isinstance(item, RemoteFileRef) else None
+        if not ref:
+            return (
+                "fin",
+                {
+                    "logical_key": str(item),
+                    "ok": False,
+                    "remote_src_ref": None,
+                    "tmp_cleanup": [],
+                },
+            )
+
+        logical_key = ref.abs_posix
+        remote_out_posix: str | None = None
+        tpath_local: str | None = None
+
+        if self._settings.get("maintain_structure"):
+            if rem_struct:
+                try:
+                    rel_stem = posixpath.splitext(
+                        posixpath.relpath(ref.abs_posix, rem_struct)
+                    )[0].replace("\\", "/")
+                except ValueError:
+                    return ("fin", {"logical_key": logical_key, "ok": False, "remote_src_ref": ref, "tmp_cleanup": []})
+            else:
+                rel_stem = posixpath.splitext(ref.rel_posix.replace("\\", "/"))[0]
+            if ".." in rel_stem.split("/"):
+                return ("fin", {"logical_key": logical_key, "ok": False, "remote_src_ref": ref, "tmp_cleanup": []})
+            if dst_remote:
+                remote_out_posix = posix_join_under(dst_root_px, rel_stem)
+            else:
+                try:
+                    tpath_local = join_dst_local(dst, rel_stem)
+                except ValueError:
+                    return ("fin", {"logical_key": logical_key, "ok": False, "remote_src_ref": ref, "tmp_cleanup": []})
+                try:
+                    real_tpath = os.path.realpath(tpath_local)
+                    real_dst = os.path.realpath(dst)
+                    if not (real_tpath == real_dst or real_tpath.startswith(real_dst + os.sep)):
+                        return ("fin", {"logical_key": logical_key, "ok": False, "remote_src_ref": ref, "tmp_cleanup": []})
+                except OSError:
+                    return ("fin", {"logical_key": logical_key, "ok": False, "remote_src_ref": ref, "tmp_cleanup": []})
+                out_dir = os.path.dirname(tpath_local)
+                if out_dir:
+                    os.makedirs(out_dir, exist_ok=True)
+        else:
+            flat_stem = posixpath.splitext(posixpath.basename(ref.rel_posix))[0]
+            if dst_remote:
+                remote_out_posix = posix_join_under(dst_root_px, flat_stem)
+            else:
+                tpath_local = os.path.join(dst, flat_stem + "_av1.mp4")
+
+        policy = self._settings.get("existing_output")
+        pw = self._encode_pw
+        if dst_remote and remote_out_posix:
+            exists = remote_file_exists(dst_remote, remote_out_posix, pw)
+        else:
+            exists = bool(tpath_local and os.path.exists(tpath_local))
+
+        if exists:
+            if policy == "skip":
+                return (
+                    "fin",
+                    {
+                        "logical_key": logical_key,
+                        "ok": True,
+                        "remote_src_ref": ref,
+                        "tmp_cleanup": [],
+                        "skip_msg": True,
+                    },
+                )
+            if policy == "rename":
+                if dst_remote and remote_out_posix:
+                    rb, rx = posixpath.splitext(remote_out_posix)
+                    n = 1
+                    cand = f"{rb}_{n}{rx}"
+                    while remote_file_exists(dst_remote, cand, pw):
+                        n += 1
+                        cand = f"{rb}_{n}{rx}"
+                    remote_out_posix = cand
+                elif tpath_local:
+                    b, ext = os.path.splitext(tpath_local)
+                    n = 1
+                    cand = f"{b}_{n}{ext}"
+                    while os.path.exists(cand):
+                        n += 1
+                        cand = f"{b}_{n}{ext}"
+                    tpath_local = cand
+
+        if dst_remote:
+            tfd, tpath_local = tempfile.mkstemp(suffix=".mp4", prefix=_ENCODER_TMP_PREFIX)
+            os.close(tfd)
+        assert tpath_local is not None
+
+        return (
+            "encode",
+            {
+                "logical_key": logical_key,
+                "ref": ref,
+                "size": size,
+                "remote_out_posix": remote_out_posix,
+                "tpath_local": tpath_local,
+                "dst_remote": bool(dst_remote),
+            },
+        )
+
+    def _pipeline_prefetch_loop(
+        self,
+        work_list: list,
+        src: str,
+        dst: str,
+        structure_root,
+        num_workers: int,
+    ):
+        """Sequential prefetch: plan → download → bounded queue so encode overlaps network I/O."""
+        pw = self._encode_pw
+        dst_remote = self._remote_dst_remote
+        dst_root_px = (self._remote_dst_root_posix or "").strip() or "/"
+        rem_struct = self._remote_src_structure_root_posix
+        pq = self._encode_pipeline_q
+        if pq is None:
+            return
+        try:
+            for item, size in work_list:
+                if self._pipeline_prefetch_stop.is_set() or not self._is_encoding:
+                    break
+                kind, payload = self._pipeline_plan_remote_item(
+                    item,
+                    size,
+                    src,
+                    dst,
+                    structure_root,
+                    dst_remote=dst_remote,
+                    dst_root_px=dst_root_px,
+                    rem_struct=rem_struct,
+                )
+                if kind == "fin":
+                    pq.put({"op": "fin", "payload": payload}, timeout=600)
+                    continue
+                # encode
+                ctx = payload
+                ref = ctx["ref"]
+                tmp_cleanup: list[str] = []
+                if ctx.get("dst_remote"):
+                    tmp_cleanup.append(ctx["tpath_local"])
+                fd, tmp_in = tempfile.mkstemp(
+                    suffix=posixpath.splitext(ref.rel_posix)[1] or ".mkv",
+                    prefix=_ENCODER_TMP_PREFIX,
+                )
+                os.close(fd)
+                tmp_cleanup.append(tmp_in)
+                try:
+                    run_scp_from_remote(ref.target, ref.abs_posix, tmp_in, password_for_sshpass=pw)
+                except RemoteEncodeError as e:
+                    _finalize_encoder_temp_files(tmp_cleanup, success=False, local_in=tmp_in, local_out="")
+                    pq.put(
+                        {
+                            "op": "fin",
+                            "payload": {
+                                "logical_key": ctx["logical_key"],
+                                "ok": False,
+                                "remote_src_ref": ref,
+                                "tmp_cleanup": [],
+                                "err": str(e),
+                            },
+                        },
+                        timeout=120,
+                    )
+                    continue
+                pq.put(
+                    {
+                        "op": "encode",
+                        "ctx": ctx,
+                        "tmp_in": tmp_in,
+                        "tmp_cleanup": tmp_cleanup,
+                    },
+                    timeout=7200,
+                )
+        except Exception as e:
+            if isinstance(e, queue.Full):
+                debug(
+                    UTILITY_MASS_AV1_ENCODER,
+                    "Pipeline prefetch: bounded queue full (timeout on put); workers may be stalled",
+                )
+            debug(UTILITY_MASS_AV1_ENCODER, f"Pipeline prefetch fatal: {e}")
+            log_exception(e, context="pipeline_prefetch", utility=UTILITY_MASS_AV1_ENCODER)
+        finally:
+            try:
+                for _ in range(num_workers):
+                    pq.put(None, timeout=60)
+            except Exception:
+                pass
+
+    def _job_worker_pipeline(self, engine, src, dst, structure_root=None):
+        """Consumer for prefetched remote files (overlap download + NVENC)."""
+        pw = self._encode_pw
+        dst_remote = self._remote_dst_remote
+        pq = self._encode_pipeline_q
+
+        with self._active_lock:
+            self._active_jobs += 1
+
+        def _fin(ok: bool, logical_key: str, local_out: str, meta: dict | None):
+            self._sig.finished.emit(engine.job_id, ok, logical_key, local_out or "", meta)
+
+        try:
+            # Drain until each worker receives a None sentinel. Do not tie the loop to
+            # _is_encoding: _finalize_batch_complete clears it when the last file finishes,
+            # which would otherwise exit before sentinels are consumed and strand queue items.
+            while True:
+                try:
+                    task = pq.get(timeout=0.5)
+                except queue.Empty:
+                    continue
+                if task is None:
+                    break
+                if not isinstance(task, dict):
+                    debug(
+                        UTILITY_MASS_AV1_ENCODER,
+                        f"Pipeline worker: ignored non-dict queue item: {type(task).__name__}",
+                    )
+                    continue
+                if task.get("op") == "fin":
+                    pl = task.get("payload") or {}
+                    lk = pl.get("logical_key") or ""
+                    ref = pl.get("remote_src_ref")
+                    if pl.get("skip_msg"):
+                        disp = posixpath.basename(ref.rel_posix) if ref else lk
+                        self._sig.log_msg.emit(f"SKIP (exists): {disp}")
+                        debug(UTILITY_MASS_AV1_ENCODER, f"Skipped existing (pipeline): {lk}")
+                    if pl.get("err"):
+                        self._sig.log_msg.emit(f"Remote I/O error: {pl['err']}")
+                    _fin(
+                        bool(pl.get("ok")),
+                        lk,
+                        "",
+                        {
+                            "logical_key": lk,
+                            "local_in": "",
+                            "local_out": "",
+                            "remote_src_ref": ref,
+                            "tmp_cleanup": [],
+                        },
+                    )
+                    continue
+                try:
+                    ctx = task["ctx"]
+                    tmp_in = task["tmp_in"]
+                    tmp_cleanup = list(task.get("tmp_cleanup") or [])
+                    logical_key = ctx["logical_key"]
+                    ref = ctx["ref"]
+                    tpath_local = ctx["tpath_local"]
+                    remote_out_posix = ctx["remote_out_posix"]
+                except (KeyError, TypeError) as e:
+                    debug(UTILITY_MASS_AV1_ENCODER, f"Pipeline worker: bad encode task payload: {e}")
+                    continue
+
+                self._current_files[engine.job_id] = ref.abs_posix if ref else logical_key
+
+                out_p: str | None = None
+                try:
+                    if not self._is_encoding:
+                        # Batch ended or STOP: drop scratch files (tmp_cleanup lists tmp_in + remote encode buffer).
+                        _finalize_encoder_temp_files(
+                            tmp_cleanup, success=False, local_in=tmp_in, local_out=""
+                        )
+                        _fin(
+                            False,
+                            logical_key,
+                            "",
+                            {
+                                "logical_key": logical_key,
+                                "local_in": "",
+                                "local_out": "",
+                                "remote_src_ref": ref,
+                                "tmp_cleanup": [],
+                            },
+                        )
+                        continue
+
+                    if self._settings.get("rejects_enabled"):
+                        dur = engine._get_video_duration(tmp_in)
+                        thr = (
+                            self._settings.get("rejects_h") * 3600
+                            + self._settings.get("rejects_m") * 60
+                            + self._settings.get("rejects_s")
+                        )
+                        if dur <= thr:
+                            bn = posixpath.basename(ref.rel_posix) if ref else os.path.basename(tmp_in)
+                            self._add_log(f"REJECTED: {bn} ({dur:.1f}s)")
+                            debug(UTILITY_MASS_AV1_ENCODER, f"Rejected (short): {logical_key} ({dur:.1f}s)")
+                            _finalize_encoder_temp_files(tmp_cleanup, success=True, local_in=tmp_in, local_out="")
+                            _fin(
+                                True,
+                                logical_key,
+                                "",
+                                {
+                                    "logical_key": logical_key,
+                                    "local_in": tmp_in,
+                                    "local_out": "",
+                                    "remote_src_ref": ref,
+                                    "tmp_cleanup": [],
+                                },
+                            )
+                            continue
+
+                    ok_ready, ready_err = verify_local_media_file_ready(tmp_in)
+                    if not ok_ready:
+                        self._sig.log_msg.emit(f"Source not ready: {ready_err}")
+                        debug(
+                            UTILITY_MASS_AV1_ENCODER,
+                            f"Pipeline worker: source not ready {tmp_in!r}: {ready_err}",
+                        )
+                        _finalize_encoder_temp_files(tmp_cleanup, success=False, local_in=tmp_in, local_out="")
+                        _fin(
+                            False,
+                            logical_key,
+                            "",
+                            {
+                                "logical_key": logical_key,
+                                "local_in": "",
+                                "local_out": "",
+                                "remote_src_ref": ref,
+                                "tmp_cleanup": [],
+                            },
+                        )
+                        continue
+
+                    if engine.try_passthrough_existing_av1(tmp_in, tpath_local):
+                        disp = posixpath.basename(ref.rel_posix)
+                        self._sig.log_msg.emit(f"Already AV1 (passthrough): {disp}")
+                        ok, in_p, out_p = True, tmp_in, tpath_local
+                    else:
+                        ok, in_p, out_p = engine.encode_file(
+                            tmp_in,
+                            tpath_local,
+                            self._settings.get("quality"),
+                            self._settings.get("preset"),
+                            self._settings.get("reencode_audio"),
+                            hw_accel_decode=self._settings.get("hw_accel_decode"),
+                        )
+
+                    if ok and dst_remote and remote_out_posix:
+                        try:
+                            parent = posixpath.dirname(remote_out_posix)
+                            if parent:
+                                remote_mkdir_p(dst_remote, parent, pw)
+                            run_scp_to_remote(
+                                out_p, dst_remote, remote_out_posix, password_for_sshpass=pw
+                            )
+                        except RemoteEncodeError as e:
+                            self._sig.log_msg.emit(f"Remote upload error: {e}")
+                            debug(UTILITY_MASS_AV1_ENCODER, f"scp push failed: {e}")
+                            ok = False
+                            if out_p and os.path.isfile(out_p):
+                                tmp_cleanup.append(out_p)
+
+                    if ok and dst_remote:
+                        tmp_cleanup.append(out_p)
+
+                    saved_hint = _finalize_encoder_temp_files(
+                        tmp_cleanup,
+                        success=ok,
+                        local_in=tmp_in,
+                        local_out=out_p or "",
+                    )
+                    meta = {
+                        "logical_key": logical_key,
+                        "local_in": tmp_in,
+                        "local_out": out_p,
+                        "remote_src_ref": ref,
+                        "tmp_cleanup": [],
+                    }
+                    if saved_hint is not None:
+                        meta["saved_bytes"] = saved_hint
+                    _fin(ok, logical_key, out_p if ok else out_p, meta)
+                except Exception as job_e:
+                    self._sig.log_msg.emit(f"ERROR: {job_e}")
+                    debug(UTILITY_MASS_AV1_ENCODER, f"Encoder pipeline job: {job_e}")
+                    log_exception(job_e, context="encoder_pipeline_job", utility=UTILITY_MASS_AV1_ENCODER)
+                    try:
+                        _finalize_encoder_temp_files(
+                            tmp_cleanup, success=False, local_in=tmp_in, local_out=out_p or ""
+                        )
+                    except Exception:
+                        pass
+                    _fin(
+                        False,
+                        logical_key,
+                        "",
+                        {
+                            "logical_key": logical_key,
+                            "local_in": "",
+                            "local_out": "",
+                            "remote_src_ref": ref,
+                            "tmp_cleanup": [],
+                        },
+                    )
+
+        except Exception as e:
+            self._sig.log_msg.emit(f"ERROR: {e}")
+            debug(UTILITY_MASS_AV1_ENCODER, f"Encoder pipeline worker: {e}")
+            log_exception(e, context="encoder_pipeline_worker", utility=UTILITY_MASS_AV1_ENCODER)
+        finally:
+            with self._active_lock:
+                self._active_jobs -= 1
+            if self._active_jobs == 0:
+                self._sig.log_msg.emit("Encoding batch complete.")
+                self._sig.batch_complete.emit()
+                debug(UTILITY_MASS_AV1_ENCODER, "Encoding batch complete.")
+
     def _job_worker(self, engine, src, dst, structure_root=None):
+        if self._encode_pipeline_q is not None:
+            self._job_worker_pipeline(engine, src, dst, structure_root)
+            return
+
         pw = self._encode_pw
         dst_remote = self._remote_dst_remote
         dst_root_px = (self._remote_dst_root_posix or "").strip() or "/"
@@ -1452,14 +1929,45 @@ class AV1EncoderPanel(QWidget):
                             )
                             continue
 
-                    ok, in_p, out_p = engine.encode_file(
-                        input_path,
-                        tpath_local,
-                        self._settings.get("quality"),
-                        self._settings.get("preset"),
-                        self._settings.get("reencode_audio"),
-                        hw_accel=self._settings.get("hw_accel_decode"),
+                    ok_ready, ready_err = verify_local_media_file_ready(input_path)
+                    if not ok_ready:
+                        self._sig.log_msg.emit(f"Source not ready: {ready_err}")
+                        debug(
+                            UTILITY_MASS_AV1_ENCODER,
+                            f"Legacy worker: source not ready {input_path!r}: {ready_err}",
+                        )
+                        _finalize_encoder_temp_files(
+                            tmp_cleanup, success=False, local_in=input_path, local_out=""
+                        )
+                        _fin(
+                            False,
+                            logical_key,
+                            "",
+                            {
+                                "logical_key": logical_key,
+                                "local_in": "",
+                                "local_out": "",
+                                "remote_src_ref": ref,
+                                "tmp_cleanup": [],
+                            },
+                        )
+                        continue
+
+                    disp_bn = (
+                        posixpath.basename(ref.rel_posix) if ref else os.path.basename(input_path)
                     )
+                    if engine.try_passthrough_existing_av1(input_path, tpath_local):
+                        self._sig.log_msg.emit(f"Already AV1 (passthrough): {disp_bn}")
+                        ok, in_p, out_p = True, input_path, tpath_local
+                    else:
+                        ok, in_p, out_p = engine.encode_file(
+                            input_path,
+                            tpath_local,
+                            self._settings.get("quality"),
+                            self._settings.get("preset"),
+                            self._settings.get("reencode_audio"),
+                            hw_accel_decode=self._settings.get("hw_accel_decode"),
+                        )
 
                     if ok and dst_remote and remote_out_posix:
                         try:
@@ -1473,6 +1981,8 @@ class AV1EncoderPanel(QWidget):
                             self._sig.log_msg.emit(f"Remote upload error: {e}")
                             debug(UTILITY_MASS_AV1_ENCODER, f"scp push failed: {e}")
                             ok = False
+                            if out_p and os.path.isfile(out_p):
+                                tmp_cleanup.append(out_p)
 
                     if ok and dst_remote:
                         tmp_cleanup.append(out_p)
@@ -1541,14 +2051,6 @@ class AV1EncoderPanel(QWidget):
                 self._sig.log_msg.emit("Encoding batch complete.")
                 self._sig.batch_complete.emit()
                 debug(UTILITY_MASS_AV1_ENCODER, "Encoding batch complete.")
-                if self._settings.get("shutdown_on_finish") and self._is_encoding:
-                    try:
-                        if platform.system() == "Windows":
-                            subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=5)
-                        else:
-                            subprocess.run(["shutdown", "-h", "now"], check=False, timeout=5)
-                    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-                        debug(UTILITY_MASS_AV1_ENCODER, f"Shutdown failed: {e}")
 
     # ── signal handlers ───────────────────────────────────────────────────────
 
@@ -1599,9 +2101,10 @@ class AV1EncoderPanel(QWidget):
                 self._lbl_eta.setText("ESTIMATED TIME REMAINING: 00:00:00")
 
     def _on_details(self, job_id, vid, aud):
-        if job_id < len(self._job_vid):
-            self._job_vid[job_id].setText(vid)
-            self._job_aud[job_id].setText(aud)
+        if job_id < 0 or job_id >= len(self._job_vid):
+            return
+        self._job_vid[job_id].setText(vid)
+        self._job_aud[job_id].setText(aud)
 
     def _on_encode_finished(self, job_id, success, logical_key, local_out_disp, meta=None):
         meta = meta if isinstance(meta, dict) else None
@@ -1736,6 +2239,8 @@ class AV1EncoderPanel(QWidget):
         self._remote_dst_remote = None
         self._remote_dst_root_posix = None
         self._remote_src_structure_root_posix = None
+        self._encode_pipeline_q = None
+        self._pipeline_prefetch_thread = None
         if self._fs_heavy_held:
             release_fs_heavy()
             self._fs_heavy_held = False
@@ -1755,6 +2260,14 @@ class AV1EncoderPanel(QWidget):
             done=self._done_count,
             total=self._total_count,
         )
+        if self._settings.get("shutdown_on_finish"):
+            try:
+                if platform.system() == "Windows":
+                    subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=5)
+                else:
+                    subprocess.run(["shutdown", "-h", "now"], check=False, timeout=5)
+            except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+                debug(UTILITY_MASS_AV1_ENCODER, f"Shutdown failed: {e}")
 
     # ── telemetry ─────────────────────────────────────────────────────────────
 
