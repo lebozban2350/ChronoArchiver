@@ -388,6 +388,8 @@ class AV1EncoderPanel(QWidget):
         self._combo_preset = QComboBox()
         self._combo_preset.setStyleSheet(_combo_style)
         self._combo_preset.setFixedHeight(16)
+        self._combo_preset.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self._combo_preset.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         self._combo_preset.addItems(
             [
                 "P7: Deep Archival",
@@ -407,8 +409,9 @@ class AV1EncoderPanel(QWidget):
         self._combo_preset.currentIndexChanged.connect(self._on_preset_changed)
         self._combo_preset.currentIndexChanged.connect(self._update_cq_hint)
         h_p.addWidget(lbl_p)
-        h_p.addWidget(self._combo_preset, 1)
-        h_p.addWidget(QLabel("Encode speed vs. efficiency tradeoff", styleSheet="font-size:7px; color:#444;"))
+        h_p.addWidget(self._combo_preset, 0)
+        self._lbl_preset_hint = QLabel("Encode speed vs. efficiency tradeoff", styleSheet="font-size:7px; color:#444;")
+        h_p.addWidget(self._lbl_preset_hint, 1)
         v_cfg.addLayout(h_p)
 
         # Threads
@@ -420,13 +423,16 @@ class AV1EncoderPanel(QWidget):
         self._combo_jobs = QComboBox()
         self._combo_jobs.setStyleSheet(_combo_style)
         self._combo_jobs.setFixedHeight(16)
+        self._combo_jobs.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self._combo_jobs.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         self._combo_jobs.addItems(["1", "2", "4"])
         j = self._settings.get("concurrent_jobs")
         self._combo_jobs.setCurrentIndex(0 if j == 1 else (1 if j == 2 else 2))
         self._combo_jobs.currentIndexChanged.connect(self._on_jobs_changed)
         h_t.addWidget(lbl_t)
-        h_t.addWidget(self._combo_jobs, 1)
-        h_t.addWidget(QLabel("Parallel encoding slots (1 / 2 / 4)", styleSheet="font-size:7px; color:#444;"))
+        h_t.addWidget(self._combo_jobs, 0)
+        self._lbl_threads_hint = QLabel("Parallel encoding slots (1 / 2 / 4)", styleSheet="font-size:7px; color:#444;")
+        h_t.addWidget(self._lbl_threads_hint, 1)
         v_cfg.addLayout(h_t)
 
         # Audio
@@ -483,11 +489,13 @@ class AV1EncoderPanel(QWidget):
             )
         )
         self._combo_exist.setStyleSheet(
-            "font-size:9px; color:#aaa; min-height:20px;"
-            "QComboBox QAbstractItemView { max-height: 120px; outline: none; padding: 0px; }"
+            COMBO_BOX_PANEL_QSS + "QComboBox { color: #aaa; }"
         )
+        self._combo_exist.setFixedHeight(16)
+        self._combo_exist.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self._combo_exist.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         self._combo_exist.currentTextChanged.connect(lambda t: self._settings.set("existing_output", t.lower()))
-        v_exist.addWidget(self._combo_exist)
+        v_exist.addWidget(self._combo_exist, alignment=Qt.AlignmentFlag.AlignLeft)
         v_opts.addWidget(w_exist)
 
         self._chk_shutdown = QCheckBox("Shutdown When Done")
@@ -760,7 +768,7 @@ class AV1EncoderPanel(QWidget):
 
     def _can_start(self):
         if self._is_encoding:
-            return False
+            return True
         src = self._edit_src.text().strip()
         dst = self._edit_dst.text().strip()
         if not src or not dst:
@@ -856,6 +864,19 @@ class AV1EncoderPanel(QWidget):
     def _update_start_enabled(self):
         if self._btn_start.text() == "ENCODING COMPLETE":
             return
+        if self._is_encoding:
+            self._btn_start.setEnabled(True)
+            apply_start_button_hint(
+                self._btn_start,
+                enabled=True,
+                reasons_when_disabled=[],
+                enabled_tip="Stop encoding and cancel remaining jobs",
+            )
+            self._guide_pulse_timer.stop()
+            self._clear_guide_glow(self._guide_target)
+            self._guide_target = None
+            self._guide_glow_phase = 0
+            return
         can = self._can_start()
         self._btn_start.setEnabled(can)
         apply_start_button_hint(
@@ -868,6 +889,8 @@ class AV1EncoderPanel(QWidget):
         self._guide_pulse_timer.start()
 
     def _pulse_guide(self):
+        if self._is_encoding:
+            return
         target = self._get_guide_target()
         if target != self._guide_target:
             self._clear_guide_glow(self._guide_target)
@@ -1186,10 +1209,12 @@ class AV1EncoderPanel(QWidget):
         self._lbl_eta.setText("ESTIMATED TIME REMAINING: --:--:--")
         self._lbl_io.setText("I/O: 0.0 MB/s")
 
+        self._btn_start.setStyleSheet("")
         self._btn_start.setText("STOP ENCODING")
         self._btn_start.setObjectName("btnStop")
         self._btn_start.setStyle(self.style())
         self._btn_pause.setEnabled(True)
+        self._update_start_enabled()
 
         self._add_log(f"Starting encode — {self._total_count} files.")
         # Hint when both paths appear to be on network (NAS) — can cause failures; retry with software decode helps
@@ -1293,6 +1318,7 @@ class AV1EncoderPanel(QWidget):
         if self._fs_heavy_held:
             release_fs_heavy()
             self._fs_heavy_held = False
+        self._btn_start.setStyleSheet("")
         self._btn_start.setText("START ENCODING")
         self._btn_start.setObjectName("btnStart")
         self._btn_start.setStyle(self.style())
@@ -2254,6 +2280,8 @@ class AV1EncoderPanel(QWidget):
         self._bar_master.setFormat("0/0 Files")
         self._lbl_eta.setText("ESTIMATED TIME REMAINING: --:--:--")
         self._lbl_io.setText("I/O: 0.0 MB/s")
+        self._btn_start.setStyleSheet("")
+        self._btn_start.setObjectName("btnStart")
         self._btn_start.setText("ENCODING COMPLETE")
         self._btn_start.setEnabled(False)
         self._btn_pause.setEnabled(False)

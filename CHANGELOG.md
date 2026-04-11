@@ -2,8 +2,13 @@
 
 ## [Unreleased]
 
+## [5.7.5] - 2026-04-11
+
 ### Changed
-- **Release tooling**: `tools/bump_version.py` updates `.github/workflows/release-installers.yml` manual default; **CONTRIBUTING** documents AUR `.SRCINFO` generation.
+- **Mass AV1 Encoder**: Red **STOP ENCODING** appearance using global **`btnStop`** styling (clears onboarding guide pulse overrides). **Preset**, **Threads**, and **If output exists** dropdowns use content-sized width; row hints consume remaining space.
+
+### Fixed
+- **Mass AV1 Encoder**: **STOP** stays enabled while encoding when paths or queue state trigger revalidation (the primary control is no longer gated as “cannot start” during an active batch).
 
 ## [5.7.4] - 2026-04-10
 

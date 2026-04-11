@@ -188,6 +188,10 @@ QPushButton#btnStop {{
     color: #450a0a;
     border: none;
 }}
+QPushButton#btnStop:hover:enabled {{
+    background-color: #f87171;
+    color: #450a0a;
+}}
 QPushButton#btnStop:disabled {{
     background-color: #1a1a1a;
     color: #6b7280;
