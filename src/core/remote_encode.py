@@ -20,8 +20,10 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import threading
+import time
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from core.remote_ssh import RemoteTarget, parse_remote_destination, ssh_command_environment, ssh_extra_argv
 
@@ -307,6 +309,91 @@ def run_ssh_argv(
     return subprocess.run(cmd, **kw)
 
 
+def _run_ssh_stdin_scan_streaming(
+    argv: List[str],
+    *,
+    password_for_sshpass: Optional[str],
+    stdin_text: str,
+    on_progress: Optional[Callable[[int, int], None]],
+) -> subprocess.CompletedProcess:
+    """
+    Same SSH stdin invocation as ``run_ssh_argv``, but read stdout line-by-line so callers
+    can update UI while the remote ``os.walk`` is still running (matches local scan behavior).
+    """
+    if password_for_sshpass:
+        ss = shutil.which("sshpass")
+        if not ss:
+            raise RemoteEncodeError("sshpass not found.")
+        cmd = [ss, "-e", *argv]
+    else:
+        cmd = argv
+    env = ssh_command_environment(None, password_for_sshpass)
+    popen_kw: dict = {
+        "stdin": subprocess.PIPE,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "encoding": "utf-8",
+        "errors": "replace",
+        "env": env,
+    }
+    if os.name != "nt":
+        popen_kw["start_new_session"] = True
+    proc = subprocess.Popen(cmd, **popen_kw)
+    proc.stdin.write(stdin_text)
+    proc.stdin.close()
+    stderr_chunks: list[str] = []
+
+    def _read_stderr() -> None:
+        stderr_chunks.append(proc.stderr.read())
+
+    err_thread = threading.Thread(target=_read_stderr, daemon=True)
+    err_thread.start()
+    stdout_parts: list[str] = []
+    count = 0
+    total_b = 0
+    last_emit_at = 0.0
+    rc = 0
+    try:
+        for line in proc.stdout:
+            stdout_parts.append(line)
+            if not on_progress:
+                continue
+            line_stripped = line.strip().lstrip("\ufeff")
+            if not line_stripped or "\t" not in line_stripped:
+                continue
+            if line_stripped.startswith("CHRONOARCHIVER_"):
+                continue
+            try:
+                sz_s, _ = line_stripped.split("\t", 1)
+            except ValueError:
+                continue
+            if not sz_s.isdigit():
+                continue
+            count += 1
+            total_b = max(0, total_b + int(sz_s))
+            now = time.monotonic()
+            if count == 1 or count % 25 == 0 or (now - last_emit_at) >= 0.15:
+                last_emit_at = now
+                try:
+                    on_progress(count, total_b)
+                except Exception:
+                    pass
+        rc = proc.wait()
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        err_thread.join(timeout=30)
+        raise
+    else:
+        err_thread.join(timeout=300)
+    stderr_text = stderr_chunks[0] if stderr_chunks else ""
+    stdout_text = "".join(stdout_parts)
+    return subprocess.CompletedProcess(args=cmd, returncode=rc, stdout=stdout_text, stderr=stderr_text)
+
+
 def remote_verify_python3(remote: RemoteTarget, password_for_sshpass: Optional[str]) -> None:
     batch = password_for_sshpass is None
     cmd = [
@@ -532,11 +619,22 @@ def remote_scan_videos(
     root_posix: str,
     extensions: Tuple[str, ...],
     password_for_sshpass: Optional[str],
+    on_progress: Optional[Callable[[int, int], None]] = None,
 ) -> Tuple[List[RemoteFileRef], str]:
     """Return (video file refs, one-line console hint for the UI) for ``root_posix`` on the remote host."""
     root_norm = root_posix.rstrip("/") or "/"
     script = _scan_script_source(root_norm, extensions)
     batch = password_for_sshpass is None
+
+    def _finalize(result: Tuple[List[RemoteFileRef], str]) -> Tuple[List[RemoteFileRef], str]:
+        refs, hint = result
+        if on_progress:
+            try:
+                on_progress(len(refs), sum(r.size for r in refs))
+            except Exception:
+                pass
+        return refs, hint
+
     # 1) Stdin script + -T: no PTY so sshpass/subprocess can capture streams (pty often drops PIPE capture).
     # 2) Argv-embedded base64 fallback.
     # 3) scp script to /tmp + ssh python3 (same mechanism as encode pull/push).
@@ -547,12 +645,30 @@ def remote_scan_videos(
         remote.ssh_spec(),
         *_remote_via_posix_sh("python3 -u -"),
     ]
-    cp = run_ssh_argv(
-        cmd_stdin,
-        password_for_sshpass=password_for_sshpass,
-        timeout=86400,
-        stdin=script,
-    )
+    cp: subprocess.CompletedProcess
+    if on_progress is not None:
+        try:
+            cp = _run_ssh_stdin_scan_streaming(
+                cmd_stdin,
+                password_for_sshpass=password_for_sshpass,
+                stdin_text=script,
+                on_progress=on_progress,
+            )
+        except Exception as e:
+            _debug_remote_scan(f"remote_scan: streaming stdin failed ({e!r}); using buffered ssh")
+            cp = run_ssh_argv(
+                cmd_stdin,
+                password_for_sshpass=password_for_sshpass,
+                timeout=86400,
+                stdin=script,
+            )
+    else:
+        cp = run_ssh_argv(
+            cmd_stdin,
+            password_for_sshpass=password_for_sshpass,
+            timeout=86400,
+            stdin=script,
+        )
     merged = _ssh_merged_remote_text(cp)
     if cp.returncode == 0 and not merged.strip():
         _debug_remote_scan(
@@ -571,11 +687,13 @@ def remote_scan_videos(
         if cp.returncode == 0 and not merged.strip():
             _debug_remote_scan("remote_scan: argv transport empty; retry scp upload + remote python3 /tmp/ script")
             cp = _remote_scan_via_scp_and_ssh(remote, script, batch, password_for_sshpass)
-            return _remote_scan_parse_cp_result(
-                cp, remote, root_norm, transport="scp_tmp", all_transports_exhausted=True
+            return _finalize(
+                _remote_scan_parse_cp_result(
+                    cp, remote, root_norm, transport="scp_tmp", all_transports_exhausted=True
+                )
             )
-        return _remote_scan_parse_cp_result(cp, remote, root_norm, transport="argv_embedded")
-    return _remote_scan_parse_cp_result(cp, remote, root_norm, transport="stdin_script")
+        return _finalize(_remote_scan_parse_cp_result(cp, remote, root_norm, transport="argv_embedded"))
+    return _finalize(_remote_scan_parse_cp_result(cp, remote, root_norm, transport="stdin_script"))
 
 
 def remote_mkdir_p(remote: RemoteTarget, dir_posix: str, password_for_sshpass: Optional[str]) -> None:

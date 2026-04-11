@@ -685,8 +685,8 @@ class AV1EncoderEngine:
             error_log = deque(maxlen=50)
             last_pct = 0.0
             # FFmpeg can emit many stderr lines per second; each called on_progress → Qt queued slots.
-            # Unbounded updates caused multi-hour encode crashes (event-queue / repaint pressure). Cap ~8 Hz per worker.
-            _prog_emit_min_interval_s = 0.125
+            # Unbounded updates caused multi-hour encode crashes (event-queue / repaint pressure). Cap ~6.7 Hz per worker.
+            _prog_emit_min_interval_s = 0.15
             _next_prog_emit_at = [time.monotonic() - 1.0]
 
             def _emit_progress_to_ui(ep: EncodingProgress) -> None:

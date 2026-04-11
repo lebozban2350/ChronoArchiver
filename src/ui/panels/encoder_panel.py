@@ -6,6 +6,7 @@ Uses src/core/av1_engine.py and src/core/av1_settings.py unchanged.
 
 import gc
 import os
+from collections import deque
 import platform
 import posixpath
 import queue
@@ -241,6 +242,10 @@ class AV1EncoderPanel(QWidget):
         self._encode_pipeline_q: queue.Queue | None = None
         self._pipeline_prefetch_thread: threading.Thread | None = None
         self._pipeline_prefetch_stop = threading.Event()
+        # Serialize heavy per-file UI work across event-loop turns — multiple workers can emit
+        # ``finished`` back-to-back; stacking many QPlainTextEdit / bar updates in one tick risks SIGSEGV.
+        self._encode_finish_queue: deque = deque()
+        self._encode_finish_drain_scheduled = False
 
         _shint = "font-size: 7px; color: #444; margin-top: -1px;"
         _slbl = "font-size: 9px; font-weight: 700; color: #aaa;"
@@ -921,7 +926,11 @@ class AV1EncoderPanel(QWidget):
             rt, root = remote_target_and_root(src)
             remote_verify_python3(rt, pw)
             exts = (".mpg", ".mp4", ".ts", ".avi", ".3gp", ".mkv", ".mov", ".webm")
-            refs, scan_hint = remote_scan_videos(rt, root, exts, pw)
+
+            def _remote_scan_progress(count: int, total_bytes: int) -> None:
+                self._sig.scan_progress.emit(count, max(0, total_bytes))
+
+            refs, scan_hint = remote_scan_videos(rt, root, exts, pw, on_progress=_remote_scan_progress)
             if scan_hint:
                 self._sig.log_msg.emit(scan_hint)
             return [(r, r.size) for r in refs]
@@ -1190,6 +1199,8 @@ class AV1EncoderPanel(QWidget):
         self._active_jobs = 0
         self._active_lock = threading.Lock()
         self._encoding_batch_ui_finalized = False
+        self._encode_finish_queue.clear()
+        self._encode_finish_drain_scheduled = False
         self._job_progress = {}
         self._current_files = {}
         self._total_saved = 0
@@ -2129,6 +2140,27 @@ class AV1EncoderPanel(QWidget):
         self._job_aud[job_id].setText(aud)
 
     def _on_encode_finished(self, job_id, success, logical_key, local_out_disp, meta=None):
+        """Queued from workers; enqueue and drain one completion per event-loop turn."""
+        self._encode_finish_queue.append((job_id, success, logical_key, local_out_disp, meta))
+        if not self._encode_finish_drain_scheduled:
+            self._encode_finish_drain_scheduled = True
+            QTimer.singleShot(0, self._drain_one_encode_finish)
+
+    def _drain_one_encode_finish(self) -> None:
+        if not self._encode_finish_queue:
+            self._encode_finish_drain_scheduled = False
+            return
+        job_id, success, logical_key, local_out_disp, meta = self._encode_finish_queue.popleft()
+        try:
+            self._apply_encode_finished(job_id, success, logical_key, local_out_disp, meta)
+        except Exception as e:
+            log_exception(e, context="encode_finish_apply", utility=UTILITY_MASS_AV1_ENCODER)
+        if self._encode_finish_queue:
+            QTimer.singleShot(0, self._drain_one_encode_finish)
+        else:
+            self._encode_finish_drain_scheduled = False
+
+    def _apply_encode_finished(self, job_id, success, logical_key, local_out_disp, meta=None):
         meta = meta if isinstance(meta, dict) else None
         if meta:
             lk = meta.get("logical_key") or logical_key

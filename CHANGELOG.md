@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [5.7.10] - 2026-04-12
+
+### Fixed
+- **Mass AV1 Encoder**: **SSH / remote source** scan now streams server stdout so the **Scanning Source** dialog shows **live file count and total size** (previously stayed at **0** until the SSH scan finished).
+- **Mass AV1 Encoder**: **Encode finished** handling is **serialized** across event-loop turns (one completion per tick) so multiple workers finishing close together do not stack heavy **QPlainTextEdit** / bar updates in a single GUI pass.
+
+### Changed
+- **Mass AV1 Encoder**: **FFmpeg progress → UI** throttle set to **~6.7/s** per worker (**0.15s** minimum interval between progress posts).
+
 ## [5.7.9] - 2026-04-10
 
 ### Fixed
