@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [5.7.7] - 2026-04-12
+
+### Fixed
+- **Mass AV1 Encoder**: **FFmpeg progress** callbacks to the UI are **throttled** (~8 updates per second per worker) so stderr-heavy encodes no longer flood the Qt event queue on multi-hour batches (reduces crash risk from repaint / layout pressure).
+
 ## [5.7.6] - 2026-04-12
 
 ### Changed

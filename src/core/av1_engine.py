@@ -684,6 +684,19 @@ class AV1EncoderEngine:
             video_info, audio_info = "Unknown", "Unknown"
             error_log = deque(maxlen=50)
             last_pct = 0.0
+            # FFmpeg can emit many stderr lines per second; each called on_progress → Qt queued slots.
+            # Unbounded updates caused multi-hour encode crashes (event-queue / repaint pressure). Cap ~8 Hz per worker.
+            _prog_emit_min_interval_s = 0.125
+            _next_prog_emit_at = [time.monotonic() - 1.0]
+
+            def _emit_progress_to_ui(ep: EncodingProgress) -> None:
+                if not self.on_progress:
+                    return
+                now = time.monotonic()
+                if ep.percent < 99.5 and now < _next_prog_emit_at[0]:
+                    return
+                _next_prog_emit_at[0] = now + _prog_emit_min_interval_s
+                self.on_progress(self.job_id, ep)
 
             for raw in proc.stderr:
                 _last_output[0] = time.time()
@@ -748,8 +761,7 @@ class AV1EncoderEngine:
                     spd_out = spd_v if spd_v is not None else 0.0
 
                     if pct_val is not None:
-                        self.on_progress(
-                            self.job_id,
+                        _emit_progress_to_ui(
                             EncodingProgress(
                                 file_name=os.path.basename(input_path),
                                 percent=pct_val,
@@ -766,8 +778,7 @@ class AV1EncoderEngine:
                         and (fps_v is not None or spd_v is not None)
                     ):
                         # FFmpeg often reports encoding fps/speed while mux time is not ready yet.
-                        self.on_progress(
-                            self.job_id,
+                        _emit_progress_to_ui(
                             EncodingProgress(
                                 file_name=os.path.basename(input_path),
                                 percent=last_pct,
