@@ -34,6 +34,10 @@ from core.fs_task_lock import release_fs_heavy, try_acquire_fs_heavy
 from ui.console_style import message_to_html, PANEL_CONSOLE_TEXTEDIT_STYLE
 from core.debug_logger import debug, structured_event, UTILITY_MEDIA_ORGANIZER
 from ui.panel_start_hint import apply_start_button_hint
+from ui.panel_widgets import (
+    GUIDE_PANEL_PRIMARY_START_PULSE_QSS,
+    apply_guide_clear_primary_start_button,
+)
 from ui.local_remote_path_dialog import run_local_remote_path_dialog
 
 
@@ -355,19 +359,25 @@ class MediaOrganizerPanel(QWidget):
         self._guide_glow_phase = 0
         self._guide_pulse_timer.start()
 
+    def _reset_guide_pulse_state(self) -> None:
+        self._guide_pulse_timer.stop()
+        self._guide_glow_phase = 0
+        self._clear_guide_glow(self._guide_target)
+        self._guide_target = None
+
     def _clear_guide_glow(self, w):
         if not w:
             return
         if w == self._btn_start:
-            w.setStyleSheet(
-                "background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:10px; font-weight:900;"
-            )
+            apply_guide_clear_primary_start_button(w)
         elif w in (self._btn_browse_src, self._btn_browse_target):
             w.setStyleSheet("font-size:9px; font-weight:700; color:#aaa; border:2px solid #262626;")
         elif w in (self._chk_photos, self._chk_videos):
             w.setStyleSheet("font-size:9px; font-weight:700; color:#aaa; border:none;")
 
     def _pulse_guide(self):
+        if self._is_running:
+            return
         target = self._get_guide_target()
         if target != self._guide_target:
             self._clear_guide_glow(self._guide_target)
@@ -380,9 +390,7 @@ class MediaOrganizerPanel(QWidget):
         self._guide_glow_phase = 1 - self._guide_glow_phase
         if self._guide_glow_phase:
             if target == self._btn_start:
-                target.setStyleSheet(
-                    "background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;"
-                )
+                target.setStyleSheet(GUIDE_PANEL_PRIMARY_START_PULSE_QSS)
             elif target in (self._btn_browse_src, self._btn_browse_target):
                 target.setStyleSheet("font-size:9px; font-weight:700; color:#ef4444; border:2px solid #ef4444;")
             else:
@@ -391,16 +399,12 @@ class MediaOrganizerPanel(QWidget):
             self._clear_guide_glow(target)
 
     def _browse(self):
-        picked, _pw = run_local_remote_path_dialog(
-            self, self._edit_path.text().strip(), purpose="source"
-        )
+        picked, _pw = run_local_remote_path_dialog(self, self._edit_path.text().strip(), purpose="source")
         if picked:
             self._edit_path.setText(picked)
 
     def _browse_target(self):
-        picked, _pw = run_local_remote_path_dialog(
-            self, self._edit_target.text().strip(), purpose="target_optional"
-        )
+        picked, _pw = run_local_remote_path_dialog(self, self._edit_target.text().strip(), purpose="target_optional")
         if picked:
             self._edit_target.setText(picked)
 
@@ -462,6 +466,7 @@ class MediaOrganizerPanel(QWidget):
             self._status_cb("organizing")
         self._btn_start.setEnabled(False)
         self._btn_stop.setEnabled(True)
+        self._reset_guide_pulse_state()
 
         def _log(msg):
             self._sig.log_msg.emit(msg)

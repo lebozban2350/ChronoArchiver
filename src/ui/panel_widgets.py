@@ -7,7 +7,25 @@ Keep behavior identical to the former per-panel copies — only import site chan
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QPushButton
+
+# Primary START (#btnStart) — inline styles for guide pulse on Organizer, Scanner, Mass AV1 Encoder.
+# Must not override QPushButton#btnStart:disabled or #btnStop when clearing after pulse.
+GUIDE_PANEL_PRIMARY_START_IDLE_QSS = (
+    "background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:10px; font-weight:900;"
+)
+GUIDE_PANEL_PRIMARY_START_PULSE_QSS = (
+    "background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;"
+)
+
+
+def apply_guide_clear_primary_start_button(btn: QPushButton) -> None:
+    """After guide pulse: restore idle green on enabled #btnStart, else clear so app QSS applies (disabled / STOP)."""
+    if btn.objectName() == "btnStop" or not btn.isEnabled():
+        btn.setStyleSheet("")
+    else:
+        btn.setStyleSheet(GUIDE_PANEL_PRIMARY_START_IDLE_QSS)
+
 
 # Tight combo used by Mass AV1 Encoder, AI Image Upscaler, AI Video Upscaler (identical QSS).
 COMBO_BOX_PANEL_QSS = (

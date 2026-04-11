@@ -41,7 +41,7 @@ def _read_version() -> str:
                 return open(vpath, "r", encoding="utf-8").read().strip()
     except Exception:
         pass
-    return os.environ.get("CHRONOARCHIVER_VERSION", "5.7.5")
+    return os.environ.get("CHRONOARCHIVER_VERSION", "5.7.6")
 
 
 VERSION = _read_version()
@@ -920,7 +920,7 @@ $Shortcut.Arguments = '"{launcher_pyw}"'
 $Shortcut.WorkingDirectory = "{app_root}"
 $Shortcut.Description = "ChronoArchiver"
 """
-            + (f'$Shortcut.IconLocation = "{icon_str.replace(chr(92), chr(92)*2)}"\n' if icon_str else "")
+            + (f'$Shortcut.IconLocation = "{icon_str.replace(chr(92), chr(92) * 2)}"\n' if icon_str else "")
             + """
 $Shortcut.Save()
 """.replace("{target_path}", str(target_path))

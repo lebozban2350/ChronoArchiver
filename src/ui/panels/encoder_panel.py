@@ -62,7 +62,12 @@ from core.remote_ssh import is_remote_path
 from core.fs_task_lock import release_fs_heavy, try_acquire_fs_heavy
 from ui.panel_start_hint import apply_start_button_hint
 from ui.console_style import PANEL_CONSOLE_TEXTEDIT_STYLE
-from ui.panel_widgets import COMBO_BOX_PANEL_QSS, path_browse_btn_qss
+from ui.panel_widgets import (
+    COMBO_BOX_PANEL_QSS,
+    GUIDE_PANEL_PRIMARY_START_PULSE_QSS,
+    apply_guide_clear_primary_start_button,
+    path_browse_btn_qss,
+)
 from ui.local_remote_path_dialog import run_local_remote_path_dialog
 from core.av1_settings import AV1Settings
 from core.venv_manager import footer_nvidia_gpu_utilization_text
@@ -100,13 +105,7 @@ def _finalize_encoder_temp_files(
     is pressed. Returns bytes saved (in minus out) when both files exist and success is True.
     """
     saved: int | None = None
-    if (
-        success
-        and local_in
-        and local_out
-        and os.path.isfile(local_in)
-        and os.path.isfile(local_out)
-    ):
+    if success and local_in and local_out and os.path.isfile(local_in) and os.path.isfile(local_out):
         try:
             saved = max(0, os.path.getsize(local_in) - os.path.getsize(local_out))
         except OSError:
@@ -488,9 +487,7 @@ class AV1EncoderPanel(QWidget):
                 self._settings.get("existing_output"), "Overwrite"
             )
         )
-        self._combo_exist.setStyleSheet(
-            COMBO_BOX_PANEL_QSS + "QComboBox { color: #aaa; }"
-        )
+        self._combo_exist.setStyleSheet(COMBO_BOX_PANEL_QSS + "QComboBox { color: #aaa; }")
         self._combo_exist.setFixedHeight(16)
         self._combo_exist.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self._combo_exist.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
@@ -750,9 +747,7 @@ class AV1EncoderPanel(QWidget):
                 pass
 
     def _browse_src(self):
-        picked, dialog_pw = run_local_remote_path_dialog(
-            self, self._edit_src.text().strip(), purpose="source"
-        )
+        picked, dialog_pw = run_local_remote_path_dialog(self, self._edit_src.text().strip(), purpose="source")
         if picked:
             self._edit_src.blockSignals(True)
             self._edit_src.setText(picked)
@@ -819,13 +814,17 @@ class AV1EncoderPanel(QWidget):
             return self._btn_browse_dst
         return self._btn_start
 
+    def _reset_guide_pulse_state(self) -> None:
+        self._guide_pulse_timer.stop()
+        self._clear_guide_glow(self._guide_target)
+        self._guide_target = None
+        self._guide_glow_phase = 0
+
     def _clear_guide_glow(self, w):
         if not w:
             return
         if w == self._btn_start:
-            w.setStyleSheet(
-                "background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:10px; font-weight:900;"
-            )
+            apply_guide_clear_primary_start_button(w)
         else:
             w.setStyleSheet(path_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#262626", "#aaa"))
 
@@ -872,10 +871,7 @@ class AV1EncoderPanel(QWidget):
                 reasons_when_disabled=[],
                 enabled_tip="Stop encoding and cancel remaining jobs",
             )
-            self._guide_pulse_timer.stop()
-            self._clear_guide_glow(self._guide_target)
-            self._guide_target = None
-            self._guide_glow_phase = 0
+            self._reset_guide_pulse_state()
             return
         can = self._can_start()
         self._btn_start.setEnabled(can)
@@ -903,9 +899,7 @@ class AV1EncoderPanel(QWidget):
         self._guide_glow_phase = 1 - self._guide_glow_phase
         if self._guide_glow_phase:
             if target == self._btn_start:
-                target.setStyleSheet(
-                    "background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;"
-                )
+                target.setStyleSheet(GUIDE_PANEL_PRIMARY_START_PULSE_QSS)
             else:
                 target.setStyleSheet(path_browse_btn_qss(self._path_bar_h, self._browse_btn_w, "#ef4444", "#ef4444"))
         else:
@@ -1056,9 +1050,7 @@ class AV1EncoderPanel(QWidget):
         self._update_start_enabled()
 
     def _browse_dst(self):
-        picked, dialog_pw = run_local_remote_path_dialog(
-            self, self._edit_dst.text().strip(), purpose="target"
-        )
+        picked, dialog_pw = run_local_remote_path_dialog(self, self._edit_dst.text().strip(), purpose="target")
         if picked:
             self._edit_dst.blockSignals(True)
             self._edit_dst.setText(picked)
@@ -1238,22 +1230,16 @@ class AV1EncoderPanel(QWidget):
         # (avoids recreating a top-level "Source" or similar wrapper folder in target)
         structure_root = None
         # Pipeline mode only when *every* item is remote; a mixed queue must use the legacy worker.
-        use_remote_pipeline = len(self._queue) > 0 and all(
-            isinstance(x[0], RemoteFileRef) for x in self._queue
-        )
+        use_remote_pipeline = len(self._queue) > 0 and all(isinstance(x[0], RemoteFileRef) for x in self._queue)
         if self._settings.get("maintain_structure") and self._queue:
             if use_remote_pipeline:
-                self._remote_src_structure_root_posix = common_structure_root_posix(
-                    [x[0] for x in self._queue]
-                )
+                self._remote_src_structure_root_posix = common_structure_root_posix([x[0] for x in self._queue])
                 debug(
                     UTILITY_MASS_AV1_ENCODER,
                     f"Remote structure root (mirror): {self._remote_src_structure_root_posix}",
                 )
             else:
-                all_dirs = [
-                    os.path.dirname(p) for p, _ in self._queue if not isinstance(p, RemoteFileRef)
-                ]
+                all_dirs = [os.path.dirname(p) for p, _ in self._queue if not isinstance(p, RemoteFileRef)]
                 if all_dirs:
                     try:
                         structure_root = os.path.commonpath(all_dirs)
@@ -1374,9 +1360,7 @@ class AV1EncoderPanel(QWidget):
         if self._settings.get("maintain_structure"):
             if rem_struct:
                 try:
-                    rel_stem = posixpath.splitext(
-                        posixpath.relpath(ref.abs_posix, rem_struct)
-                    )[0].replace("\\", "/")
+                    rel_stem = posixpath.splitext(posixpath.relpath(ref.abs_posix, rem_struct))[0].replace("\\", "/")
                 except ValueError:
                     return ("fin", {"logical_key": logical_key, "ok": False, "remote_src_ref": ref, "tmp_cleanup": []})
             else:
@@ -1394,7 +1378,10 @@ class AV1EncoderPanel(QWidget):
                     real_tpath = os.path.realpath(tpath_local)
                     real_dst = os.path.realpath(dst)
                     if not (real_tpath == real_dst or real_tpath.startswith(real_dst + os.sep)):
-                        return ("fin", {"logical_key": logical_key, "ok": False, "remote_src_ref": ref, "tmp_cleanup": []})
+                        return (
+                            "fin",
+                            {"logical_key": logical_key, "ok": False, "remote_src_ref": ref, "tmp_cleanup": []},
+                        )
                 except OSError:
                     return ("fin", {"logical_key": logical_key, "ok": False, "remote_src_ref": ref, "tmp_cleanup": []})
                 out_dir = os.path.dirname(tpath_local)
@@ -1618,9 +1605,7 @@ class AV1EncoderPanel(QWidget):
                 try:
                     if not self._is_encoding:
                         # Batch ended or STOP: drop scratch files (tmp_cleanup lists tmp_in + remote encode buffer).
-                        _finalize_encoder_temp_files(
-                            tmp_cleanup, success=False, local_in=tmp_in, local_out=""
-                        )
+                        _finalize_encoder_temp_files(tmp_cleanup, success=False, local_in=tmp_in, local_out="")
                         _fin(
                             False,
                             logical_key,
@@ -1702,9 +1687,7 @@ class AV1EncoderPanel(QWidget):
                             parent = posixpath.dirname(remote_out_posix)
                             if parent:
                                 remote_mkdir_p(dst_remote, parent, pw)
-                            run_scp_to_remote(
-                                out_p, dst_remote, remote_out_posix, password_for_sshpass=pw
-                            )
+                            run_scp_to_remote(out_p, dst_remote, remote_out_posix, password_for_sshpass=pw)
                         except RemoteEncodeError as e:
                             self._sig.log_msg.emit(f"Remote upload error: {e}")
                             debug(UTILITY_MASS_AV1_ENCODER, f"scp push failed: {e}")
@@ -1736,9 +1719,7 @@ class AV1EncoderPanel(QWidget):
                     debug(UTILITY_MASS_AV1_ENCODER, f"Encoder pipeline job: {job_e}")
                     log_exception(job_e, context="encoder_pipeline_job", utility=UTILITY_MASS_AV1_ENCODER)
                     try:
-                        _finalize_encoder_temp_files(
-                            tmp_cleanup, success=False, local_in=tmp_in, local_out=out_p or ""
-                        )
+                        _finalize_encoder_temp_files(tmp_cleanup, success=False, local_in=tmp_in, local_out=out_p or "")
                     except Exception:
                         pass
                     _fin(
@@ -1807,9 +1788,9 @@ class AV1EncoderPanel(QWidget):
                     if self._settings.get("maintain_structure"):
                         if ref and rem_struct:
                             try:
-                                rel_stem = posixpath.splitext(
-                                    posixpath.relpath(ref.abs_posix, rem_struct)
-                                )[0].replace("\\", "/")
+                                rel_stem = posixpath.splitext(posixpath.relpath(ref.abs_posix, rem_struct))[0].replace(
+                                    "\\", "/"
+                                )
                             except ValueError:
                                 self._add_log(f"SKIP (invalid path): {posixpath.basename(ref.rel_posix)}")
                                 _fin(False, logical_key, "", None)
@@ -1870,7 +1851,11 @@ class AV1EncoderPanel(QWidget):
 
                     if exists:
                         if policy == "skip":
-                            disp = posixpath.basename(remote_out_posix) if remote_out_posix else os.path.basename(tpath_local or "")
+                            disp = (
+                                posixpath.basename(remote_out_posix)
+                                if remote_out_posix
+                                else os.path.basename(tpath_local or "")
+                            )
                             self._add_log(f"SKIP (exists): {disp}")
                             debug(UTILITY_MASS_AV1_ENCODER, f"Skipped existing: {remote_out_posix or tpath_local}")
                             _fin(True, logical_key, "", None)
@@ -1913,9 +1898,7 @@ class AV1EncoderPanel(QWidget):
                         input_path = item
 
                     if not self._is_encoding:
-                        _finalize_encoder_temp_files(
-                            tmp_cleanup, success=False, local_in=input_path, local_out=""
-                        )
+                        _finalize_encoder_temp_files(tmp_cleanup, success=False, local_in=input_path, local_out="")
                         _fin(
                             False,
                             logical_key,
@@ -1941,9 +1924,7 @@ class AV1EncoderPanel(QWidget):
                             bn = posixpath.basename(ref.rel_posix) if ref else os.path.basename(input_path)
                             self._add_log(f"REJECTED: {bn} ({dur:.1f}s)")
                             debug(UTILITY_MASS_AV1_ENCODER, f"Rejected (short): {logical_key} ({dur:.1f}s)")
-                            _finalize_encoder_temp_files(
-                                tmp_cleanup, success=True, local_in=input_path, local_out=""
-                            )
+                            _finalize_encoder_temp_files(tmp_cleanup, success=True, local_in=input_path, local_out="")
                             _fin(
                                 True,
                                 logical_key,
@@ -1965,9 +1946,7 @@ class AV1EncoderPanel(QWidget):
                             UTILITY_MASS_AV1_ENCODER,
                             f"Legacy worker: source not ready {input_path!r}: {ready_err}",
                         )
-                        _finalize_encoder_temp_files(
-                            tmp_cleanup, success=False, local_in=input_path, local_out=""
-                        )
+                        _finalize_encoder_temp_files(tmp_cleanup, success=False, local_in=input_path, local_out="")
                         _fin(
                             False,
                             logical_key,
@@ -1982,9 +1961,7 @@ class AV1EncoderPanel(QWidget):
                         )
                         continue
 
-                    disp_bn = (
-                        posixpath.basename(ref.rel_posix) if ref else os.path.basename(input_path)
-                    )
+                    disp_bn = posixpath.basename(ref.rel_posix) if ref else os.path.basename(input_path)
                     if engine.try_passthrough_existing_av1(input_path, tpath_local):
                         self._sig.log_msg.emit(f"Already AV1 (passthrough): {disp_bn}")
                         ok, in_p, out_p = True, input_path, tpath_local
@@ -2003,9 +1980,7 @@ class AV1EncoderPanel(QWidget):
                             parent = posixpath.dirname(remote_out_posix)
                             if parent:
                                 remote_mkdir_p(dst_remote, parent, pw)
-                            run_scp_to_remote(
-                                out_p, dst_remote, remote_out_posix, password_for_sshpass=pw
-                            )
+                            run_scp_to_remote(out_p, dst_remote, remote_out_posix, password_for_sshpass=pw)
                         except RemoteEncodeError as e:
                             self._sig.log_msg.emit(f"Remote upload error: {e}")
                             debug(UTILITY_MASS_AV1_ENCODER, f"scp push failed: {e}")
@@ -2036,9 +2011,7 @@ class AV1EncoderPanel(QWidget):
                 except RemoteEncodeError as e:
                     self._sig.log_msg.emit(f"Remote I/O error: {e}")
                     debug(UTILITY_MASS_AV1_ENCODER, f"Remote encode error: {e}")
-                    _finalize_encoder_temp_files(
-                        tmp_cleanup, success=False, local_in="", local_out=""
-                    )
+                    _finalize_encoder_temp_files(tmp_cleanup, success=False, local_in="", local_out="")
                     _fin(
                         False,
                         logical_key,
@@ -2054,9 +2027,7 @@ class AV1EncoderPanel(QWidget):
                 except Exception as e:
                     self._sig.log_msg.emit(f"ERROR: {e}")
                     debug(UTILITY_MASS_AV1_ENCODER, f"Encoder job error: {e}")
-                    _finalize_encoder_temp_files(
-                        tmp_cleanup, success=False, local_in="", local_out=""
-                    )
+                    _finalize_encoder_temp_files(tmp_cleanup, success=False, local_in="", local_out="")
                     _fin(
                         False,
                         logical_key,

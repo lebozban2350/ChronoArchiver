@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [5.7.6] - 2026-04-12
+
+### Changed
+- **Onboarding guide**: Shared **`GUIDE_PANEL_PRIMARY_START_*`** styles and **`apply_guide_clear_primary_start_button()`** in **`ui/panel_widgets.py`** for Media Organizer, AI Media Scanner, and Mass AV1 Encoder; **`_reset_guide_pulse_state()`** on Organizer and Encoder where the guide must stop during work. **Ruff** formatting applied across **`src/`**, **`tests/`**, and **`tools/`**.
+
+### Fixed
+- **`core/av1_engine`**: Removed duplicate **`import time`**.
+- **`core/remote_encode`**: Removed unused **`batch`** assignment in **`run_ssh_argv`**.
+- **Media Organizer**: Guide pulse stops when organization starts and no longer forces green styling on a disabled **START** button.
+- **Mass AV1 Encoder**: Guide clear no longer overwrites red **STOP ENCODING** (`#btnStop`) styling.
+
 ## [5.7.5] - 2026-04-11
 
 ### Changed

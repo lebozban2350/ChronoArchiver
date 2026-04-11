@@ -148,9 +148,7 @@ def run_local_remote_path_dialog(
     pw_h.setSpacing(8)
     v.addWidget(pw_wrap)
 
-    bb = QDialogButtonBox(
-        QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-    )
+    bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
     v.addWidget(bb)
     le_path.setText(init)
 

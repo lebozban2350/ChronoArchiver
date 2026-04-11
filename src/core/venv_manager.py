@@ -101,7 +101,7 @@ def _bdf_from_nvidia_smi_L_line(line: str) -> str:
     mm2 = re.search(r"\b([0-9a-f]{2}:[0-9a-f]{2}\.[0-9a-f])\b", line, re.I)
     if mm2:
         return mm2.group(1).lower()
-    # "at PCI:1:0:0" (bus:device.function as decimal / hex)
+        # "at PCI:1:0:0" (bus:device.function as decimal / hex)
         mm3 = re.search(r"PCI:\s*([0-9a-fx]+):([0-9a-fx]+):([0-9a-fx]+)", line, re.I)
         if mm3:
             try:
@@ -289,9 +289,8 @@ def preferred_nvidia_gpu_index_for_metrics() -> int:
 
     indices = {r[0] for r in rows}
     gpu_env = (
-        (os.environ.get("CHRONOARCHIVER_FOOTER_NVIDIA_GPU") or os.environ.get("CHRONOARCHIVER_FFMPEG_NVENC_GPU") or "")
-        .strip()
-    )
+        os.environ.get("CHRONOARCHIVER_FOOTER_NVIDIA_GPU") or os.environ.get("CHRONOARCHIVER_FFMPEG_NVENC_GPU") or ""
+    ).strip()
     if gpu_env:
         try:
             want = int(gpu_env)

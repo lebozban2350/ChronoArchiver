@@ -281,7 +281,6 @@ def run_ssh_argv(
     timeout: Optional[float],
     stdin: Optional[str] = None,
 ) -> subprocess.CompletedProcess:
-    batch = password_for_sshpass is None
     core = argv
     if password_for_sshpass:
         ss = shutil.which("sshpass")
@@ -327,10 +326,7 @@ def remote_verify_python3(remote: RemoteTarget, password_for_sshpass: Optional[s
         auth = _ssh_auth_error_message(err)
         if auth:
             raise RemoteEncodeError(auth.rstrip() + (f" ({err[:400]})" if err else ""))
-        raise RemoteEncodeError(
-            "Remote host must have ``python3`` on PATH for scanning. "
-            f"SSH: {err or cp.returncode}"
-        )
+        raise RemoteEncodeError(f"Remote host must have ``python3`` on PATH for scanning. SSH: {err or cp.returncode}")
 
 
 def _scan_script_source(root: str, exts: Tuple[str, ...]) -> str:
@@ -573,9 +569,7 @@ def remote_scan_videos(
         cp = run_ssh_argv(cmd_argv, password_for_sshpass=password_for_sshpass, timeout=86400)
         merged = _ssh_merged_remote_text(cp)
         if cp.returncode == 0 and not merged.strip():
-            _debug_remote_scan(
-                "remote_scan: argv transport empty; retry scp upload + remote python3 /tmp/ script"
-            )
+            _debug_remote_scan("remote_scan: argv transport empty; retry scp upload + remote python3 /tmp/ script")
             cp = _remote_scan_via_scp_and_ssh(remote, script, batch, password_for_sshpass)
             return _remote_scan_parse_cp_result(
                 cp, remote, root_norm, transport="scp_tmp", all_transports_exhausted=True

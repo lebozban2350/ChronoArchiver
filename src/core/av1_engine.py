@@ -7,7 +7,6 @@ import threading
 import subprocess
 import re
 import json
-import time
 import psutil
 import logging
 from dataclasses import dataclass
@@ -801,11 +800,7 @@ class AV1EncoderEngine:
                         pass
                 # Retry once with software decode on 183/218 (CUDA decode / hw surface) while keeping NVENC encode.
                 # If CUDA decode keeps failing, _nvenc_skip_cuda_hwaccel avoids a wasted attempt on later files.
-                if (
-                    not _retry_software_decode
-                    and used_cuda_decode
-                    and rc in (183, 218)
-                ):
+                if not _retry_software_decode and used_cuda_decode and rc in (183, 218):
                     with AV1EncoderEngine._nvenc_cuda_lock:
                         first_cuda_fail = not AV1EncoderEngine._nvenc_skip_cuda_hwaccel
                         AV1EncoderEngine._nvenc_skip_cuda_hwaccel = True

@@ -22,9 +22,7 @@ REMOTE_FS_UNSUPPORTED_HINT: str = (
     "or copy files, then choose a local folder."
 )
 
-_RSYNC_REMOTE = re.compile(
-    r"^(?:(?P<user>[^@]+)@)?(?P<host>[^:]+):(?P<path>.+)$"
-)
+_RSYNC_REMOTE = re.compile(r"^(?:(?P<user>[^@]+)@)?(?P<host>[^:]+):(?P<path>.+)$")
 _URL_REMOTE_SCHEMES = frozenset({"sftp", "ssh", "fish"})
 
 _ASKPASS_WRAPPER: Optional[Path] = None

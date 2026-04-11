@@ -57,7 +57,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from core.scanner import ScannerEngine, OPENCV_AVAILABLE
 from core.remote_ssh import REMOTE_FS_UNSUPPORTED_HINT, is_remote_path
 from ui.console_style import message_to_html, PANEL_CONSOLE_TEXTEDIT_STYLE
-from ui.panel_widgets import eng_row_btn_qss, path_browse_btn_qss
+from ui.panel_widgets import (
+    GUIDE_PANEL_PRIMARY_START_PULSE_QSS,
+    apply_guide_clear_primary_start_button,
+    eng_row_btn_qss,
+    path_browse_btn_qss,
+)
 from core.model_manager import ModelManager
 from core.app_paths import models_dir
 from core.venv_manager import (
@@ -821,16 +826,7 @@ class AIScannerPanel(QWidget):
             return
         ew, eh = self._eng_btn_w, self._eng_btn_h
         if w == self._btn_start:
-            # IMPORTANT: Don't override the disabled styling from app QSS.
-            # During scan `_update_start_enabled()` disables `_btn_start`, but
-            # guide-glow "clear" previously forced it back to green, ignoring :disabled.
-            if w.isEnabled():
-                w.setStyleSheet(
-                    "background-color:#10b981; color:#064e3b; border:2px solid #064e3b; font-size:10px; font-weight:900;"
-                )
-            else:
-                # Remove override so `QPushButton#btnStart:disabled` applies.
-                w.setStyleSheet("")
+            apply_guide_clear_primary_start_button(w)
         elif w == self._btn_start_move:
             if self._btn_start_move.isEnabled():
                 w.setStyleSheet(
@@ -878,9 +874,7 @@ class AIScannerPanel(QWidget):
         ew, eh = self._eng_btn_w, self._eng_btn_h
         if self._guide_glow_phase:
             if target == self._btn_start:
-                target.setStyleSheet(
-                    "background-color:#10b981; color:#064e3b; border:2px solid #ef4444; font-size:10px; font-weight:900;"
-                )
+                target.setStyleSheet(GUIDE_PANEL_PRIMARY_START_PULSE_QSS)
             elif target == self._btn_start_move:
                 target.setStyleSheet(
                     "font-size:9px; font-weight:900; min-height:28px; max-height:28px; "
@@ -1165,16 +1159,12 @@ class AIScannerPanel(QWidget):
         threading.Thread(target=_task, daemon=True).start()
 
     def _browse(self):
-        picked, _pw = run_local_remote_path_dialog(
-            self, self._edit_path.text().strip(), purpose="library"
-        )
+        picked, _pw = run_local_remote_path_dialog(self, self._edit_path.text().strip(), purpose="library")
         if picked:
             self._edit_path.setText(picked)
 
     def _browse_target(self):
-        picked, _pw = run_local_remote_path_dialog(
-            self, self._edit_target.text().strip(), purpose="target"
-        )
+        picked, _pw = run_local_remote_path_dialog(self, self._edit_target.text().strip(), purpose="target")
         if picked:
             self._edit_target.setText(picked)
 

@@ -15,6 +15,14 @@ CHANGELOG_RAW_URL = "https://raw.githubusercontent.com/UnDadFeated/ChronoArchive
 # Shipped with the app so “What’s new” always has text when repo CHANGELOG.md is missing or stale.
 # On each release bump, copy the ## [X.Y.Z] block from CHANGELOG.md (see tools/bump_version.py reminder).
 EMBEDDED_RELEASE_NOTES: dict[str, str] = {
+    "5.7.6": """## [5.7.6] - 2026-04-12
+
+### Changed
+- **Onboarding guide**: Shared primary-button guide styles/helpers in **`panel_widgets`**; Ruff formatting across the tree.
+
+### Fixed
+- **AV1 engine** / **remote SSH**: Duplicate import and dead assignment cleanup. **Organizer** / **Encoder** / **Scanner** guide pulse no longer conflicts with disabled or **STOP** button styling.
+""",
     "5.7.5": """## [5.7.5] - 2026-04-11
 
 ### Changed
