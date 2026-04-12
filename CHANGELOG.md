@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-04-12
+
+### Changed
+- **Mass AV1 Encoder**: "Fix media dates" checkbox removed — media date preservation from source (filesystem times + MP4 `creation_time` metadata) is now automatically applied to all encodes without requiring a separate mode. Simplifies configuration and ensures archival data is always preserved.
+- **Code cleanup**: Updated CI tooling (ruff 0.8.4 → ≥0.15.0), removed old Git workflow runs and tags older than 5.10.0, standardized project configuration.
+
 ## [5.10.0] - 2026-04-12
 
 ### Changed
